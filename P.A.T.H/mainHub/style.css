@@ -278,4 +278,22 @@ body, html {
 .modal-btn.primary { border-color: var(--gold-dim); color: var(--gold); }
 .modal-btn.primary:hover { background: rgba(201,168,76,0.1); border-color: var(--gold); }
 
+/* ── 영지 모달 섹션 ── */
+.estate-section {
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex; flex-direction: column; gap: 3px;
+}
+.estate-section:last-child { border-bottom: none; }
+.estate-label { font-size: 10px; color: var(--text-sub); letter-spacing: 1px; }
+.estate-val { font-size: 13px; color: var(--text); font-weight: 500; }
+
+.inline-btn {
+    padding: 3px 10px; font-size: 10px; letter-spacing: 1px;
+    background: rgba(201,168,76,0.1); border: 1px solid var(--gold-dim);
+    color: var(--gold); cursor: pointer; border-radius: 4px;
+    font-family: inherit; transition: all 0.2s;
+}
+.inline-btn:hover { background: rgba(201,168,76,0.2); }
+
 .hidden { display: none !important; }

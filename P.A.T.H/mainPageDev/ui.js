@@ -26,20 +26,22 @@ const UI = {
         if (this.elements.bottomInfo) {
             this.elements.bottomInfo.textContent = `DOMAIN: ${userData.university || '-'}`;
         }
-        this.loadRankPct();
+        this.loadRankInfo();
         this.bindEvents();
         this.syncInputToDisplay();
         console.log('P.A.T.H: UI 초기화 완료');
     },
 
-    async loadRankPct() {
+    async loadRankInfo() {
         try {
             const r = await fetch('/api/ranking/me', { credentials: 'include' });
             if (r.ok) {
                 const data = await r.json();
+                const totalHr = Math.floor((data.total_sec || 0) / 3600);
+                const totalMin = Math.floor(((data.total_sec || 0) % 3600) / 60);
                 if (this.elements.rankPct) this.elements.rankPct.textContent = data.pct + '%';
-                if (this.elements.tierTag && StorageManager._cache) {
-                    this.elements.tierTag.textContent = StorageManager._cache.tier + ' / ' + data.pct + '%';
+                if (this.elements.tierTag) {
+                    this.elements.tierTag.textContent = `${totalHr}h ${totalMin}m / TOP ${data.pct}%`;
                 }
             }
         } catch (e) {}
@@ -88,29 +90,29 @@ const UI = {
     updateAssets(data) {
         if (this.elements.goldVal)   this.elements.goldVal.innerText   = (data.gold || 0).toLocaleString();
         if (this.elements.ticketVal) this.elements.ticketVal.innerText = String(data.tickets || 0).padStart(2, '0');
-        if (this.elements.tierTag)   this.elements.tierTag.innerText   = data.tier || '-';
+        if (this.elements.tierTag)   this.elements.tierTag.innerText   = data.university || data.tier || '-';
     },
 
-    showResult(type, gold, exp, ticket = 0) {
+    showResult(type, gold = 0, ticket = 0) {
         this.elements.body.classList.remove('active');
         this.elements.overlay.classList.remove('hidden');
 
-        const ticketLine = ticket > 0
-            ? `<br><br><span style="color:var(--gold)">🎟️ 토너먼트권 +${ticket}장 획득!</span>`
-            : '';
-
         if (type === 'SUCCESS') {
-            this.elements.resTitle.innerText     = 'MISSION COMPLETE';
-            this.elements.resTitle.style.color   = 'var(--gold)';
-            this.elements.resLoot.innerHTML      = `<span style="font-size:2.5rem;color:#fff">+${gold.toLocaleString()}G</span><br><small>목표 달성 완수 보너스</small><br><br><span style="color:#888">+${exp} EXP ACQUIRED</span>${ticketLine}`;
+            this.elements.resTitle.innerText   = 'MISSION COMPLETE';
+            this.elements.resTitle.style.color = 'var(--gold)';
+            this.elements.resLoot.innerHTML    =
+                `<span style="font-size:2.5rem;color:#fff">+${gold.toLocaleString()}G</span><br>` +
+                `<small>목표 달성 완수 보너스</small>`;
         } else if (type === 'INTERRUPTED') {
-            this.elements.resTitle.innerText     = 'PATH BROKEN';
-            this.elements.resTitle.style.color   = '#444';
-            this.elements.resLoot.innerHTML      = `<span style="font-size:2.5rem;color:var(--accent)">0G</span><br><small>중도 중단 골드 몰수</small><br><br><span style="color:#888">+${exp} EXP ACQUIRED</span>`;
+            this.elements.resTitle.innerText   = 'PATH BROKEN';
+            this.elements.resTitle.style.color = '#444';
+            this.elements.resLoot.innerHTML    =
+                `<span style="font-size:2.5rem;color:var(--accent)">0G</span><br><small>중도 중단 골드 몰수</small>`;
         } else {
-            this.elements.resTitle.innerText     = 'MISSION FAILED';
-            this.elements.resTitle.style.color   = 'var(--accent)';
-            this.elements.resLoot.innerHTML      = `<span style="color:var(--accent);font-size:1.1rem">탈주 감지: 모든 보상이 소멸되었습니다.</span>`;
+            this.elements.resTitle.innerText   = 'MISSION FAILED';
+            this.elements.resTitle.style.color = 'var(--accent)';
+            this.elements.resLoot.innerHTML    =
+                `<span style="color:var(--accent);font-size:1.1rem">탈주 감지: 모든 보상이 소멸되었습니다.</span>`;
         }
     }
 };

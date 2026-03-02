@@ -9,9 +9,7 @@ const TimerEngine = {
         originalTime = timeLeft;
         isRunning = true;
 
-        // 서버에 공부 시작 알림 (is_studying = true)
         fetch('/api/study/start', { method: 'POST', credentials: 'include' }).catch(() => {});
-
         if (typeof WakeLockManager !== 'undefined') WakeLockManager.request();
 
         UI.updateTimer(timeLeft);
@@ -25,7 +23,7 @@ const TimerEngine = {
             }
         }, 10);
 
-        console.log(`P.A.T.H: 사냥 시작 (${hr}h ${min}m)`);
+        console.log(`P.A.T.H: 공부 시작 (${hr}h ${min}m)`);
     },
 
     interrupt() {
@@ -37,23 +35,19 @@ const TimerEngine = {
     async finish(type) {
         clearInterval(timerInterval);
         isRunning = false;
-
         if (typeof WakeLockManager !== 'undefined') WakeLockManager.release();
 
         const timeSpentSec = Math.floor((originalTime - timeLeft) / 100);
         const earnedExp    = Math.floor(timeSpentSec / 60);
-        let earnedGold = 0;
-        if (type === 'SUCCESS') {
-            earnedGold = Math.floor((originalTime / 100 / 3600) * 100);
-        }
+        const originalSec  = Math.floor(originalTime / 100);
 
-        const originalSec = Math.floor(originalTime / 100);
-        const result = await StorageManager.addRewards(earnedGold, earnedExp, type, originalSec);
+        // 골드는 서버에서 대학 요율 기준으로 계산
+        const result = await StorageManager.addRewards(earnedExp, type, originalSec);
 
         if (result?.user) UI.updateAssets(result.user);
-        UI.showResult(type, earnedGold, earnedExp, result?.earnedTicket || 0);
+        UI.showResult(type, result?.earnedGold || 0, result?.earnedTicket || 0);
 
-        console.log(`P.A.T.H: 정산 완료 [${type}] - Gold: ${earnedGold}, Exp: ${earnedExp}`);
+        console.log(`P.A.T.H: 완료 [${type}] Gold: ${result?.earnedGold}, 시간: ${earnedExp}분`);
     }
 };
 

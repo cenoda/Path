@@ -12,13 +12,13 @@
     <div id="hud-top-left">
         <div class="badge-circle" id="badge-char">?</div>
         <div class="profile-info">
-            <div class="tier-name" id="hud-tier">-</div>
+            <div class="tier-name" id="hud-univ">-</div>
             <div class="tier-pct" id="hud-pct">TOP --%</div>
         </div>
-        <button class="btn-icon" onclick="doLogout()" title="로그아웃">⚙</button>
         <button class="btn-icon notif-btn" onclick="togglePanel('panel-notif')" title="알림">
             🔔<span class="notif-badge hidden" id="notif-badge">0</span>
         </button>
+        <button class="btn-icon" onclick="doLogout()" title="로그아웃">⚙</button>
     </div>
 
     <!-- 상단 중앙: 검색 -->
@@ -29,8 +29,7 @@
     <!-- 상단 우: 자산 -->
     <div id="hud-top-right">
         <div class="stat-row hud-panel">🪙 <span id="hud-gold">-</span></div>
-        <div class="stat-row hud-panel">✨ <span id="hud-exp">-</span> EXP</div>
-        <div class="stat-row hud-panel">🏆 <span id="hud-tier-tag">-</span></div>
+        <div class="stat-row hud-panel">⏱️ <span id="hud-hours">-</span></div>
         <div class="stat-row hud-panel">🎟️ <span id="hud-tickets">-</span></div>
     </div>
 
@@ -39,7 +38,7 @@
         <div id="map-layer">
             <div class="building" id="my-castle" onclick="openEstate()">
                 <img id="my-castle-img" src="/P.A.T.H/assets/castle_main.png" alt="내 성채">
-                <div class="building-label mine" id="my-castle-label">내 성채</div>
+                <div class="building-label mine" id="my-castle-label">내 영지</div>
             </div>
         </div>
     </div>
@@ -57,13 +56,13 @@
         <button class="ctrl-btn" onclick="togglePanel('panel-rank')" title="랭킹">🏅</button>
     </div>
 
-    <!-- 하단 중앙: PATH 진입 -->
+    <!-- 하단 중앙 -->
     <div id="hud-bottom">
         <button id="btn-enter-path" onclick="goToTimer()">[ PATH 진입 ]</button>
         <div class="path-sub hud-panel">🕐 공부 시간을 설정하세요</div>
     </div>
 
-    <!-- 하단 우: 내 영지 -->
+    <!-- 하단 우 -->
     <button id="btn-return-home" onclick="returnToHome()">
         <span>⌂</span><span>내 영지</span>
     </button>
@@ -90,13 +89,13 @@
         <div class="panel-body" id="notif-list">로딩 중...</div>
     </div>
 
-    <!-- ══ 모달: 영지 내부 (세금 수령) ══ -->
+    <!-- ══ 모달: 내 영지 ══ -->
     <div class="modal-overlay hidden" id="modal-estate">
         <div class="modal-box">
-            <div class="modal-title">🏰 내 영지</div>
+            <div class="modal-title">🏰 내 영지 관리</div>
             <div class="modal-body" id="estate-body"></div>
             <div class="modal-actions">
-                <button class="modal-btn primary" onclick="collectTax()">세금 수령</button>
+                <button class="modal-btn primary" onclick="collectTax()">💰 수입 수령</button>
                 <button class="modal-btn" onclick="closeModal('modal-estate')">닫기</button>
             </div>
         </div>

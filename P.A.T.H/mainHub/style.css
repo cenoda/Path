@@ -1,0 +1,138 @@
+:root {
+    --grid-green: #2d5a27;
+    --grid-line: rgba(255, 255, 255, 0.05);
+    --gold: #D4AF37;
+    --accent: #FF3B30;
+}
+
+body, html {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background-color: #1a1a1a; color: white;
+    font-family: 'Apple SD Gothic Neo', sans-serif;
+    overflow: hidden;
+}
+
+/* style.css에 추가 및 수정 */
+
+/* 격자판에 깊이감 추가 */
+#isometric-grid {
+    background-image: 
+        linear-gradient(var(--grid-line) 2px, transparent 2px),
+        linear-gradient(90deg, var(--grid-line) 2px, transparent 2px);
+    background-size: 80px 80px; /* 격자 크기 조절 */
+    box-shadow: 0 0 500px rgba(0,0,0,0.5) inset; /* 외곽을 어둡게 하여 집중도 향상 */
+}
+
+/* 성채(Fortress) 비주얼 보정 */
+.fortress {
+    width: 240px; height: 240px;
+    background-image: url('https://cdn-icons-png.flaticon.com/512/3050/3050212.png'); /* 성채 아이콘 */
+    background-size: contain;
+    filter: drop-shadow(0 30px 20px rgba(0,0,0,0.6)); /* 바닥에 닿는 묵직한 그림자 */
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fortress:hover {
+    transform: rotateZ(-45deg) rotateX(-60deg) translateZ(60px) scale(1.1); /* 클릭 유도 효과 */
+}
+
+/* 성채 위 대학 명칭 라벨 */
+.building-label {
+    position: absolute; bottom: -40px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    padding: 5px 15px; border-radius: 15px;
+    font-size: 14px; border: 1px solid var(--gold);
+    white-space: nowrap; color: var(--gold);
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+}
+
+/* HUD 버튼들 고도화 */
+.search-container input {
+    background: rgba(20, 20, 20, 0.85);
+    border: 1px solid #333;
+    backdrop-filter: blur(10px); /* 아이패드 OS 특유의 반투명 효과 */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+/* 1. Isometric World 구현 */
+#world-container {
+    width: 100vw; height: 100vh;
+    cursor: grab;
+    perspective: 1000px;
+}
+
+#isometric-grid {
+    width: 5000px; height: 5000px;
+    background-color: var(--grid-green);
+    background-image: 
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 100px 100px;
+    transform: rotateX(60deg) rotateZ(45deg);
+    position: absolute;
+    top: -2000px; left: -2000px;
+    transition: transform 0.1s ease-out;
+}
+
+/* 2. HUD Styling */
+header, footer {
+    position: fixed; z-index: 100;
+    width: 100%; pointer-events: none;
+}
+
+header * , footer * { pointer-events: auto; }
+
+.hud-top {
+    top: 0; padding: 30px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+}
+
+.search-container input {
+    background: rgba(0,0,0,0.5); border: 1px solid #444;
+    color: white; padding: 10px 20px; border-radius: 20px;
+    width: 300px; text-align: center;
+}
+
+.assets-group { text-align: right; font-variant-numeric: tabular-nums; }
+.asset-item { margin-bottom: 5px; font-weight: bold; letter-spacing: 1px; }
+
+/* 3. 영지 오브젝트 (Fortress, Hut) */
+.entity {
+    position: absolute;
+    width: 200px; height: 200px;
+    background-size: contain; background-repeat: no-repeat;
+    transform: rotateZ(-45deg) rotateX(-60deg) translateZ(50px); /* 역변환으로 수직 세우기 */
+}
+
+.fortress {
+    background-image: url('https://img.icons8.com/color/512/castle.png'); /* 임시 이미지 */
+    top: 2500px; left: 2500px; /* 정중앙 */
+    filter: drop-shadow(0 20px 30px rgba(0,0,0,0.5));
+}
+
+.hut {
+    background-image: url('https://img.icons8.com/color/512/cabin.png'); /* 임시 이미지 */
+    width: 100px; height: 100px;
+}
+
+/* 4. 하단 버튼 */
+.hud-bottom {
+    bottom: 0; padding: 40px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+}
+
+#btn-enter-path {
+    background: linear-gradient(135deg, #222, #000);
+    border: 2px solid var(--gold); color: var(--gold);
+    padding: 20px 60px; font-size: 20px; letter-spacing: 5px;
+    border-radius: 5px; cursor: pointer;
+}
+
+#btn-return-home {
+    position: fixed; right: 40px; bottom: 120px;
+    background: rgba(0,0,0,0.7); border: 1px solid white;
+    color: white; padding: 10px 20px; border-radius: 30px;
+}
+
+.hidden { display: none; }

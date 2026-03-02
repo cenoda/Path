@@ -1,0 +1,225 @@
+/* 기본 설정: 다크 모드 강제 및 스크롤 방지 */
+:root {
+    --bg: #000000;
+    --accent: #FF3B30; /* 탈주/경고 레드 */
+    --gold: #D4AF37;   /* 챌린저 골드 */
+    --text-main: #FFFFFF;
+    --text-sub: #444444;
+    --border: rgba(212, 175, 55, 0.2);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 60px 0;
+    border: 1px solid var(--border);
+    transition: border-color 0.8s ease;
+}
+
+/* 공부 시작 시 테두리 색상 변경 (긴장감 조성) */
+body.active {
+    border-color: var(--accent);
+}
+
+/* 상단 정보 영역 */
+.top-info {
+    width: 85%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.tier-tag {
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--gold);
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.assets {
+    text-align: right;
+    font-size: 13px;
+    color: #888;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+}
+
+/* 중앙 타이머 영역 */
+.timer-container {
+    text-align: center;
+    width: 100%;
+}
+
+#setup-area {
+    margin-bottom: 20px;
+    transition: opacity 0.5s;
+}
+
+#setup-area small {
+    color: var(--text-sub);
+    font-size: 12px;
+    letter-spacing: 2px;
+    margin: 0 15px 0 5px;
+}
+
+.time-input {
+    background: none;
+    border: none;
+    border-bottom: 1px solid #222;
+    color: #fff;
+    font-size: 2.5rem;
+    width: 90px;
+    text-align: center;
+    font-weight: 200;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.time-input:focus {
+    border-bottom-color: var(--gold);
+}
+
+/* mainPageDev/style.css 수정 */
+
+#main-timer {
+    font-size: 18vw; /* 크기를 더 키워 압박감 극대화 */
+    font-weight: 100; /* 더 얇은 폰트로 하이엔드 느낌 */
+    color: #fff;
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.1); /* 미세한 광채 */
+    margin: 40px 0;
+}
+
+#ms {
+    font-size: 5vw;
+    color: #222; /* 밀리초는 아주 어둡게 처리하여 시선 분산 방지 */
+    margin-left: 10px;
+}
+
+/* 입력창(HR/MIN) 디자인 보완 */
+.time-input {
+    font-size: 3.5rem;
+    border-bottom: 2px solid #1a1a1a;
+    transition: all 0.3s;
+}
+
+.time-input:focus {
+    border-bottom-color: var(--gold);
+    color: var(--gold);
+}
+
+/* ENTER PATH 버튼 */
+.btn-primary {
+    border: 1px solid #444;
+    padding: 20px 80px;
+    background: linear-gradient(to bottom, #111, #000);
+    text-transform: uppercase;
+    transition: 0.5s;
+}
+
+.btn-primary:hover {
+    border-color: #fff;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+
+body.active #ms {
+    color: #333;
+}
+
+/* 버튼 스타일: 미니멀리즘 */
+button {
+    background: none;
+    border: 1px solid #333;
+    color: #666;
+    padding: 14px 55px;
+    font-size: 11px;
+    letter-spacing: 5px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+button:hover {
+    border-color: #fff;
+    color: #fff;
+}
+
+.btn-secondary {
+    border-color: #222;
+    color: #222;
+    margin-top: 20px;
+}
+
+.btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+body.active #setup-area {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 하단 정보 */
+.bottom-info {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: #333;
+    text-align: center;
+}
+
+/* 결과 오버레이: 무겁고 차갑게 */
+#overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.98);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    text-align: center;
+    transition: opacity 0.5s;
+}
+
+#overlay.hidden {
+    display: none;
+    opacity: 0;
+}
+
+#res-title {
+    font-size: 2rem;
+    font-weight: 200;
+    letter-spacing: 12px;
+    margin-bottom: 40px;
+}
+
+#res-loot {
+    font-size: 1.2rem;
+    color: #888;
+    line-height: 1.8;
+    margin-bottom: 60px;
+}
+
+#reset-btn {
+    border-color: #fff;
+    color: #fff;
+}

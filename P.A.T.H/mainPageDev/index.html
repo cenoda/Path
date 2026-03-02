@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P.A.T.H - The Architecture</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div class="top-info">
+            <div class="tier-tag">CHALLENGER / <span id="rank-pct">0.08%</span></div>
+            <div class="assets">🪙 <span id="gold-val">14,500</span> / 🎟️ <span id="ticket-val">01</span></div>
+        </div>
+
+        <div class="timer-container">
+            <div id="setup-area">
+                <input type="number" id="input-hr" class="time-input" value="01"> <small>HR</small>
+                <input type="number" id="input-min" class="time-input" value="40"> <small>MIN</small>
+            </div>
+            <div id="main-timer">
+                <span id="display-time">00:00</span><span id="ms">.00</span>
+            </div>
+            <button id="enter-btn" class="btn-primary">ENTER PATH</button>
+            <button id="break-btn" class="btn-secondary" style="display:none;">BREAK PATH</button>
+        </div>
+
+        <div class="bottom-info">DOMAIN: YONSEI UNIV. BIZ</div>
+
+        <div id="overlay" class="hidden">
+            <h1 id="res-title">MISSION COMPLETE</h1>
+            <p id="res-loot"></p>
+            <button id="reset-btn" class="btn-primary">RETURN TO CAMP</button>
+        </div>
+    </div>
+
+    <script src="wakelock.js"></script>
+    <script src="storage.js"></script> <script src="core.js"></script>
+
+    <script src="ui.js"></script>
+</body>
+</html>

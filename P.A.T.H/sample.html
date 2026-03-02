@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>P.A.T.H - 극한의 타이머</title>
+    <style>
+        body {
+            background-color: #050505;
+            color: #ffffff;
+            font-family: 'Apple SD Gothic Neo', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            /* 챌린저 티어일 때의 황금빛 오라 */
+            box-shadow: inset 0 0 100px rgba(255, 215, 0, 0.1);
+        }
+
+        #logo {
+            font-family: 'ChosunIlbo_Myungjo', serif; /* 명조체 계열 */
+            font-size: 3rem;
+            letter-spacing: 15px;
+            color: #fff;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        #sub-title {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 50px;
+            letter-spacing: 2px;
+        }
+
+        #timer {
+            font-size: 8rem;
+            font-weight: 100;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 40px;
+        }
+
+        .status-bar {
+            border-top: 1px solid #333;
+            width: 80%;
+            padding-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        .highlight {
+            color: #FF3B30; /* 강조색: 레드 */
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="logo">P.A.T.H</div>
+    <div id="sub-title">수험생을 위한 극한의 타이머</div>
+
+    <div id="timer">00:00:00</div>
+
+    <div class="status-bar">
+        <div>현재 영지: <span class="highlight">연세대학교 경영학과 [10위 방어 중]</span></div>
+        <div>누적 순공: <span class="highlight">1,240.5h (TOP 0.1%)</span></div>
+    </div>
+
+</body>
+</html>

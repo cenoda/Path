@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P.A.T.H - The World</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="hud-top">
+        <div class="profile-group">
+            <div class="avatar-frame">
+                <img src="https://via.placeholder.com/60" alt="Profile" id="user-avatar">
+            </div>
+            <button class="btn-settings" title="Settings">⚙️</button>
+        </div>
+
+        <div class="search-container">
+            <input type="text" placeholder="유저 또는 대학 검색..." id="global-search">
+        </div>
+
+        <div class="assets-group">
+            <div class="asset-item">🪙 <span id="gold-txt">14,500</span></div>
+            <div class="asset-item">✨ <span id="exp-txt">1,240,500</span></div>
+            <div class="asset-item">🏆 <span id="tier-txt">CHALLENGER</span></div>
+        </div>
+    </header>
+
+    <div id="world-container">
+        <div id="isometric-grid">
+            <div class="entity fortress" id="my-home" onclick="enterCastle()">
+                <div class="building-label">서울대학교 성채</div>
+            </div>
+            
+            <div class="entity hut" style="top: 200px; left: -300px;"></div>
+            <div class="entity hut" style="top: -400px; left: 500px;"></div>
+        </div>
+    </div>
+
+    <footer class="hud-bottom">
+        <button class="btn-msg" title="Messages">📩</button>
+        
+        <div class="path-trigger">
+            <button id="btn-enter-path" onclick="goToTimer()">[ PATH 진입 ]</button>
+            <div class="next-target">TARGET: 현우진 - 뉴런</div>
+        </div>
+
+        <button id="btn-return-home" class="hidden" onclick="returnToHome()">
+            <span class="home-icon">🏠</span> 내 영지
+        </button>
+    </footer>
+
+    <script src="../mainPageDev/storage.js"></script> 
+    <script src="main.js"></script>
+</body>
+</html>

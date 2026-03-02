@@ -72,25 +72,52 @@
                     el.innerHTML = '<div class="empty">대기 중인 제출이 없습니다.</div>';
                     return;
                 }
-                el.innerHTML = data.submissions.map(s => `
-                    <div class="card" id="card-${s.id}">
-                        <div class="card-header">
-                            <span class="card-title">${esc(s.real_name || '-')} (${esc(s.nickname)})</span>
-                            <span class="badge pending">대기 중</span>
-                        </div>
-                        <div class="card-info">
-                            <strong>대학:</strong> ${esc(s.university || '-')}<br>
-                            ${s.is_n_su ? `<strong>N수생</strong> · 전적대: ${esc(s.prev_university || '-')}<br>` : ''}
-                            <strong>현재 점수:</strong> ${s.mock_exam_score || '미등록'}
-                        </div>
-                        ${s.score_image_url ? `<img src="${esc(s.score_image_url)}" class="score-img" onclick="window.open('${esc(s.score_image_url)}')">` : '<div style="color:#555;font-size:11px;margin:8px 0">이미지 없음</div>'}
-                        <div class="action-row">
-                            <input type="number" id="score-${s.id}" class="action-input" placeholder="점수 입력" min="0" max="600">
-                            <button class="action-btn" onclick="approveScore(${s.id})">승인</button>
-                            <button class="action-btn reject" onclick="rejectScore(${s.id})">반려</button>
-                        </div>
-                    </div>
-                `).join('');
+                el.innerHTML = data.submissions.map(s => {
+                    let cards = '';
+
+                    if (s.score_status === 'pending') {
+                        cards += `
+                        <div class="card" id="score-card-${s.id}">
+                            <div class="card-header">
+                                <span class="card-title">${esc(s.real_name || '-')} (${esc(s.nickname)})</span>
+                                <span class="badge pending">평가원 점수 대기</span>
+                            </div>
+                            <div class="card-info">
+                                <strong>대학:</strong> ${esc(s.university || '-')}<br>
+                                ${s.is_n_su ? `<strong>N수생</strong> · 전적대: ${esc(s.prev_university || '-')}<br>` : ''}
+                                <strong>현재 점수:</strong> ${s.mock_exam_score || '미등록'}
+                            </div>
+                            ${s.score_image_url ? `<img src="${esc(s.score_image_url)}" class="score-img" onclick="window.open('${esc(s.score_image_url)}')">` : '<div style="color:#555;font-size:11px;margin:8px 0">이미지 없음</div>'}
+                            <div class="action-row">
+                                <input type="number" id="score-${s.id}" class="action-input" placeholder="점수 (0~600)" min="0" max="600">
+                                <button class="action-btn" onclick="approveScore(${s.id})">승인</button>
+                                <button class="action-btn reject" onclick="rejectScore(${s.id})">반려</button>
+                            </div>
+                        </div>`;
+                    }
+
+                    if (s.gpa_status === 'pending') {
+                        cards += `
+                        <div class="card" id="gpa-card-${s.id}">
+                            <div class="card-header">
+                                <span class="card-title">${esc(s.real_name || '-')} (${esc(s.nickname)})</span>
+                                <span class="badge pending">내신 등급 대기</span>
+                            </div>
+                            <div class="card-info">
+                                <strong>대학:</strong> ${esc(s.university || '-')}<br>
+                                <strong>현재 내신:</strong> ${s.gpa_score || '미등록'}
+                            </div>
+                            ${s.gpa_image_url ? `<img src="${esc(s.gpa_image_url)}" class="score-img" onclick="window.open('${esc(s.gpa_image_url)}')">` : '<div style="color:#555;font-size:11px;margin:8px 0">이미지 없음</div>'}
+                            <div class="action-row">
+                                <input type="number" id="gpa-${s.id}" class="action-input" placeholder="등급 (1.0~9.0)" min="1" max="9" step="0.1">
+                                <button class="action-btn" onclick="approveGpa(${s.id})">승인</button>
+                                <button class="action-btn reject" onclick="rejectGpa(${s.id})">반려</button>
+                            </div>
+                        </div>`;
+                    }
+
+                    return cards;
+                }).join('');
             } catch (e) { el.innerHTML = '<div class="empty">오류 발생</div>'; }
         }
 
@@ -101,16 +128,20 @@
                 if (!r.ok) { el.innerHTML = '<div class="empty">권한이 없습니다.</div>'; return; }
                 const data = await r.json();
                 el.innerHTML = data.users.map(u => {
-                    const statusClass = u.score_status || 'none';
-                    const statusText = { none: '미제출', pending: '대기', approved: '승인', rejected: '반려' }[statusClass] || '-';
+                    const scoreClass = u.score_status || 'none';
+                    const scoreText = { none: '미제출', pending: '대기', approved: '승인', rejected: '반려' }[scoreClass] || '-';
+                    const gpaClass = u.gpa_status || 'none';
+                    const gpaText = { none: '미제출', pending: '대기', approved: '승인', rejected: '반려' }[gpaClass] || '-';
                     return `<div class="card">
                         <div class="card-header">
-                            <span class="card-title">${u.real_name || '-'} (${u.nickname})</span>
-                            <span class="badge ${statusClass}">${statusText}</span>
+                            <span class="card-title">${esc(u.real_name || '-')} (${esc(u.nickname)})</span>
+                            <span class="badge ${scoreClass}">${scoreText}</span>
                         </div>
                         <div class="card-info">
-                            <strong>대학:</strong> ${u.university} · <strong>골드:</strong> ${(u.gold||0).toLocaleString()} · <strong>점수:</strong> ${u.mock_exam_score||'-'}
-                            ${u.is_n_su ? ` · <strong>N수</strong> (${u.prev_university||'-'})` : ''}
+                            <strong>대학:</strong> ${esc(u.university)} · <strong>골드:</strong> ${(u.gold||0).toLocaleString()} · <strong>평가원:</strong> ${u.mock_exam_score||'-'}
+                            · <strong>내신:</strong> ${u.gpa_score ? u.gpa_score + '등급' : '-'} <span class="badge ${gpaClass}" style="font-size:9px">${gpaText}</span>
+                            ${u.gpa_public ? ' · <span style="color:#2196F3;font-size:10px">공개</span>' : ''}
+                            ${u.is_n_su ? ` · <strong>N수</strong> (${esc(u.prev_university||'-')})` : ''}
                             ${u.is_admin ? ' · <strong style="color:var(--gold)">ADMIN</strong>' : ''}
                         </div>
                     </div>`;
@@ -144,6 +175,35 @@
                     body: JSON.stringify({ user_id: userId })
                 });
                 if (r.ok) { alert('반려 완료'); loadPending(); }
+            } catch (e) { alert('오류 발생'); }
+        }
+
+        async function approveGpa(userId) {
+            const gpaEl = document.getElementById('gpa-' + userId);
+            const gpa = parseFloat(gpaEl?.value);
+            if (isNaN(gpa) || gpa < 1.0 || gpa > 9.0) { alert('내신 등급을 1.0~9.0 사이로 입력해주세요.'); return; }
+            try {
+                const r = await fetch('/api/admin/approve-gpa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ user_id: userId, gpa })
+                });
+                if (r.ok) { alert('내신 승인 완료'); loadPending(); }
+                else { const d = await r.json(); alert(d.error); }
+            } catch (e) { alert('오류 발생'); }
+        }
+
+        async function rejectGpa(userId) {
+            if (!confirm('내신을 반려하시겠습니까?')) return;
+            try {
+                const r = await fetch('/api/admin/reject-gpa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ user_id: userId })
+                });
+                if (r.ok) { alert('내신 반려 완료'); loadPending(); }
             } catch (e) { alert('오류 발생'); }
         }
 

@@ -6,13 +6,21 @@ const router = express.Router();
 
 const MAX_HOURS = 24;
 const NSU_BONUS_RATE = 0.15;
+const GPA_BONUS_MAX = 0.5;
 
-function calcTotalRate(university, isNsu, prevUniversity) {
+function calcGpaBonus(gpaScore, gpaStatus) {
+    if (gpaStatus !== 'approved' || !gpaScore || gpaScore <= 0) return 0;
+    const bonus = Math.max(0, (5 - gpaScore) * 0.12);
+    return Math.min(bonus, GPA_BONUS_MAX);
+}
+
+function calcTotalRate(university, isNsu, prevUniversity, gpaScore, gpaStatus) {
     let rate = getTaxRate(university);
     if (isNsu && prevUniversity) {
         const prevRate = getTaxRate(prevUniversity);
         rate += prevRate * NSU_BONUS_RATE;
     }
+    rate += calcGpaBonus(gpaScore, gpaStatus);
     return rate;
 }
 
@@ -20,11 +28,11 @@ router.get('/tax', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     try {
         const result = await pool.query(
-            'SELECT university, last_tax_collected_at, gold, is_n_su, prev_university FROM users WHERE id = $1',
+            'SELECT university, last_tax_collected_at, gold, is_n_su, prev_university, gpa_score, gpa_status FROM users WHERE id = $1',
             [req.session.userId]
         );
         const user = result.rows[0];
-        const rate = calcTotalRate(user.university, user.is_n_su, user.prev_university);
+        const rate = calcTotalRate(user.university, user.is_n_su, user.prev_university, user.gpa_score, user.gpa_status);
         const percentile = getPercentile(user.university);
         const hoursPassed = Math.min(
             (Date.now() - new Date(user.last_tax_collected_at).getTime()) / 3600000,
@@ -44,11 +52,18 @@ router.get('/tax', async (req, res) => {
             prev_university: user.prev_university
         };
 
+        const baseRate = getTaxRate(user.university);
         if (user.is_n_su && user.prev_university) {
-            const baseRate = getTaxRate(user.university);
             const bonus = getTaxRate(user.prev_university) * NSU_BONUS_RATE;
             resp.baseRate = Math.round(baseRate * 100) / 100;
             resp.nsuBonus = Math.round(bonus * 100) / 100;
+        }
+
+        const gpaBonus = calcGpaBonus(user.gpa_score, user.gpa_status);
+        if (gpaBonus > 0) {
+            if (!resp.baseRate) resp.baseRate = Math.round(baseRate * 100) / 100;
+            resp.gpaBonus = Math.round(gpaBonus * 100) / 100;
+            resp.gpaScore = parseFloat(user.gpa_score);
         }
 
         res.json(resp);
@@ -64,11 +79,11 @@ router.post('/collect-tax', async (req, res) => {
     try {
         await client.query('BEGIN');
         const userRes = await client.query(
-            'SELECT university, last_tax_collected_at, is_n_su, prev_university FROM users WHERE id = $1 FOR UPDATE',
+            'SELECT university, last_tax_collected_at, is_n_su, prev_university, gpa_score, gpa_status FROM users WHERE id = $1 FOR UPDATE',
             [req.session.userId]
         );
         const user = userRes.rows[0];
-        const rate = calcTotalRate(user.university, user.is_n_su, user.prev_university);
+        const rate = calcTotalRate(user.university, user.is_n_su, user.prev_university, user.gpa_score, user.gpa_status);
 
         const hoursPassed = Math.min(
             (Date.now() - new Date(user.last_tax_collected_at).getTime()) / 3600000,

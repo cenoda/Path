@@ -357,4 +357,12 @@ body, html {
     background: rgba(201,168,76,0.15); border-color: var(--gold);
 }
 
+.interior-input {
+    background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 12px; border-radius: 4px;
+    font-size: 12px; font-family: inherit; width: 100%; outline: none;
+    transition: border-color 0.2s;
+}
+.interior-input:focus { border-color: var(--gold-dim); }
+
 .hidden { display: none !important; }

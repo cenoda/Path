@@ -36,6 +36,9 @@ app.use('/api/university', require('./routes/university'));
 app.use('/uploads/scores/:filename', (req, res) => {
     res.redirect(`/api/auth/score-image/${req.params.filename}`);
 });
+app.use('/uploads/gpa/:filename', (req, res) => {
+    res.redirect(`/api/auth/gpa-image/${req.params.filename}`);
+});
 app.use(express.static(path.join(__dirname, '..')));
 
 app.get('/', (req, res) => {

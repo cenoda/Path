@@ -202,9 +202,13 @@ async function openEstate() {
         const score = currentUser?.mock_exam_score || 0;
         const scoreStatus = currentUser?.score_status || 'none';
 
+        let rateParts = [];
         let rateDisplay = `${data.rate}G/hr`;
-        if (data.nsuBonus) {
-            rateDisplay = `${data.baseRate} + <span style="color:#4CAF50">+${data.nsuBonus}</span> (N수 보너스) = ${data.rate}G/hr`;
+        if (data.nsuBonus || data.gpaBonus) {
+            rateParts.push(data.baseRate || data.rate);
+            if (data.nsuBonus) rateParts.push(`<span style="color:#4CAF50">+${data.nsuBonus} N수</span>`);
+            if (data.gpaBonus) rateParts.push(`<span style="color:#2196F3">+${data.gpaBonus} 내신</span>`);
+            rateDisplay = rateParts.join(' + ') + ` = ${data.rate}G/hr`;
         }
 
         let scoreSection = '';
@@ -285,10 +289,145 @@ async function openEstate() {
                     <div class="interior-card-title">📋 평가원 점수 인증</div>
                     ${scoreSection}
                 </div>
+
+                <div class="interior-card">
+                    <div class="interior-card-title">📝 내신 등급 인증</div>
+                    ${buildGpaSection()}
+                </div>
+
+                <div class="interior-card" id="gpa-compare-card" style="${currentUser?.gpa_status === 'approved' ? '' : 'display:none'}">
+                    <div class="interior-card-title">🎯 합격 가능성 비교</div>
+                    <div class="estate-section">
+                        <div class="estate-label">내 내신: <strong style="color:var(--gold)">${currentUser?.gpa_score || '-'}등급</strong></div>
+                    </div>
+                    <div class="estate-section" style="margin-top:6px">
+                        <input type="text" id="compare-univ-input" class="interior-input" placeholder="비교할 대학명 입력" value="${esc(currentUser?.university || '')}">
+                        <button class="inline-btn" style="margin-top:6px" onclick="compareGpa()">비교하기</button>
+                    </div>
+                    <div id="gpa-compare-result" style="margin-top:8px"></div>
+                </div>
             </div>
         `;
         interior.classList.remove('hidden');
     } catch (e) { alert('정보를 불러오지 못했습니다.'); }
+}
+
+function buildGpaSection() {
+    const gpaStatus = currentUser?.gpa_status || 'none';
+    const gpaScore = currentUser?.gpa_score;
+    const gpaPublic = currentUser?.gpa_public;
+
+    if (gpaStatus === 'approved') {
+        return `
+            <div class="estate-val" style="color:#4CAF50">✓ 인증 완료 · ${gpaScore}등급</div>
+            <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+                <label style="font-size:11px;color:var(--text-sub);cursor:pointer;display:flex;align-items:center;gap:4px">
+                    <input type="checkbox" ${gpaPublic ? 'checked' : ''} onchange="toggleGpaPublic()">
+                    내신 공개
+                </label>
+                <span style="font-size:10px;color:#555">${gpaPublic ? '다른 유저에게 표시됨' : '비공개 상태'}</span>
+            </div>`;
+    }
+    if (gpaStatus === 'pending') {
+        return `<div class="estate-val" style="color:#f1c40f">⏳ 관리자 심사 대기 중</div>`;
+    }
+
+    const label = gpaStatus === 'rejected'
+        ? '<div class="estate-val" style="color:var(--accent);margin-bottom:6px">✗ 반려됨 — 재업로드 필요</div>'
+        : '';
+
+    return `
+        ${label}
+        <div class="score-upload-area">
+            <input type="file" id="gpa-file" accept="image/*" style="display:none" onchange="previewGpa(this)">
+            <button class="inline-btn" onclick="document.getElementById('gpa-file').click()">📷 내신 성적표 사진 선택</button>
+            <div id="gpa-preview" style="margin-top:6px"></div>
+            <button class="inline-btn" id="btn-upload-gpa" style="display:none;margin-top:6px" onclick="uploadGpa()">업로드</button>
+        </div>`;
+}
+
+function previewGpa(input) {
+    const preview = document.getElementById('gpa-preview');
+    const uploadBtn = document.getElementById('btn-upload-gpa');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            preview.innerHTML = `<img src="${e.target.result}" style="max-width:200px;max-height:150px;border-radius:4px;border:1px solid var(--border)">`;
+            uploadBtn.style.display = 'inline-block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+async function uploadGpa() {
+    const fileInput = document.getElementById('gpa-file');
+    if (!fileInput.files[0]) { alert('사진을 선택해주세요.'); return; }
+    const formData = new FormData();
+    formData.append('gpaImage', fileInput.files[0]);
+    try {
+        const r = await fetch('/api/auth/upload-gpa', {
+            method: 'POST', credentials: 'include', body: formData
+        });
+        const data = await r.json();
+        if (!r.ok) { alert(data.error || '업로드 실패'); return; }
+        alert('내신 성적표가 업로드되었습니다.\n관리자 승인 후 등급이 반영됩니다.');
+        currentUser.gpa_status = 'pending';
+        closeInterior();
+    } catch (e) { alert('업로드 중 오류 발생'); }
+}
+
+async function toggleGpaPublic() {
+    try {
+        const r = await fetch('/api/auth/toggle-gpa-public', {
+            method: 'POST', credentials: 'include'
+        });
+        const data = await r.json();
+        if (r.ok) {
+            currentUser.gpa_public = data.gpa_public;
+        }
+    } catch (e) {}
+}
+
+async function compareGpa() {
+    const univInput = document.getElementById('compare-univ-input');
+    const resultEl = document.getElementById('gpa-compare-result');
+    const univ = univInput.value.trim();
+    if (!univ) { resultEl.innerHTML = '<div style="color:var(--accent);font-size:11px">대학명을 입력해주세요.</div>'; return; }
+
+    resultEl.innerHTML = '<div style="color:#888;font-size:11px">분석 중...</div>';
+    try {
+        const r = await fetch(`/api/university/compare-gpa?university=${encodeURIComponent(univ)}&gpa=${currentUser.gpa_score}`, { credentials: 'include' });
+        const data = await r.json();
+
+        if (!data.found) {
+            resultEl.innerHTML = '<div style="color:var(--accent);font-size:11px">등록되지 않은 대학입니다.</div>';
+            return;
+        }
+
+        if (!data.departments || data.departments.length === 0) {
+            resultEl.innerHTML = '<div style="color:#888;font-size:11px">내신 기준 입결 데이터가 없습니다.</div>';
+            return;
+        }
+
+        const chanceLabel = { high: '🟢 안정', medium: '🟡 적정', low: '🟠 소신', very_low: '🔴 위험' };
+        const chanceColor = { high: '#4CAF50', medium: '#f1c40f', low: '#ff9800', very_low: '#e74c3c' };
+
+        let html = `<div style="font-size:11px;color:var(--text-sub);margin-bottom:6px">${esc(data.university)} · 내 내신 ${data.myGpa}등급</div>`;
+        html += '<div style="max-height:200px;overflow-y:auto">';
+        data.departments.forEach(dept => {
+            html += `<div style="padding:6px 0;border-bottom:1px solid var(--border)">`;
+            html += `<div style="font-size:12px;font-weight:600;color:var(--text)">${esc(dept.department)} <span style="font-size:10px;color:#666">${esc(dept.category)}</span></div>`;
+            for (const [type, comp] of Object.entries(dept.comparisons)) {
+                const cutoff = comp.cutoff || comp.reference;
+                const chance = chanceLabel[comp.chance] || comp.chance;
+                const color = chanceColor[comp.chance] || '#888';
+                html += `<div style="font-size:11px;color:#aaa;margin-top:2px">${type}: 커트라인 ${cutoff}등급 → <span style="color:${color};font-weight:600">${chance}</span></div>`;
+            }
+            html += `</div>`;
+        });
+        html += '</div>';
+        resultEl.innerHTML = html;
+    } catch (e) { resultEl.innerHTML = '<div style="color:var(--accent);font-size:11px">오류 발생</div>'; }
 }
 
 function previewScore(input) {
@@ -325,14 +464,24 @@ function closeInterior() {
     document.getElementById('castle-interior').classList.add('hidden');
 }
 
+async function refreshCurrentUser() {
+    try {
+        const r = await fetch('/api/auth/me', { credentials: 'include' });
+        if (r.ok) {
+            const data = await r.json();
+            currentUser = data.user;
+            updateHUD(currentUser);
+        }
+    } catch (e) {}
+}
+
 async function collectTax() {
     try {
         const r = await fetch('/api/estate/collect-tax', { method: 'POST', credentials: 'include' });
         const data = await r.json();
         if (data.collected > 0) {
             alert(`+${data.collected.toLocaleString()}G 수령 완료!`);
-            currentUser = data.user;
-            updateHUD(data.user);
+            await refreshCurrentUser();
         } else {
             alert(data.message || '수령할 세금이 없습니다.');
         }
@@ -352,8 +501,7 @@ async function buyTicket(price) {
         const data = await r.json();
         if (!r.ok) { alert(data.error || '구매 실패'); return; }
         alert(`토너먼트권 1장 구매 완료! (-${data.spent.toLocaleString()}G)`);
-        currentUser = data.user;
-        updateHUD(data.user);
+        await refreshCurrentUser();
         closeInterior();
     } catch (e) { alert('오류 발생'); }
 }

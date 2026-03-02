@@ -8,7 +8,7 @@ const { getPercentile } = require('../data/universities');
 
 const router = express.Router();
 
-const USER_FIELDS = 'id, nickname, university, gold, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url';
+const USER_FIELDS = 'id, nickname, university, gold, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public';
 
 function escapeHtml(str) {
     if (!str) return str;
@@ -26,22 +26,30 @@ function requireAuth(req, res, next) {
     next();
 }
 
-const storage = multer.diskStorage({
+const scoreStorage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, path.join(__dirname, '../../uploads/scores')),
     filename: (req, file, cb) => {
         const ext = path.extname(file.originalname) || '.jpg';
         cb(null, `score_${req.session.userId}_${Date.now()}${ext}`);
     }
 });
-const upload = multer({
-    storage,
-    limits: { fileSize: 10 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-        const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.heic'];
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, allowed.includes(ext));
+
+const gpaStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, path.join(__dirname, '../../uploads/gpa')),
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname) || '.jpg';
+        cb(null, `gpa_${req.session.userId}_${Date.now()}${ext}`);
     }
 });
+
+const imageFilter = (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.heic'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, allowed.includes(ext));
+};
+
+const upload = multer({ storage: scoreStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFilter });
+const uploadGpa = multer({ storage: gpaStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFilter });
 
 router.post('/register', async (req, res) => {
     const { real_name, nickname, password, university, is_n_su, prev_university, privacy_agreed } = req.body;
@@ -147,6 +155,52 @@ router.get('/score-image/:filename', requireAuth, async (req, res) => {
     }
 
     const filePath = path.join(__dirname, '../../uploads/scores', filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+    res.sendFile(filePath);
+});
+
+router.post('/upload-gpa', requireAuth, uploadGpa.single('gpaImage'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: '이미지 파일을 선택해주세요.' });
+
+    try {
+        const imageUrl = `/uploads/gpa/${req.file.filename}`;
+        await pool.query(
+            `UPDATE users SET gpa_image_url = $1, gpa_status = 'pending' WHERE id = $2`,
+            [imageUrl, req.session.userId]
+        );
+        res.json({ ok: true, message: '내신 성적 이미지가 업로드되었습니다. 관리자 승인 후 반영됩니다.' });
+    } catch (err) {
+        console.error('upload-gpa error:', err);
+        res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+router.post('/toggle-gpa-public', requireAuth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `UPDATE users SET gpa_public = NOT gpa_public WHERE id = $1 RETURNING gpa_public`,
+            [req.session.userId]
+        );
+        res.json({ ok: true, gpa_public: result.rows[0].gpa_public });
+    } catch (err) {
+        console.error('toggle-gpa error:', err);
+        res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+router.get('/gpa-image/:filename', requireAuth, async (req, res) => {
+    const adminCheck = await pool.query('SELECT is_admin FROM users WHERE id = $1', [req.session.userId]);
+    const isAdmin = adminCheck.rows[0]?.is_admin;
+    const filename = path.basename(req.params.filename);
+
+    if (!isAdmin) {
+        const ownerMatch = filename.match(/^gpa_(\d+)_/);
+        if (!ownerMatch || parseInt(ownerMatch[1]) !== req.session.userId) {
+            return res.status(403).json({ error: '접근 권한이 없습니다.' });
+        }
+    }
+
+    const filePath = path.join(__dirname, '../../uploads/gpa', filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
     res.sendFile(filePath);
 });

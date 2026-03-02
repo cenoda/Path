@@ -72,6 +72,10 @@ package.json
 - **회원가입 필드**: 실명, 닉네임, 목표 대학교, 비밀번호, N수생 여부(+전적대), 개인정보동의
 - **성적 인증**: 평가원 점수는 직접 입력 불가 → 성적 사진 업로드 → 관리자 수동 승인
   - 상태: none → pending → approved/rejected
+- **내신 인증**: 내신 성적표 사진 업로드 → 관리자 심사 → 등급(1.0~9.0) 반영
+  - 공개 여부 토글 가능 (gpa_public)
+  - 보너스: (5 - 등급) × 0.12 G/hr (최대 0.5G/hr, 1등급 = +0.48G/hr)
+  - 합격 가능성 비교: 학생부교과/종합 커트라인 대비 분석 (안정/적정/소신/위험)
 - **관리자 페이지**: /P.A.T.H/admin/index.html (is_admin=true 유저만 접근)
 
 ## API 엔드포인트
@@ -83,7 +87,8 @@ package.json
 | POST | /api/auth/logout | 로그아웃 |
 | GET  | /api/auth/me | 현재 유저 정보 (score_status 포함) |
 | POST | /api/auth/upload-score | 성적 이미지 업로드 (multipart) |
-| POST | /api/auth/update-score | 점수 직접 등록 (관리자용 레거시) |
+| POST | /api/auth/upload-gpa | 내신 이미지 업로드 (multipart) |
+| POST | /api/auth/toggle-gpa-public | 내신 공개 여부 토글 |
 | POST | /api/study/start | 공부 시작 (is_studying=true) |
 | POST | /api/study/complete | 공부 완료 및 보상 저장 |
 | GET  | /api/study/stats | 내 공부 통계 |
@@ -101,10 +106,13 @@ package.json
 | GET  | /api/admin/all-users | 전체 유저 목록 |
 | POST | /api/admin/approve-score | 성적 승인 (점수 입력) |
 | POST | /api/admin/reject-score | 성적 반려 |
+| POST | /api/admin/approve-gpa | 내신 승인 (등급 입력) |
+| POST | /api/admin/reject-gpa | 내신 반려 |
+| GET  | /api/university/compare-gpa | 내신 합격 가능성 비교 |
 
 ## DB 스키마
 
-- `users`: id, nickname, password_hash, university, gold, exp, tier, tickets, is_studying, study_started_at, last_tax_collected_at, tax_accumulated, mock_exam_score, real_name, privacy_agreed, is_n_su, prev_university, score_image_url, score_status, is_admin, created_at
+- `users`: id, nickname, password_hash, university, gold, exp, tier, tickets, is_studying, study_started_at, last_tax_collected_at, tax_accumulated, mock_exam_score, real_name, privacy_agreed, is_n_su, prev_university, score_image_url, score_status, gpa_score, gpa_image_url, gpa_status, gpa_public, is_admin, created_at
 - `study_records`: id, user_id, duration_sec, result, earned_gold, earned_exp, created_at
 - `invasions`: id, attacker_id, defender_id, attacker_study_sec, defender_study_sec, result, loot_gold, created_at
 - `notifications`: id, user_id, type, message, is_read, ref_id, created_at

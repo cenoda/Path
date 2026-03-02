@@ -1,0 +1,20 @@
+{
+  "name": "path-app",
+  "version": "1.0.0",
+  "description": "P.A.T.H - 공부 타이머 게임",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "connect-pg-simple": "^10.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "pg": "^8.19.0"
+  }
+}

@@ -1,35 +1,45 @@
 const StorageManager = {
-    // 초기 데이터 설정
-    defaults: {
-        gold: 0,
-        exp: 0,
-        tier: "BRONZE",
-        rankPct: 99.9
+    _cache: null,
+
+    async load() {
+        try {
+            const r = await fetch('/api/auth/me', { credentials: 'include' });
+            if (!r.ok) {
+                window.location.href = '/P.A.T.H/login/index.html';
+                return null;
+            }
+            const data = await r.json();
+            this._cache = data.user;
+            return data.user;
+        } catch (e) {
+            console.error('StorageManager.load 오류:', e);
+            return null;
+        }
     },
 
-    // 데이터 불러오기
-    load() {
-        const saved = localStorage.getItem('PATH_USER_DATA');
-        return saved ? JSON.parse(saved) : this.defaults;
-    },
-
-    // 데이터 저장하기
-    save(data) {
-        localStorage.setItem('PATH_USER_DATA', JSON.stringify(data));
-    },
-
-    // 보상 합산
-    addRewards(earnedGold, earnedExp) {
-        const data = this.load();
-        data.gold += earnedGold;
-        data.exp += earnedExp;
-        
-        // 티어 계산 로직 (간단 예시: 누적 EXP 기준)
-        if (data.exp > 10000) data.tier = "CHALLENGER";
-        else if (data.exp > 5000) data.tier = "DIAMOND";
-        else if (data.exp > 1000) data.tier = "GOLD";
-        
-        this.save(data);
-        return data;
+    async addRewards(earnedGold, earnedExp, type, originalSec) {
+        try {
+            const r = await fetch('/api/study/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    duration_sec: earnedExp * 60,
+                    result: type,
+                    original_duration_sec: originalSec || 0
+                })
+            });
+            if (!r.ok) {
+                const err = await r.json();
+                console.error('보상 저장 오류:', err);
+                return this._cache;
+            }
+            const data = await r.json();
+            this._cache = data.user;
+            return data.user;
+        } catch (e) {
+            console.error('StorageManager.addRewards 오류:', e);
+            return this._cache;
+        }
     }
 };

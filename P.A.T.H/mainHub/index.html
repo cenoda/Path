@@ -12,7 +12,7 @@
             <div class="avatar-frame">
                 <img src="https://via.placeholder.com/60" alt="Profile" id="user-avatar">
             </div>
-            <button class="btn-settings" title="Settings">⚙️</button>
+            <button class="btn-settings" title="로그아웃" onclick="doLogout()">⚙️</button>
         </div>
 
         <div class="search-container">
@@ -20,29 +20,26 @@
         </div>
 
         <div class="assets-group">
-            <div class="asset-item">🪙 <span id="gold-txt">14,500</span></div>
-            <div class="asset-item">✨ <span id="exp-txt">1,240,500</span></div>
-            <div class="asset-item">🏆 <span id="tier-txt">CHALLENGER</span></div>
+            <div class="asset-item">🪙 <span id="gold-txt">-</span></div>
+            <div class="asset-item">✨ <span id="exp-txt">-</span></div>
+            <div class="asset-item">🏆 <span id="tier-txt">-</span></div>
         </div>
     </header>
 
     <div id="world-container">
         <div id="isometric-grid">
             <div class="entity fortress" id="my-home" onclick="enterCastle()">
-                <div class="building-label">서울대학교 성채</div>
+                <div class="building-label">내 성채</div>
             </div>
-            
-            <div class="entity hut" style="top: 200px; left: -300px;"></div>
-            <div class="entity hut" style="top: -400px; left: 500px;"></div>
         </div>
     </div>
 
     <footer class="hud-bottom">
         <button class="btn-msg" title="Messages">📩</button>
-        
+
         <div class="path-trigger">
             <button id="btn-enter-path" onclick="goToTimer()">[ PATH 진입 ]</button>
-            <div class="next-target">TARGET: 현우진 - 뉴런</div>
+            <div class="next-target">공부를 시작하여 영지를 성장시키세요</div>
         </div>
 
         <button id="btn-return-home" class="hidden" onclick="returnToHome()">
@@ -50,7 +47,6 @@
         </button>
     </footer>
 
-    <script src="../mainPageDev/storage.js"></script> 
     <script src="main.js"></script>
 </body>
 </html>

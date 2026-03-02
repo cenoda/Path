@@ -1,6 +1,3 @@
-/**
- * P.A.T.H - UI Module (v3.9 Reactive)
- */
 const UI = {
     elements: {
         body: document.body,
@@ -17,33 +14,42 @@ const UI = {
         resetBtn: document.getElementById('reset-btn'),
         overlay: document.getElementById('overlay'),
         resTitle: document.getElementById('res-title'),
-        resLoot: document.getElementById('res-loot')
+        resLoot: document.getElementById('res-loot'),
+        bottomInfo: document.querySelector('.bottom-info')
     },
 
-// ui.js의 init 함수 수정
-init() {
-    const userData = StorageManager.load();
-    this.updateAssets(userData);
-    this.bindEvents();
-    
-    // [보완] 페이지 로드 시 0.1초 뒤에 현재 입력된 시간으로 타이머 강제 동기화
-    setTimeout(() => {
-        this.syncInputToDisplay();
-    }, 100);
-    
-    console.log("P.A.T.H: UI 시스템 보완 완료");
-},
+    async init() {
+        const userData = await StorageManager.load();
+        if (!userData) return;
 
-// syncInputToDisplay 보강
-syncInputToDisplay() {
-    const hr = parseInt(this.elements.inputHr.value) || 0;
-    const min = parseInt(this.elements.inputMin.value) || 0;
-    // 00:00으로 보이지 않게 바로 셋팅
-    this.updateTimer((hr * 3600 + min * 60) * 100);
-}
+        this.updateAssets(userData);
+        if (this.elements.bottomInfo) {
+            this.elements.bottomInfo.textContent = `DOMAIN: ${userData.university || '-'}`;
+        }
+
+        this.loadRankPct();
+        this.bindEvents();
+        this.syncInputToDisplay();
+        console.log("P.A.T.H: UI 초기화 완료");
+    },
+
+    async loadRankPct() {
+        try {
+            const r = await fetch('/api/ranking/me', { credentials: 'include' });
+            if (r.ok) {
+                const data = await r.json();
+                if (this.elements.rankPct) {
+                    this.elements.rankPct.textContent = data.pct + '%';
+                }
+                if (this.elements.tierTag) {
+                    const cached = StorageManager._cache;
+                    if (cached) this.elements.tierTag.textContent = cached.tier + ' / ' + data.pct + '%';
+                }
+            }
+        } catch (e) {}
+    },
 
     bindEvents() {
-        // 입력값이 바뀔 때마다 큰 타이머 숫자를 실시간으로 변경
         const syncAction = () => this.syncInputToDisplay();
         this.elements.inputHr.oninput = syncAction;
         this.elements.inputMin.oninput = syncAction;
@@ -60,7 +66,7 @@ syncInputToDisplay() {
             this.elements.body.classList.add('active');
             this.elements.enterBtn.style.display = 'none';
             this.elements.breakBtn.style.display = 'inline-block';
-            
+
             TimerEngine.start(hr, min);
         };
 
@@ -68,7 +74,6 @@ syncInputToDisplay() {
         this.elements.resetBtn.onclick = () => location.reload();
     },
 
-    // 입력값(HR, MIN)을 읽어서 메인 타이머(00:00)에 표시해주는 함수
     syncInputToDisplay() {
         const hr = parseInt(this.elements.inputHr.value) || 0;
         const min = parseInt(this.elements.inputMin.value) || 0;
@@ -83,8 +88,8 @@ syncInputToDisplay() {
         let s = totalSec % 60;
         let ms = Math.max(0, timeLeft % 100);
 
-        const timeStr = (h > 0 ? String(h).padStart(2, '0') + ":" : "") + 
-                        String(m).padStart(2, '0') + ":" + 
+        const timeStr = (h > 0 ? String(h).padStart(2, '0') + ":" : "") +
+                        String(m).padStart(2, '0') + ":" +
                         String(s).padStart(2, '0');
 
         this.elements.displayTime.innerText = timeStr;
@@ -92,15 +97,14 @@ syncInputToDisplay() {
     },
 
     updateAssets(data) {
-        this.elements.goldVal.innerText = data.gold.toLocaleString();
-        this.elements.tierTag.innerText = data.tier;
-        this.elements.rankPct.innerText = data.rankPct + "%";
+        if (this.elements.goldVal) this.elements.goldVal.innerText = data.gold.toLocaleString();
+        if (this.elements.tierTag) this.elements.tierTag.innerText = data.tier;
     },
 
     showResult(type, gold, exp) {
         this.elements.body.classList.remove('active');
         this.elements.overlay.classList.remove('hidden');
-        
+
         if (type === 'SUCCESS') {
             this.elements.resTitle.innerText = "MISSION COMPLETE";
             this.elements.resTitle.style.color = "var(--gold)";

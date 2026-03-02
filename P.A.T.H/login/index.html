@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P.A.T.H - 로그인</title>
+    <style>
+        :root {
+            --bg: #000000;
+            --accent: #FF3B30;
+            --gold: #D4AF37;
+            --border: rgba(212, 175, 55, 0.2);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            padding: 40px 20px;
+        }
+        .logo {
+            font-size: 3rem;
+            font-weight: 100;
+            letter-spacing: 20px;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
+            margin-bottom: 8px;
+        }
+        .tagline {
+            font-size: 11px;
+            letter-spacing: 4px;
+            color: #444;
+            margin-bottom: 60px;
+            text-transform: uppercase;
+        }
+        .card {
+            width: 100%;
+            max-width: 360px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #222;
+            margin-bottom: 40px;
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 14px;
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: #444;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        .tab.active {
+            color: var(--gold);
+            border-bottom-color: var(--gold);
+        }
+        .form { display: none; flex-direction: column; gap: 24px; }
+        .form.active { display: flex; }
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        label {
+            font-size: 10px;
+            letter-spacing: 3px;
+            color: #555;
+            text-transform: uppercase;
+        }
+        input {
+            background: none;
+            border: none;
+            border-bottom: 1px solid #222;
+            color: #fff;
+            font-size: 1.1rem;
+            padding: 10px 0;
+            outline: none;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+        input:focus { border-bottom-color: var(--gold); }
+        .btn-submit {
+            margin-top: 16px;
+            background: none;
+            border: 1px solid #444;
+            color: #888;
+            padding: 18px;
+            font-size: 11px;
+            letter-spacing: 5px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.4s;
+            font-family: inherit;
+            width: 100%;
+        }
+        .btn-submit:hover {
+            border-color: #fff;
+            color: #fff;
+        }
+        .error-msg {
+            font-size: 11px;
+            color: var(--accent);
+            letter-spacing: 1px;
+            text-align: center;
+            min-height: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">P.A.T.H</div>
+    <div class="tagline">수험생을 위한 극한의 공부 경쟁</div>
+
+    <div class="card">
+        <div class="tabs">
+            <div class="tab active" id="tab-login" onclick="switchTab('login')">LOGIN</div>
+            <div class="tab" id="tab-register" onclick="switchTab('register')">REGISTER</div>
+        </div>
+
+        <form class="form active" id="form-login" onsubmit="doLogin(event)">
+            <div class="field">
+                <label>닉네임</label>
+                <input type="text" id="login-nick" placeholder="닉네임 입력" autocomplete="username">
+            </div>
+            <div class="field">
+                <label>비밀번호</label>
+                <input type="password" id="login-pw" placeholder="비밀번호 입력" autocomplete="current-password">
+            </div>
+            <div class="error-msg" id="login-err"></div>
+            <button type="submit" class="btn-submit">ENTER PATH</button>
+        </form>
+
+        <form class="form" id="form-register" onsubmit="doRegister(event)">
+            <div class="field">
+                <label>닉네임</label>
+                <input type="text" id="reg-nick" placeholder="2~20자" autocomplete="username">
+            </div>
+            <div class="field">
+                <label>대학교</label>
+                <input type="text" id="reg-univ" placeholder="ex) 연세대학교" autocomplete="off">
+            </div>
+            <div class="field">
+                <label>비밀번호</label>
+                <input type="password" id="reg-pw" placeholder="4자 이상" autocomplete="new-password">
+            </div>
+            <div class="error-msg" id="reg-err"></div>
+            <button type="submit" class="btn-submit">JOIN THE PATH</button>
+        </form>
+    </div>
+
+    <script>
+        (async () => {
+            try {
+                const r = await fetch('/api/auth/me', { credentials: 'include' });
+                if (r.ok) {
+                    window.location.href = '/P.A.T.H/mainHub/index.html';
+                }
+            } catch (e) {}
+        })();
+
+        function switchTab(tab) {
+            document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+            document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+            document.getElementById('form-login').classList.toggle('active', tab === 'login');
+            document.getElementById('form-register').classList.toggle('active', tab === 'register');
+        }
+
+        async function doLogin(e) {
+            e.preventDefault();
+            const errEl = document.getElementById('login-err');
+            errEl.textContent = '';
+            const nickname = document.getElementById('login-nick').value.trim();
+            const password = document.getElementById('login-pw').value;
+            try {
+                const r = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ nickname, password })
+                });
+                const data = await r.json();
+                if (!r.ok) { errEl.textContent = data.error; return; }
+                window.location.href = '/P.A.T.H/mainHub/index.html';
+            } catch (err) {
+                errEl.textContent = '서버 연결 오류';
+            }
+        }
+
+        async function doRegister(e) {
+            e.preventDefault();
+            const errEl = document.getElementById('reg-err');
+            errEl.textContent = '';
+            const nickname = document.getElementById('reg-nick').value.trim();
+            const university = document.getElementById('reg-univ').value.trim();
+            const password = document.getElementById('reg-pw').value;
+            try {
+                const r = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ nickname, university, password })
+                });
+                const data = await r.json();
+                if (!r.ok) { errEl.textContent = data.error; return; }
+                window.location.href = '/P.A.T.H/mainHub/index.html';
+            } catch (err) {
+                errEl.textContent = '서버 연결 오류';
+            }
+        }
+    </script>
+</body>
+</html>

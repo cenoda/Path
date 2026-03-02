@@ -26,6 +26,7 @@ server/
     invasion.js     침략 시스템 (/api/invasion/*)
     notifications.js 알림 (/api/notifications/*)
     admin.js        관리자 (성적 승인/반려) (/api/admin/*)
+    university.js   대학/학과 정보 조회 (/api/university/*)
 P.A.T.H/
   login/            로그인/회원가입 (실명, 개인정보동의, N수생)
   mainHub/          월드 허브 (맵, 성 내부, 랭킹/알림 패널)
@@ -58,10 +59,13 @@ package.json
 - 침략 알림 없음
 
 ### 대학별 영지
-- 대학 이름 → 합격 백분위로 매핑 (server/data/universities.js)
+- University/Department 클래스 기반 (server/data/universities.js)
+- 52개 대학, 학과별 입결/전형 데이터 포함
+- 전형: 학생부교과(내신), 학생부종합(내신참고), 논술(경쟁률), 정시(백분위, 표준점수합)
 - 의치한약수 키워드 포함 시 99.5%
 - 미등록 대학 기본값 50%
 - 백분위에 따라 건물 크기/밝기 자동 결정
+- API: /api/university/list, /api/university/info?name=, /api/university/search?q=&region=&category=
 
 ## 회원가입 / 인증
 

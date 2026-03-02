@@ -31,6 +31,7 @@ app.use('/api/estate', require('./routes/estate'));
 app.use('/api/invasion', require('./routes/invasion'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/university', require('./routes/university'));
 
 app.use('/uploads/scores/:filename', (req, res) => {
     res.redirect(`/api/auth/score-image/${req.params.filename}`);

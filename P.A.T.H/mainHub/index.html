@@ -3,93 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>P.A.T.H - The World</title>
+    <title>P.A.T.H</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- HUD: 상단 좌 (프로필 + 티어) -->
+    <!-- 상단 좌: 프로필 -->
     <div id="hud-top-left">
-        <div class="profile-badge">
-            <div class="badge-circle" id="badge-char">?</div>
-            <div class="tier-info">
-                <div class="tier-name" id="hud-tier">-</div>
-                <div class="tier-pct" id="hud-pct">TOP --%</div>
-            </div>
+        <div class="badge-circle" id="badge-char">?</div>
+        <div class="profile-info">
+            <div class="tier-name" id="hud-tier">-</div>
+            <div class="tier-pct" id="hud-pct">TOP --%</div>
         </div>
-        <button class="btn-settings" onclick="doLogout()" title="로그아웃">⚙️</button>
+        <button class="btn-settings" onclick="doLogout()" title="로그아웃">⚙</button>
     </div>
 
-    <!-- HUD: 검색창 -->
+    <!-- 상단 중앙: 검색 -->
     <div id="search-bar">
-        <input type="text" id="global-search" placeholder="유저 또는 대학 검색..." oninput="onSearch(this.value)">
+        <input type="text" id="global-search" placeholder="유저 · 대학 검색" oninput="onSearch(this.value)">
     </div>
 
-    <!-- HUD: 상단 우 (자산) -->
+    <!-- 상단 우: 자산 -->
     <div id="hud-top-right">
-        <div class="stat-row">
-            <span class="stat-gold">🪙 <span id="hud-gold">-</span></span>
+        <div class="stat-row hud-panel">
+            <span class="icon">🪙</span>
+            <span id="hud-gold">-</span>
         </div>
-        <div class="stat-row">
-            <span class="stat-exp">✨ <span id="hud-exp">-</span> EXP</span>
+        <div class="stat-row hud-panel">
+            <span class="icon">✨</span>
+            <span id="hud-exp">-</span> EXP
         </div>
-        <div class="stat-row">
-            <span class="stat-tier">🏆 <span id="hud-tier-tag">-</span></span>
+        <div class="stat-row hud-panel">
+            <span class="icon">🏆</span>
+            <span id="hud-tier-tag">-</span>
         </div>
     </div>
 
     <!-- 월드 맵 -->
     <div id="world-container">
         <div id="map-layer">
-            <!-- 내 성채 -->
             <div class="building" id="my-castle" onclick="enterCastle()">
                 <img src="/P.A.T.H/assets/castle_main.png" alt="내 성채">
-                <div class="building-label" id="my-castle-label">내 성채</div>
+                <div class="building-label mine" id="my-castle-label">내 성채</div>
             </div>
-            <!-- 다른 유저 오두막들은 main.js에서 동적 생성 -->
         </div>
     </div>
 
     <!-- 우측 컨트롤 -->
     <div id="hud-right">
-        <button class="ctrl-btn" onclick="panMap(0, -200)">
-            <span class="icon">↑</span>
-            <span>위로</span>
-        </button>
-        <button class="ctrl-btn" onclick="panMap(0, 200)">
-            <span class="icon">↓</span>
-            <span>아래로</span>
-        </button>
-        <button class="ctrl-btn" onclick="panMap(-200, 0)">
-            <span class="icon">←</span>
-            <span>왼쪽</span>
-        </button>
-        <button class="ctrl-btn" onclick="panMap(200, 0)">
-            <span class="icon">→</span>
-            <span>오른쪽</span>
-        </button>
-        <button class="ctrl-btn" onclick="zoomMap(0.15)">
-            <span class="icon">🔍</span>
-            <span>확대</span>
-        </button>
-        <button class="ctrl-btn" onclick="zoomMap(-0.15)">
-            <span class="icon">🔎</span>
-            <span>축소</span>
-        </button>
+        <button class="ctrl-btn" onclick="panMap(0, 150)" title="위">↑</button>
+        <button class="ctrl-btn" onclick="panMap(0, -150)" title="아래">↓</button>
+        <button class="ctrl-btn" onclick="panMap(150, 0)" title="왼쪽">←</button>
+        <button class="ctrl-btn" onclick="panMap(-150, 0)" title="오른쪽">→</button>
+        <div class="ctrl-divider"></div>
+        <button class="ctrl-btn" onclick="zoomMap(0.12)" title="확대">＋</button>
+        <button class="ctrl-btn" onclick="zoomMap(-0.12)" title="축소">－</button>
     </div>
 
     <!-- 하단 중앙: PATH 진입 -->
     <div id="hud-bottom">
         <button id="btn-enter-path" onclick="goToTimer()">[ PATH 진입 ]</button>
-        <div class="path-sub">
+        <div class="path-sub hud-panel">
             <span>🕐</span>
-            <span id="path-target-time">목표 시간을 설정하세요</span>
+            <span id="path-target-time">공부 시간을 설정하세요</span>
         </div>
     </div>
 
     <!-- 하단 우: 내 영지 -->
     <button id="btn-return-home" onclick="returnToHome()">
-        <span class="home-icon">🏠</span>
+        <span class="home-icon">⌂</span>
         <span>내 영지</span>
     </button>
 

@@ -4,6 +4,8 @@ const pool = require('../db');
 
 const router = express.Router();
 
+const USER_FIELDS = 'id, nickname, university, gold, exp, tier, tickets, is_studying';
+
 router.post('/register', async (req, res) => {
     const { nickname, password, university } = req.body;
 
@@ -25,7 +27,7 @@ router.post('/register', async (req, res) => {
 
         const hash = await bcrypt.hash(password, 10);
         const result = await pool.query(
-            'INSERT INTO users (nickname, password_hash, university) VALUES ($1, $2, $3) RETURNING id, nickname, university, gold, exp, tier',
+            `INSERT INTO users (nickname, password_hash, university) VALUES ($1, $2, $3) RETURNING ${USER_FIELDS}`,
             [nickname, hash, university]
         );
 
@@ -47,7 +49,7 @@ router.post('/login', async (req, res) => {
 
     try {
         const result = await pool.query(
-            'SELECT id, nickname, university, gold, exp, tier, password_hash FROM users WHERE nickname = $1',
+            `SELECT ${USER_FIELDS}, password_hash FROM users WHERE nickname = $1`,
             [nickname]
         );
 
@@ -71,9 +73,7 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-    req.session.destroy(() => {
-        res.json({ ok: true });
-    });
+    req.session.destroy(() => { res.json({ ok: true }); });
 });
 
 router.get('/me', async (req, res) => {
@@ -83,7 +83,7 @@ router.get('/me', async (req, res) => {
 
     try {
         const result = await pool.query(
-            'SELECT id, nickname, university, gold, exp, tier FROM users WHERE id = $1',
+            `SELECT ${USER_FIELDS} FROM users WHERE id = $1`,
             [req.session.userId]
         );
 

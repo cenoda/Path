@@ -4,14 +4,15 @@ let timerInterval = null;
 let isRunning = false;
 
 const TimerEngine = {
-    start(hr, min) {
+    async start(hr, min) {
         timeLeft = (hr * 3600 + min * 60) * 100;
         originalTime = timeLeft;
         isRunning = true;
 
-        if (typeof WakeLockManager !== 'undefined') {
-            WakeLockManager.request();
-        }
+        // 서버에 공부 시작 알림 (is_studying = true)
+        fetch('/api/study/start', { method: 'POST', credentials: 'include' }).catch(() => {});
+
+        if (typeof WakeLockManager !== 'undefined') WakeLockManager.request();
 
         UI.updateTimer(timeLeft);
 
@@ -37,30 +38,28 @@ const TimerEngine = {
         clearInterval(timerInterval);
         isRunning = false;
 
-        if (typeof WakeLockManager !== 'undefined') {
-            WakeLockManager.release();
-        }
+        if (typeof WakeLockManager !== 'undefined') WakeLockManager.release();
 
         const timeSpentSec = Math.floor((originalTime - timeLeft) / 100);
-        const earnedExp = Math.floor(timeSpentSec / 60);
+        const earnedExp    = Math.floor(timeSpentSec / 60);
         let earnedGold = 0;
         if (type === 'SUCCESS') {
             earnedGold = Math.floor((originalTime / 100 / 3600) * 100);
         }
 
         const originalSec = Math.floor(originalTime / 100);
-        const totalData = await StorageManager.addRewards(earnedGold, earnedExp, type, originalSec);
+        const result = await StorageManager.addRewards(earnedGold, earnedExp, type, originalSec);
 
-        if (totalData) UI.updateAssets(totalData);
-        UI.showResult(type, earnedGold, earnedExp);
+        if (result?.user) UI.updateAssets(result.user);
+        UI.showResult(type, earnedGold, earnedExp, result?.earnedTicket || 0);
 
         console.log(`P.A.T.H: 정산 완료 [${type}] - Gold: ${earnedGold}, Exp: ${earnedExp}`);
     }
 };
 
-document.addEventListener("visibilitychange", () => {
+document.addEventListener('visibilitychange', () => {
     if (document.hidden && isRunning) {
-        console.warn("P.A.T.H: 탈주 감지됨.");
+        console.warn('P.A.T.H: 탈주 감지됨.');
         TimerEngine.finish('FAILED');
     }
 });

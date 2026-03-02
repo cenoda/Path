@@ -32,14 +32,14 @@ const StorageManager = {
             if (!r.ok) {
                 const err = await r.json();
                 console.error('보상 저장 오류:', err);
-                return this._cache;
+                return { user: this._cache, earnedTicket: 0 };
             }
             const data = await r.json();
             this._cache = data.user;
-            return data.user;
+            return { user: data.user, earnedTicket: data.earnedTicket || 0 };
         } catch (e) {
             console.error('StorageManager.addRewards 오류:', e);
-            return this._cache;
+            return { user: this._cache, earnedTicket: 0 };
         }
     }
 };

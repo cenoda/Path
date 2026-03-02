@@ -1,138 +1,317 @@
 :root {
-    --grid-green: #2d5a27;
-    --grid-line: rgba(255, 255, 255, 0.05);
     --gold: #D4AF37;
+    --gold-light: #F5D76E;
     --accent: #FF3B30;
+    --dark: #0d1a0d;
+    --hex-dark: #1a3a1a;
+    --hex-border: #2a5a2a;
 }
 
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
 body, html {
-    margin: 0; padding: 0; width: 100%; height: 100%;
-    background-color: #1a1a1a; color: white;
-    font-family: 'Apple SD Gothic Neo', sans-serif;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background-color: var(--dark);
+    user-select: none;
+}
+
+/* ── 헥사곤 격자 배경 ── */
+#world-container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+    cursor: grab;
+    background-color: #1e3e1e;
+    background-image:
+        radial-gradient(circle at 50% 50%, transparent 60%, rgba(0,0,0,0.4) 100%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 0 L56 16 L56 50 L28 66 L0 50 L0 16 Z' fill='none' stroke='%23264d26' stroke-width='1.5'/%3E%3Cpath d='M28 66 L56 50 L56 84 L28 100 L0 84 L0 50 Z' fill='none' stroke='%23264d26' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-size: 56px 100px;
+}
+
+#world-container.grabbing { cursor: grabbing; }
+
+/* ── 드래그 가능한 맵 레이어 ── */
+#map-layer {
+    position: absolute;
+    width: 4000px;
+    height: 4000px;
+    top: -1500px;
+    left: -1500px;
+    transition: none;
+}
+
+/* ── 건물 공통 ── */
+.building {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.building:hover { transform: scale(1.04); }
+.building img { display: block; }
+.building-label {
+    margin-top: 6px;
+    background: rgba(0,0,0,0.75);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+    letter-spacing: 1px;
+    box-shadow: 0 0 8px rgba(212,175,55,0.3);
+}
+.building-label.hut-label {
+    border-color: #555;
+    color: #bbb;
+    font-size: 11px;
+    box-shadow: none;
+}
+
+/* ── 내 성채 ── */
+#my-castle {
+    top: 1700px;
+    left: 1700px;
+    z-index: 10;
+}
+#my-castle img { width: 600px; filter: drop-shadow(0 20px 40px rgba(0,0,0,0.7)); }
+
+/* ── 오두막들 ── */
+.hut-building img { width: 160px; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5)); }
+
+/* ── HUD: 상단 좌 ── */
+#hud-top-left {
+    position: fixed;
+    top: 24px;
+    left: 24px;
+    z-index: 100;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.profile-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.badge-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px solid var(--gold);
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #fff;
+    box-shadow: 0 0 15px rgba(212,175,55,0.4);
     overflow: hidden;
 }
 
-/* style.css에 추가 및 수정 */
-
-/* 격자판에 깊이감 추가 */
-#isometric-grid {
-    background-image: 
-        linear-gradient(var(--grid-line) 2px, transparent 2px),
-        linear-gradient(90deg, var(--grid-line) 2px, transparent 2px);
-    background-size: 80px 80px; /* 격자 크기 조절 */
-    box-shadow: 0 0 500px rgba(0,0,0,0.5) inset; /* 외곽을 어둡게 하여 집중도 향상 */
+.tier-info {
+    text-align: center;
+}
+.tier-name {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    font-weight: 700;
+}
+.tier-pct {
+    font-size: 10px;
+    color: #888;
+    letter-spacing: 1px;
 }
 
-/* 성채(Fortress) 비주얼 보정 */
-.fortress {
-    width: 240px; height: 240px;
-    background-image: url('https://cdn-icons-png.flaticon.com/512/3050/3050212.png'); /* 성채 아이콘 */
-    background-size: contain;
-    filter: drop-shadow(0 30px 20px rgba(0,0,0,0.6)); /* 바닥에 닿는 묵직한 그림자 */
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.fortress:hover {
-    transform: rotateZ(-45deg) rotateX(-60deg) translateZ(60px) scale(1.1); /* 클릭 유도 효과 */
-}
-
-/* 성채 위 대학 명칭 라벨 */
-.building-label {
-    position: absolute; bottom: -40px; left: 50%;
-    transform: translateX(-50%);
+.btn-settings {
+    width: 48px;
+    height: 48px;
     background: rgba(0,0,0,0.8);
-    padding: 5px 15px; border-radius: 15px;
-    font-size: 14px; border: 1px solid var(--gold);
-    white-space: nowrap; color: var(--gold);
-    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+    border: 2px solid var(--accent);
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s;
 }
+.btn-settings:hover { background: var(--accent); }
 
-/* HUD 버튼들 고도화 */
-.search-container input {
-    background: rgba(20, 20, 20, 0.85);
-    border: 1px solid #333;
-    backdrop-filter: blur(10px); /* 아이패드 OS 특유의 반투명 효과 */
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+/* ── HUD: 상단 우 ── */
+#hud-top-right {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
 }
-
-/* 1. Isometric World 구현 */
-#world-container {
-    width: 100vw; height: 100vh;
-    cursor: grab;
-    perspective: 1000px;
+.stat-row {
+    background: rgba(0,0,0,0.75);
+    border: 1px solid rgba(212,175,55,0.3);
+    border-radius: 20px;
+    padding: 6px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-variant-numeric: tabular-nums;
 }
+.stat-row .label { font-size: 10px; color: #888; letter-spacing: 2px; }
+.stat-gold { color: var(--gold-light); }
+.stat-exp { color: #aef; }
+.stat-tier { color: var(--gold); font-size: 12px; letter-spacing: 3px; }
 
-#isometric-grid {
-    width: 5000px; height: 5000px;
-    background-color: var(--grid-green);
-    background-image: 
-        linear-gradient(var(--grid-line) 1px, transparent 1px),
-        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-    background-size: 100px 100px;
-    transform: rotateX(60deg) rotateZ(45deg);
-    position: absolute;
-    top: -2000px; left: -2000px;
-    transition: transform 0.1s ease-out;
+/* ── 우측 컨트롤 패널 ── */
+#hud-right {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
-
-/* 2. HUD Styling */
-header, footer {
-    position: fixed; z-index: 100;
-    width: 100%; pointer-events: none;
+.ctrl-btn {
+    width: 60px;
+    height: 60px;
+    background: rgba(0,0,0,0.8);
+    border: 1px solid #444;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 10px;
+    color: #aaa;
+    gap: 4px;
+    transition: all 0.2s;
+    letter-spacing: 0;
+    line-height: 1.2;
+    text-align: center;
+    padding: 4px;
 }
+.ctrl-btn:hover { border-color: var(--gold); color: var(--gold); }
+.ctrl-btn .icon { font-size: 1.3rem; }
 
-header * , footer * { pointer-events: auto; }
-
-.hud-top {
-    top: 0; padding: 30px;
-    display: flex; justify-content: space-between; align-items: flex-start;
-}
-
-.search-container input {
-    background: rgba(0,0,0,0.5); border: 1px solid #444;
-    color: white; padding: 10px 20px; border-radius: 20px;
-    width: 300px; text-align: center;
-}
-
-.assets-group { text-align: right; font-variant-numeric: tabular-nums; }
-.asset-item { margin-bottom: 5px; font-weight: bold; letter-spacing: 1px; }
-
-/* 3. 영지 오브젝트 (Fortress, Hut) */
-.entity {
-    position: absolute;
-    width: 200px; height: 200px;
-    background-size: contain; background-repeat: no-repeat;
-    transform: rotateZ(-45deg) rotateX(-60deg) translateZ(50px); /* 역변환으로 수직 세우기 */
-}
-
-.fortress {
-    background-image: url('https://img.icons8.com/color/512/castle.png'); /* 임시 이미지 */
-    top: 2500px; left: 2500px; /* 정중앙 */
-    filter: drop-shadow(0 20px 30px rgba(0,0,0,0.5));
-}
-
-.hut {
-    background-image: url('https://img.icons8.com/color/512/cabin.png'); /* 임시 이미지 */
-    width: 100px; height: 100px;
-}
-
-/* 4. 하단 버튼 */
-.hud-bottom {
-    bottom: 0; padding: 40px;
-    display: flex; justify-content: space-between; align-items: flex-end;
+/* ── 하단 중앙: PATH 진입 버튼 ── */
+#hud-bottom {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
 }
 
 #btn-enter-path {
-    background: linear-gradient(135deg, #222, #000);
-    border: 2px solid var(--gold); color: var(--gold);
-    padding: 20px 60px; font-size: 20px; letter-spacing: 5px;
-    border-radius: 5px; cursor: pointer;
+    background: linear-gradient(180deg, #2a2a1a 0%, #111100 100%);
+    border: 2px solid var(--gold);
+    border-bottom: none;
+    color: var(--gold-light);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    padding: 16px 60px;
+    cursor: pointer;
+    border-radius: 10px 10px 0 0;
+    text-shadow: 0 0 20px rgba(212,175,55,0.6);
+    box-shadow: 0 0 30px rgba(212,175,55,0.2), inset 0 1px 0 rgba(212,175,55,0.2);
+    transition: all 0.3s;
+    font-family: inherit;
+    white-space: nowrap;
+}
+#btn-enter-path:hover {
+    background: linear-gradient(180deg, #3a3a1a 0%, #222200 100%);
+    box-shadow: 0 0 40px rgba(212,175,55,0.4), inset 0 1px 0 rgba(212,175,55,0.3);
 }
 
+.path-sub {
+    background: rgba(0,0,0,0.9);
+    border: 2px solid var(--gold);
+    border-top: 1px solid rgba(212,175,55,0.3);
+    border-radius: 0 0 10px 10px;
+    padding: 8px 60px;
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+}
+
+/* ── 하단 우: 내 영지 ── */
 #btn-return-home {
-    position: fixed; right: 40px; bottom: 120px;
-    background: rgba(0,0,0,0.7); border: 1px solid white;
-    color: white; padding: 10px 20px; border-radius: 30px;
+    position: fixed;
+    bottom: 32px;
+    right: 20px;
+    z-index: 100;
+    background: rgba(0,0,0,0.85);
+    border: 1px solid #555;
+    border-radius: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: #aaa;
+    font-size: 11px;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    font-family: inherit;
 }
+#btn-return-home:hover { border-color: var(--gold); color: var(--gold); }
+#btn-return-home .home-icon { font-size: 1.8rem; }
 
-.hidden { display: none; }
+/* ── 검색창 ── */
+#search-bar {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+}
+#global-search {
+    background: rgba(0,0,0,0.75);
+    border: 1px solid #333;
+    border-radius: 24px;
+    padding: 10px 24px;
+    color: #fff;
+    font-size: 13px;
+    width: 280px;
+    outline: none;
+    text-align: center;
+    letter-spacing: 1px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+#global-search::placeholder { color: #555; }
+#global-search:focus { border-color: var(--gold); }
+
+.hidden { display: none !important; }

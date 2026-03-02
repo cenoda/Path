@@ -7,45 +7,91 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header class="hud-top">
-        <div class="profile-group">
-            <div class="avatar-frame">
-                <img src="https://via.placeholder.com/60" alt="Profile" id="user-avatar">
+
+    <!-- HUD: 상단 좌 (프로필 + 티어) -->
+    <div id="hud-top-left">
+        <div class="profile-badge">
+            <div class="badge-circle" id="badge-char">?</div>
+            <div class="tier-info">
+                <div class="tier-name" id="hud-tier">-</div>
+                <div class="tier-pct" id="hud-pct">TOP --%</div>
             </div>
-            <button class="btn-settings" title="로그아웃" onclick="doLogout()">⚙️</button>
         </div>
+        <button class="btn-settings" onclick="doLogout()" title="로그아웃">⚙️</button>
+    </div>
 
-        <div class="search-container">
-            <input type="text" placeholder="유저 또는 대학 검색..." id="global-search">
+    <!-- HUD: 검색창 -->
+    <div id="search-bar">
+        <input type="text" id="global-search" placeholder="유저 또는 대학 검색..." oninput="onSearch(this.value)">
+    </div>
+
+    <!-- HUD: 상단 우 (자산) -->
+    <div id="hud-top-right">
+        <div class="stat-row">
+            <span class="stat-gold">🪙 <span id="hud-gold">-</span></span>
         </div>
-
-        <div class="assets-group">
-            <div class="asset-item">🪙 <span id="gold-txt">-</span></div>
-            <div class="asset-item">✨ <span id="exp-txt">-</span></div>
-            <div class="asset-item">🏆 <span id="tier-txt">-</span></div>
+        <div class="stat-row">
+            <span class="stat-exp">✨ <span id="hud-exp">-</span> EXP</span>
         </div>
-    </header>
-
-    <div id="world-container">
-        <div id="isometric-grid">
-            <div class="entity fortress" id="my-home" onclick="enterCastle()">
-                <div class="building-label">내 성채</div>
-            </div>
+        <div class="stat-row">
+            <span class="stat-tier">🏆 <span id="hud-tier-tag">-</span></span>
         </div>
     </div>
 
-    <footer class="hud-bottom">
-        <button class="btn-msg" title="Messages">📩</button>
-
-        <div class="path-trigger">
-            <button id="btn-enter-path" onclick="goToTimer()">[ PATH 진입 ]</button>
-            <div class="next-target">공부를 시작하여 영지를 성장시키세요</div>
+    <!-- 월드 맵 -->
+    <div id="world-container">
+        <div id="map-layer">
+            <!-- 내 성채 -->
+            <div class="building" id="my-castle" onclick="enterCastle()">
+                <img src="/P.A.T.H/assets/castle_main.png" alt="내 성채">
+                <div class="building-label" id="my-castle-label">내 성채</div>
+            </div>
+            <!-- 다른 유저 오두막들은 main.js에서 동적 생성 -->
         </div>
+    </div>
 
-        <button id="btn-return-home" class="hidden" onclick="returnToHome()">
-            <span class="home-icon">🏠</span> 내 영지
+    <!-- 우측 컨트롤 -->
+    <div id="hud-right">
+        <button class="ctrl-btn" onclick="panMap(0, -200)">
+            <span class="icon">↑</span>
+            <span>위로</span>
         </button>
-    </footer>
+        <button class="ctrl-btn" onclick="panMap(0, 200)">
+            <span class="icon">↓</span>
+            <span>아래로</span>
+        </button>
+        <button class="ctrl-btn" onclick="panMap(-200, 0)">
+            <span class="icon">←</span>
+            <span>왼쪽</span>
+        </button>
+        <button class="ctrl-btn" onclick="panMap(200, 0)">
+            <span class="icon">→</span>
+            <span>오른쪽</span>
+        </button>
+        <button class="ctrl-btn" onclick="zoomMap(0.15)">
+            <span class="icon">🔍</span>
+            <span>확대</span>
+        </button>
+        <button class="ctrl-btn" onclick="zoomMap(-0.15)">
+            <span class="icon">🔎</span>
+            <span>축소</span>
+        </button>
+    </div>
+
+    <!-- 하단 중앙: PATH 진입 -->
+    <div id="hud-bottom">
+        <button id="btn-enter-path" onclick="goToTimer()">[ PATH 진입 ]</button>
+        <div class="path-sub">
+            <span>🕐</span>
+            <span id="path-target-time">목표 시간을 설정하세요</span>
+        </div>
+    </div>
+
+    <!-- 하단 우: 내 영지 -->
+    <button id="btn-return-home" onclick="returnToHome()">
+        <span class="home-icon">🏠</span>
+        <span>내 영지</span>
+    </button>
 
     <script src="main.js"></script>
 </body>

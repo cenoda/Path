@@ -1,156 +1,179 @@
+let currentUser = null;
+let allUsers = [];
 let isDragging = false;
-let startX, startY;
+let dragStartX, dragStartY;
+let mapOffsetX = 0, mapOffsetY = 0;
 let scale = 1.0;
 
-const grid = document.getElementById('isometric-grid');
 const container = document.getElementById('world-container');
-const returnBtn = document.getElementById('btn-return-home');
+const mapLayer = document.getElementById('map-layer');
 
-let currentUser = null;
-
+// ── 초기화 ──────────────────────────────────────────────
 async function initHub() {
     try {
         const r = await fetch('/api/auth/me', { credentials: 'include' });
-        if (!r.ok) {
-            window.location.href = '/P.A.T.H/login/index.html';
-            return;
-        }
+        if (!r.ok) { window.location.href = '/P.A.T.H/login/index.html'; return; }
         const data = await r.json();
         currentUser = data.user;
-
-        document.getElementById('gold-txt').textContent = currentUser.gold.toLocaleString();
-        document.getElementById('exp-txt').textContent = currentUser.exp.toLocaleString();
-        document.getElementById('tier-txt').textContent = currentUser.tier;
-
-        const myHome = document.getElementById('my-home');
-        if (myHome) {
-            const label = myHome.querySelector('.building-label');
-            if (label) label.textContent = currentUser.university + ' 성채';
-        }
-
-        loadRanking();
+        updateHUD(currentUser);
+        loadRankingAndMap();
     } catch (e) {
         console.error('initHub 오류:', e);
     }
 }
 
-async function loadRanking() {
-    try {
-        const r = await fetch('/api/ranking', { credentials: 'include' });
-        if (!r.ok) return;
-        const data = await r.json();
+function updateHUD(user) {
+    const nick = user.nickname || '?';
+    document.getElementById('badge-char').textContent = nick.charAt(0).toUpperCase();
+    document.getElementById('hud-tier').textContent = user.tier;
+    document.getElementById('hud-gold').textContent = user.gold.toLocaleString();
+    document.getElementById('hud-exp').textContent = user.exp.toLocaleString();
+    document.getElementById('hud-tier-tag').textContent = user.tier;
 
-        const myRankData = await fetch('/api/ranking/me', { credentials: 'include' });
-        if (myRankData.ok) {
-            const rankInfo = await myRankData.json();
-            document.getElementById('tier-txt').textContent =
-                `${currentUser.tier} (${rankInfo.pct}%)`;
+    const label = document.getElementById('my-castle-label');
+    if (label) label.textContent = (user.university || '내 성채') + ' 성채';
+}
+
+async function loadRankingAndMap() {
+    try {
+        const [rankRes, myRankRes] = await Promise.all([
+            fetch('/api/ranking', { credentials: 'include' }),
+            fetch('/api/ranking/me', { credentials: 'include' })
+        ]);
+
+        if (myRankRes.ok) {
+            const myRank = await myRankRes.json();
+            document.getElementById('hud-pct').textContent = `TOP ${myRank.pct}%`;
         }
 
-        renderOtherUsers(data.ranking);
+        if (rankRes.ok) {
+            const data = await rankRes.json();
+            allUsers = data.ranking;
+            renderOtherUsers(allUsers);
+        }
     } catch (e) {
         console.error('랭킹 로드 오류:', e);
     }
 }
 
-function renderOtherUsers(ranking) {
-    const existingHuts = document.querySelectorAll('.hut');
-    existingHuts.forEach(h => h.remove());
+// ── 오두막 렌더링 ──────────────────────────────────────
+function renderOtherUsers(users) {
+    document.querySelectorAll('.hut-building').forEach(el => el.remove());
 
-    const others = ranking.filter(u => u.id !== currentUser?.id).slice(0, 8);
+    const others = users.filter(u => u.id !== currentUser?.id).slice(0, 8);
+
     const positions = [
-        { top: 2200, left: 2800 }, { top: 2800, left: 2200 },
-        { top: 2000, left: 2600 }, { top: 2600, left: 2000 },
-        { top: 3000, left: 2700 }, { top: 2700, left: 3000 },
-        { top: 2300, left: 2400 }, { top: 2400, left: 2300 }
+        { x: 1300, y: 1800 }, { x: 1200, y: 2100 },
+        { x: 1350, y: 2400 }, { x: 2600, y: 1500 },
+        { x: 2700, y: 1900 }, { x: 1100, y: 2700 },
+        { x: 2800, y: 2600 }, { x: 2500, y: 2900 }
     ];
 
     others.forEach((user, i) => {
-        const pos = positions[i] || { top: 2500 + (i * 100), left: 2500 - (i * 80) };
-        const hut = document.createElement('div');
-        hut.className = 'entity hut';
-        hut.style.top = pos.top + 'px';
-        hut.style.left = pos.left + 'px';
-        hut.title = `${user.nickname} (${user.university}) - ${user.tier}`;
-        hut.onclick = () => alert(`${user.nickname}\n${user.university}\n티어: ${user.tier}\nEXP: ${user.exp.toLocaleString()}`);
+        const pos = positions[i] || { x: 1200 + (i * 80), y: 1800 + (i * 60) };
+        const div = document.createElement('div');
+        div.className = 'building hut-building';
+        div.style.left = pos.x + 'px';
+        div.style.top = pos.y + 'px';
+        div.onclick = () => showUserInfo(user);
 
-        const label = document.createElement('div');
-        label.className = 'building-label';
-        label.style.fontSize = '11px';
-        label.textContent = user.nickname;
-        hut.appendChild(label);
-
-        grid.appendChild(hut);
+        div.innerHTML = `
+            <img src="/P.A.T.H/assets/hut.png" alt="${user.nickname}의 오두막">
+            <div class="building-label hut-label">오두막</div>
+        `;
+        mapLayer.appendChild(div);
     });
 }
 
-container.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    container.style.cursor = 'grabbing';
-    startX = e.pageX - parseInt(grid.style.left || -2000);
-    startY = e.pageY - parseInt(grid.style.top || -2000);
-});
-
-container.addEventListener('touchstart', (e) => {
-    isDragging = true;
-    const touch = e.touches[0];
-    startX = touch.pageX - parseInt(grid.style.left || -2000);
-    startY = touch.pageY - parseInt(grid.style.top || -2000);
-}, { passive: true });
-
-window.addEventListener('mouseup', () => {
-    isDragging = false;
-    container.style.cursor = 'grab';
-});
-
-window.addEventListener('touchend', () => { isDragging = false; });
-
-window.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    const x = e.pageX - startX;
-    const y = e.pageY - startY;
-    grid.style.left = `${x}px`;
-    grid.style.top = `${y}px`;
-
-    const dist = Math.sqrt(Math.pow(x + 2000, 2) + Math.pow(y + 2000, 2));
-    if (dist > 500) returnBtn.classList.remove('hidden');
-    else returnBtn.classList.add('hidden');
-});
-
-window.addEventListener('touchmove', (e) => {
-    if (!isDragging) return;
-    const touch = e.touches[0];
-    const x = touch.pageX - startX;
-    const y = touch.pageY - startY;
-    grid.style.left = `${x}px`;
-    grid.style.top = `${y}px`;
-}, { passive: true });
-
-container.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    scale += e.deltaY * -0.001;
-    scale = Math.min(Math.max(0.5, scale), 2);
-    grid.style.transform = `rotateX(60deg) rotateZ(45deg) scale(${scale})`;
-});
-
-function returnToHome() {
-    grid.style.transition = "all 0.5s ease-in-out";
-    grid.style.left = "-2000px";
-    grid.style.top = "-2000px";
-    setTimeout(() => { grid.style.transition = "none"; }, 500);
-    returnBtn.classList.add('hidden');
+function showUserInfo(user) {
+    alert(`${user.nickname}\n${user.university}\n티어: ${user.tier}\nEXP: ${user.exp.toLocaleString()}\nGOLD: ${user.gold.toLocaleString()}`);
 }
 
+// ── 드래그 스크롤 ─────────────────────────────────────
+container.addEventListener('mousedown', startDrag);
+container.addEventListener('touchstart', e => startDrag(e.touches[0]), { passive: true });
+window.addEventListener('mouseup', endDrag);
+window.addEventListener('touchend', endDrag);
+window.addEventListener('mousemove', onDrag);
+window.addEventListener('touchmove', e => onDrag(e.touches[0]), { passive: true });
+
+function startDrag(e) {
+    isDragging = true;
+    container.classList.add('grabbing');
+    dragStartX = e.clientX - mapOffsetX;
+    dragStartY = e.clientY - mapOffsetY;
+}
+
+function endDrag() {
+    isDragging = false;
+    container.classList.remove('grabbing');
+}
+
+function onDrag(e) {
+    if (!isDragging) return;
+    mapOffsetX = e.clientX - dragStartX;
+    mapOffsetY = e.clientY - dragStartY;
+    applyTransform();
+}
+
+// ── 줌 ────────────────────────────────────────────────
+container.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomMap(e.deltaY * -0.001);
+}, { passive: false });
+
+function zoomMap(delta) {
+    scale = Math.min(Math.max(0.4, scale + delta), 1.8);
+    applyTransform();
+}
+
+function applyTransform() {
+    mapLayer.style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${scale})`;
+}
+
+// ── 패닝 버튼 ─────────────────────────────────────────
+function panMap(dx, dy) {
+    mapOffsetX += dx;
+    mapOffsetY += dy;
+    applyTransform();
+}
+
+// ── 내 영지 복귀 ─────────────────────────────────────
+function returnToHome() {
+    mapOffsetX = 0;
+    mapOffsetY = 0;
+    scale = 1.0;
+    mapLayer.style.transition = 'transform 0.5s ease-in-out';
+    applyTransform();
+    setTimeout(() => { mapLayer.style.transition = 'none'; }, 500);
+}
+
+// ── 성채 클릭 ────────────────────────────────────────
+function enterCastle() {
+    alert('성 내부 기능 준비 중입니다.\n(세금 징수, 펫 관리 화면)');
+}
+
+// ── 검색 ─────────────────────────────────────────────
+function onSearch(value) {
+    if (!value.trim()) {
+        renderOtherUsers(allUsers);
+        return;
+    }
+    const q = value.trim().toLowerCase();
+    const filtered = allUsers.filter(u =>
+        u.nickname.toLowerCase().includes(q) ||
+        (u.university && u.university.toLowerCase().includes(q))
+    );
+    renderOtherUsers(filtered);
+}
+
+// ── 페이지 이동 ──────────────────────────────────────
 function goToTimer() {
     window.location.href = '/P.A.T.H/mainPageDev/index.html';
 }
 
-function enterCastle() {
-    alert("성 내부로 진입합니다. (세금 징수/펫 관리 화면 준비 중)");
-}
-
 async function doLogout() {
+    if (!confirm('로그아웃 하시겠습니까?')) return;
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     window.location.href = '/P.A.T.H/login/index.html';
 }

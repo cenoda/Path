@@ -26,7 +26,8 @@ router.post('/start', async (req, res) => {
 router.post('/complete', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-    const { result: studyResult } = req.body;
+    const { result: studyResult, mode } = req.body;
+    const studyMode = mode === 'stopwatch' ? 'stopwatch' : 'timer';
     const VALID = ['SUCCESS', 'INTERRUPTED', 'FAILED'];
     if (!VALID.includes(studyResult)) return res.status(400).json({ error: '올바르지 않은 결과값' });
 
@@ -54,7 +55,11 @@ router.post('/complete', async (req, res) => {
         let earnedExp = Math.floor(elapsedSec / 60);
 
         if (studyResult === 'SUCCESS') {
-            earnedGold = Math.floor((targetSec / 3600) * STUDY_GOLD_PER_HR);
+            if (studyMode === 'stopwatch') {
+                earnedGold = Math.floor((elapsedSec / 3600) * STUDY_GOLD_PER_HR * 0.5);
+            } else {
+                earnedGold = Math.floor((targetSec / 3600) * STUDY_GOLD_PER_HR);
+            }
         } else if (studyResult === 'FAILED') {
             earnedExp = 0;
         }

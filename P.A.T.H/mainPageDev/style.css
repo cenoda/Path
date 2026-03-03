@@ -46,6 +46,32 @@ body.active { border-color: var(--accent-red); }
     width: 100%;
 }
 
+.mode-group {
+    display: inline-flex;
+    border: 1px solid var(--border-color);
+    margin-bottom: 26px;
+}
+
+.mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 10px 18px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: 0.3s;
+    font-weight: 600;
+}
+
+.mode-btn + .mode-btn { border-left: 1px solid var(--border-color); }
+
+.mode-btn.active {
+    color: var(--accent-gold);
+    background: rgba(212, 175, 55, 0.08);
+}
+
 /* Setup Inputs */
 .setup-group {
     display: flex; align-items: center; gap: 10px;
@@ -78,6 +104,7 @@ body.active { border-color: var(--accent-red); }
 
 /* Active State Styles */
 body.active .setup-group { opacity: 0; transform: translateY(-20px); pointer-events: none; position: absolute; }
+body.active .mode-group { opacity: 0; transform: translateY(-16px); pointer-events: none; position: absolute; }
 body.active .timer-display { color: var(--text-primary); }
 body.active .timer-ms { color: #444; }
 

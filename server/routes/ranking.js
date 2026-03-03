@@ -72,7 +72,34 @@ router.get('/me', async (req, res) => {
 
         const { rank, total_sec } = rankResult.rows[0];
         const pct = total > 1 ? ((rank / total) * 100).toFixed(2) : '100.00';
-        res.json({ rank, total, pct, total_sec });
+
+        // [New] 실제 성적(mock_exam_score) 기반 백분위 (score_status='approved'인 유저 대상)
+        let scorePct = null;
+        const scoreRes = await pool.query(
+            `SELECT count(*) as count,
+                    (SELECT count(*) FROM users WHERE score_status = 'approved') as total_scored
+             FROM users
+             WHERE score_status = 'approved'
+               AND mock_exam_score > (SELECT mock_exam_score FROM users WHERE id = $1)`,
+            [req.session.userId]
+        );
+        
+        // 내 점수가 approved 상태인지 확인
+        const myScoreRes = await pool.query('SELECT score_status FROM users WHERE id = $1', [req.session.userId]);
+        const myStatus = myScoreRes.rows[0]?.score_status;
+
+        if (myStatus === 'approved') {
+            const betterCount = parseInt(scoreRes.rows[0].count);
+            // scoreRes[0].total_scored 는 이미 count로 나온 상태.
+            // 위 쿼리 수정: better_count 와 total_count를 한번에 가져오도록 수정 필요 혹은 분리.
+            // 여기서는 scoreRes가 `count`만 가져옴? 아니 subquery로 `total_scored`도 가져옴.
+            const totalScored = parseInt(scoreRes.rows[0].total_scored);
+            const myRank = betterCount + 1;
+            // 상위 X% (TOP X%)
+            scorePct = totalScored >= 1 ? ((myRank / totalScored) * 100).toFixed(2) : '0.00';
+        }
+
+        res.json({ rank, total, pct, total_sec, scorePct });
     } catch (err) {
         console.error('ranking/me error:', err);
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });

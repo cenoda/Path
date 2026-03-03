@@ -215,3 +215,60 @@ body, html {
 .cancel-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 8px 16px; cursor: pointer; font-size: 11px; }
 
 .hidden { display: none !important; }
+
+/* --- Shop Styles --- */
+.shop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+.shop-item {
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-color);
+    padding: 12px; display: flex; flex-direction: column; gap: 8px;
+    transition: 0.2s; position: relative;
+}
+.shop-item:hover { border-color: var(--accent-gold); background: rgba(255,255,255,0.05); }
+
+.shop-icon { 
+    height: 80px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color);
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+}
+.shop-info { display: flex; flex-direction: column; gap: 2px; }
+.shop-name { font-size: 11px; font-weight: 700; color: var(--text-primary); }
+.shop-desc { font-size: 10px; color: var(--text-secondary); line-height: 1.3; }
+.shop-cost { 
+    font-size: 11px; color: var(--accent-gold); font-family: var(--font-mono); 
+    display: flex; justify-content: space-between; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px;
+}
+
+.shop-btn {
+    width: 100%; border: 1px solid var(--border-color); background: rgba(5,5,5,0.5);
+    color: var(--text-secondary); padding: 6px; cursor: pointer; font-size: 10px;
+    text-transform: uppercase; transition: 0.2s; margin-top: 4px;
+}
+.shop-btn:hover { border-color: var(--accent-gold); color: var(--accent-gold); background: rgba(212, 175, 55, 0.1); }
+
+/* Gacha Specific */
+.gacha-container {
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+    padding: 20px 0; text-align: center;
+}
+.gacha-box {
+    width: 200px; height: 280px; 
+    border: 1px solid var(--accent-gold);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    background: radial-gradient(circle at center, rgba(212, 175, 55, 0.1), transparent);
+}
+.gacha-visual { font-size: 40px; color: var(--accent-gold); opacity: 0.5; }
+.gacha-action { display: flex; gap: 10px; width: 100%; justify-content: center; }
+.gacha-btn-1, .gacha-btn-10 {
+    flex: 1; padding: 12px; border: 1px solid var(--border-color); background: transparent;
+    color: var(--text-primary); cursor: pointer; font-family: var(--font-mono); font-size: 11px;
+    transition: 0.2s;
+}
+.gacha-btn-1:hover, .gacha-btn-10:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
+
+@keyframes flash {
+    0% { background-color: transparent; }
+    50% { background-color: white; }
+    100% { background-color: transparent; }
+}
+.flashing { animation: flash 0.5s ease-out; }

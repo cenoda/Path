@@ -2,10 +2,23 @@ let timeLeft = 0;
 let originalTime = 0;
 let timerInterval = null;
 let isRunning = false;
+let studyMode = 'timer';
 
 const TimerEngine = {
+    setMode(mode) {
+        studyMode = mode === 'stopwatch' ? 'stopwatch' : 'timer';
+    },
+
+    getMode() {
+        return studyMode;
+    },
+
     async start(hr, min) {
-        timeLeft = (hr * 3600 + min * 60) * 100;
+        if (studyMode === 'stopwatch') {
+            timeLeft = 0;
+        } else {
+            timeLeft = (hr * 3600 + min * 60) * 100;
+        }
         originalTime = timeLeft;
         isRunning = true;
 
@@ -14,7 +27,7 @@ const TimerEngine = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ target_sec: targetSec })
+            body: JSON.stringify({ target_sec: targetSec, mode: studyMode })
         }).catch(() => {});
 
         if (typeof WakeLockManager !== 'undefined') WakeLockManager.request();
@@ -22,15 +35,20 @@ const TimerEngine = {
         UI.updateTimer(timeLeft);
 
         timerInterval = setInterval(() => {
-            if (timeLeft <= 0) {
-                this.finish('SUCCESS');
+            if (studyMode === 'timer') {
+                if (timeLeft <= 0) {
+                    this.finish('SUCCESS');
+                } else {
+                    timeLeft--;
+                    UI.updateTimer(timeLeft);
+                }
             } else {
-                timeLeft--;
+                timeLeft++;
                 UI.updateTimer(timeLeft);
             }
         }, 10);
 
-        console.log(`P.A.T.H: 공부 시작 (${hr}h ${min}m)`);
+        console.log(`P.A.T.H: 공부 시작 [${studyMode}] (${hr}h ${min}m)`);
     },
 
     interrupt() {
@@ -39,17 +57,23 @@ const TimerEngine = {
         }
     },
 
+    completeStopwatch() {
+        if (studyMode === 'stopwatch') {
+            this.finish('SUCCESS');
+        }
+    },
+
     async finish(type) {
         clearInterval(timerInterval);
         isRunning = false;
         if (typeof WakeLockManager !== 'undefined') WakeLockManager.release();
 
-        const result = await StorageManager.completeStudy(type);
+        const result = await StorageManager.completeStudy(type, studyMode);
 
         if (result?.user) UI.updateAssets(result.user);
-        UI.showResult(type, result?.earnedGold || 0);
+        UI.showResult(type, result?.earnedGold || 0, studyMode);
 
-        console.log(`P.A.T.H: 완료 [${type}] Gold: ${result?.earnedGold}`);
+        console.log(`P.A.T.H: 완료 [${type}] [${studyMode}] Gold: ${result?.earnedGold}`);
     }
 };
 

@@ -41,12 +41,27 @@ async function initHub() {
         if (rankMeRes.ok) {
             const rankData = await rankMeRes.json();
             myTotalSec = parseInt(rankData.total_sec || 0);
-            document.getElementById('hud-pct').textContent = `TOP ${rankData.pct}%`;
+            document.getElementById('hud-pct').textContent = `TIME TOP ${rankData.pct}%`;
+
+            // [New] Score Percentile Display
+            const elScore = document.getElementById('hud-score-pct');
+            if (rankData.scorePct) {
+                elScore.style.display = 'block';
+                elScore.textContent = `SCORE TOP ${rankData.scorePct}%`;
+            } else {
+                elScore.style.display = 'none';
+            }
         }
 
         updateHUD(currentUser);
         updateMyBuilding(currentUser);
         await Promise.all([loadRankingAndMap(), loadNotifBadge()]);
+
+        // [Agent Notice] Show once
+        if (!localStorage.getItem('agent_notice_v1')) {
+            setTimeout(() => togglePanel('panel-agent-notice'), 800);
+            localStorage.setItem('agent_notice_v1', 'true');
+        }
     } catch (e) {
         console.error('initHub 오류:', e);
     }
@@ -92,12 +107,28 @@ async function loadRankingAndMap() {
 function renderOtherUsers(users) {
     document.querySelectorAll('.other-building').forEach(el => el.remove());
 
-    const others = users.filter(u => u.id !== currentUser?.id).slice(0, 12);
+    const others = users.filter(u => u.id !== currentUser?.id).slice(0, 60);
     const positions = [
         { x: 1150, y: 1700 }, { x: 1100, y: 2050 }, { x: 1250, y: 2400 },
         { x: 2720, y: 1420 }, { x: 2820, y: 1820 }, { x: 1020, y: 2730 },
         { x: 2870, y: 2530 }, { x: 2580, y: 2880 }, { x: 1380, y: 1350 },
-        { x: 2620, y: 1180 }, { x: 1600, y: 2700 }, { x: 2200, y: 2950 }
+        { x: 2620, y: 1180 }, { x: 1600, y: 2700 }, { x: 2200, y: 2950 },
+        { x: 850, y: 1500 }, { x: 950, y: 1900 }, { x: 800, y: 2300 },
+        { x: 3050, y: 1650 }, { x: 3120, y: 2000 }, { x: 1500, y: 2050 },
+        { x: 3000, y: 2700 }, { x: 2300, y: 3100 }, { x: 1700, y: 1450 },
+        { x: 2450, y: 1300 }, { x: 1800, y: 2900 }, { x: 2700, y: 3200 },
+        { x: 1300, y: 1200 }, { x: 990, y: 1600 }, { x: 1100, y: 2600 },
+        { x: 2800, y: 1600 }, { x: 2950, y: 2100 }, { x: 1450, y: 2400 },
+        { x: 3100, y: 2400 }, { x: 2200, y: 2200 }, { x: 1600, y: 1600 },
+        { x: 920, y: 2000 }, { x: 1050, y: 2400 }, { x: 2850, y: 1850 },
+        { x: 2700, y: 2200 }, { x: 1250, y: 1400 }, { x: 980, y: 1300 },
+        { x: 3000, y: 2000 }, { x: 2400, y: 2600 }, { x: 1700, y: 2200 },
+        { x: 1120, y: 1400 }, { x: 2550, y: 1500 }, { x: 1350, y: 2700 },
+        { x: 3050, y: 2800 }, { x: 2100, y: 2800 }, { x: 1480, y: 1800 },
+        { x: 2900, y: 1400 }, { x: 1600, y: 1200 }, { x: 2400, y: 1900 },
+        { x: 810, y: 1800 }, { x: 1200, y: 2200 }, { x: 2750, y: 2900 },
+        { x: 2300, y: 1600 }, { x: 1550, y: 2550 }, { x: 1000, y: 2550 },
+        { x: 3000, y: 1900 }, { x: 2200, y: 1200 }, { x: 1900, y: 2400 }
     ];
 
     others.forEach((user, i) => {
@@ -306,9 +337,15 @@ async function openEstate() {
                     </div>
                     <div id="gpa-compare-result" style="margin-top:8px"></div>
                 </div>
+
+                <div class="interior-card" style="grid-column: 1 / -1; max-height: 300px; overflow-y: auto;">
+                    <div class="interior-card-title">🏰 대학 영지 목록</div>
+                    <div id="university-estates-list" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">로딩 중...</div>
+                </div>
             </div>
         `;
         interior.classList.remove('hidden');
+        loadUniversityEstates();
     } catch (e) { alert('정보를 불러오지 못했습니다.'); }
 }
 
@@ -653,4 +690,208 @@ async function doLogout() {
     window.location.href = '/P.A.T.H/login/index.html';
 }
 
+/* ── SHOP SYSTEM (Added) ── */
+let currentShopTab = 'gacha';
+
+// Mock Data
+const shopItems = {
+    skin: [
+        { id: 's1', name: 'OBSIDIAN CASTLE', desc: 'Sleek black finish.', price: 50000, icon: '🏰' },
+        { id: 's2', name: 'GOLDEN AGE', desc: 'Symbol of wealth.', price: 120000, icon: '🏯' },
+        { id: 's3', name: 'CYBER FORTRESS', desc: 'Advanced defensive aesthetic.', price: 85000, icon: '🏙️' }
+    ],
+    item: [
+        { id: 'i1', name: 'TOURNAMENT TICKET', desc: 'Entry pass for study battles.', price: 1000, icon: '🎟️' },
+        { id: 'i2', name: 'EXP BOOSTER (1H)', desc: '+50% Gold gain for 1 hour.', price: 5000, icon: '⚡' },
+        { id: 'i3', name: 'SHIELD GEN', desc: 'Prevents one invasion.', price: 3000, icon: '🛡️' }
+    ]
+};
+
+function switchShopTab(tab, btn) {
+    currentShopTab = tab;
+    // Update Tab UI
+    const parent = btn.parentElement;
+    parent.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    renderShopContent(tab);
+}
+
+function renderShopContent(tab) {
+    const container = document.getElementById('shop-content');
+    if (!container) return; // Guard clause
+    container.innerHTML = '';
+    
+    if (tab === 'gacha') {
+        container.innerHTML = `
+            <div class="gacha-container">
+                <div class="gacha-box" id="gacha-visual-box">
+                    <div class="gacha-visual">📦</div>
+                </div>
+                <div class="gacha-action">
+                    <button class="gacha-btn-1" onclick="runGacha(1)">DRAW 1 <br> (1,000G)</button>
+                    <button class="gacha-btn-10" onclick="runGacha(10)">DRAW 10 <br> (9,500G)</button>
+                </div>
+                <div style="font-size:10px; color:#666; margin-top:20px;">
+                    LEGENDARY: 1% &nbsp;|&nbsp; EPIC: 4% &nbsp;|&nbsp; RARE: 15% &nbsp;|&nbsp; COMMON: 80%
+                </div>
+            </div>
+        `;
+    } else {
+        const items = shopItems[tab] || [];
+        const grid = document.createElement('div');
+        grid.className = 'shop-grid';
+        
+        items.forEach(async (item) => { // async to allow using await if needed, but here simple
+            const el = document.createElement('div');
+            el.className = 'shop-item';
+            el.innerHTML = `
+                <div class="shop-icon">${item.icon}</div>
+                <div class="shop-info">
+                    <div class="shop-name">${item.name}</div>
+                    <div class="shop-desc">${item.desc}</div>
+                    <div class="shop-cost">
+                        <span>PRICE</span>
+                        <span>${item.price.toLocaleString()} G</span>
+                    </div>
+                </div>
+                <button class="shop-btn" onclick="buyShopItem('${item.id}', ${item.price})">PURCHASE</button>
+            `;
+            grid.appendChild(el);
+        });
+        container.appendChild(grid);
+    }
+}
+
+async function buyShopItem(id, price) {
+    if (!confirm(`Confirm purchase for ${price.toLocaleString()} G?`)) return;
+    
+    if ((currentUser.gold || 0) < price) {
+        alert('INSUFFICIENT FUNDS');
+        return;
+    }
+    
+    // In real implementation: await fetch('/api/shop/buy', ...)
+    alert('PURCHASE SUCCESSFUL (Simulation)');
+}
+
+function runGacha(amount) {
+    const cost = amount === 1 ? 1000 : 9500;
+    if ((currentUser.gold || 0) < cost) {
+        alert('INSUFFICIENT FUNDS');
+        return;
+    }
+
+    const box = document.getElementById('gacha-visual-box');
+    box.classList.add('flashing');
+    
+    // Simulate API delay
+    setTimeout(() => {
+        box.classList.remove('flashing');
+        const results = [];
+        for(let i=0; i<amount; i++) {
+            const r = Math.random();
+            if(r < 0.01) results.push('LEGENDARY');
+            else if(r < 0.05) results.push('EPIC');
+            else if(r < 0.20) results.push('RARE');
+            else results.push('COMMON');
+        }
+        alert(`GACHA RESULTS:\n${results.join(', ')}`);
+    }, 800);
+}
+
+// ── 대학교 영지 목록 로드 ────────────────────────────────────────────
+async function loadUniversityEstates() {
+    try {
+        const r = await fetch('/api/university/list', { credentials: 'include' });
+        const data = await r.json();
+        const universities = data.universities || [];
+
+        const container = document.getElementById('university-estates-list');
+        if (!container) return;
+
+        container.innerHTML = universities.map(uni => {
+            const isMyUniv = uni.name === currentUser?.university;
+            const style = isMyUniv ? 'border-color: var(--gold); background: rgba(255,193,7,0.05);' : '';
+            return `
+                <div style="padding:8px; border:1px solid var(--border); border-radius:4px; text-align:center; cursor:pointer; font-size:11px; transition:all 0.2s; ${style}" 
+                     onmouseover="this.style.borderColor='var(--gold)'" 
+                     onmouseout="this.style.borderColor=${isMyUniv ? 'var(--gold)' : 'var(--border)'}" 
+                     onclick="viewUniversityEstate('${esc(uni.name)}')">
+                    <div style="font-weight:600; color:var(--text); margin-bottom:2px">${esc(uni.name)}</div>
+                    <div style="font-size:9px; color:var(--text-sub)">${uni.region} · ${uni.basePercentile}%</div>
+                    <div style="font-size:9px; color:var(--text-sub); margin-top:2px">${uni.departmentCount}학과</div>
+                </div>
+            `;
+        }).join('');
+
+        if (universities.length === 0) {
+            container.innerHTML = '<div style="color:var(--text-sub);font-size:11px">대학 정보를 불러올 수 없습니다.</div>';
+        }
+    } catch (e) {
+        console.error('대학교 영지 로드 오류:', e);
+        const container = document.getElementById('university-estates-list');
+        if (container) container.innerHTML = '<div style="color:var(--accent);font-size:11px">로드 실패</div>';
+    }
+}
+
+async function viewUniversityEstate(universityName) {
+    try {
+        const r = await fetch(`/api/university/info?name=${encodeURIComponent(universityName)}`, { credentials: 'include' });
+        const data = await r.json();
+        if (!data.found) {
+            alert('대학 정보를 찾을 수 없습니다.');
+            return;
+        }
+        const uni = data.university;
+        
+        // 모달에 대학교 정보 표시
+        document.getElementById('user-modal-title').textContent = `🏫 ${uni.name}`;
+        let deptHTML = '<div style="font-size:11px;margin-top:8px">';
+        const categories = [...new Set(uni.departments.map(d => d.category))];
+        categories.forEach(cat => {
+            const depts = uni.departments.filter(d => d.category === cat);
+            deptHTML += `<div style="margin-bottom:8px"><strong style="color:var(--gold)">${cat}</strong>: ${depts.map(d => d.name).join(', ')}</div>`;
+        });
+        deptHTML += '</div>';
+
+        document.getElementById('user-modal-body').innerHTML = `
+            <div class="estate-section">
+                <div class="estate-label">📍 지역</div>
+                <div class="estate-val">${uni.region}</div>
+            </div>
+            <div class="estate-section">
+                <div class="estate-label">🎓 백분위</div>
+                <div class="estate-val">${uni.basePercentile}%</div>
+            </div>
+            <div class="estate-section">
+                <div class="estate-label">📚 모집 단위</div>
+                <div class="estate-val">${uni.departmentCount}개</div>
+            </div>
+            <div class="estate-section">
+                <strong style="color:var(--gold)">주요 학과:</strong>
+                ${deptHTML}
+            </div>
+        `;
+        
+        const btn = document.getElementById('btn-invade');
+        btn.style.display = 'none';
+        document.getElementById('modal-user').classList.remove('hidden');
+    } catch (e) {
+        console.error('대학 상세 조회 오류:', e);
+        alert('대학 정보를 불러올 수 없습니다.');
+    }
+}
+
+
+// Ensure default tab is rendered when panel opens (hook into togglePanel if possible, or just default render)
+// Since togglePanel simply toggles 'hidden', we can lazily render or render on init.
+// Or just check if panel-shop is visible.
+
 initHub();
+
+/* Init Shop Default */
+document.addEventListener('DOMContentLoaded', () => {
+    renderShopContent('gacha'); 
+});
+

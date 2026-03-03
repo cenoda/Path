@@ -1,4 +1,6 @@
 const UI = {
+    currentMode: 'timer',
+
     elements: {
         body:        document.body,
         goldVal:     document.getElementById('gold-val'),
@@ -8,6 +10,8 @@ const UI = {
         setupArea:   document.getElementById('setup-area'),
         inputHr:     document.getElementById('input-hr'),
         inputMin:    document.getElementById('input-min'),
+        modeTimer:   document.getElementById('mode-timer'),
+        modeStopwatch: document.getElementById('mode-stopwatch'),
         displayTime: document.getElementById('display-time'),
         displayMs:   document.getElementById('ms'),
         enterBtn:    document.getElementById('enter-btn'),
@@ -52,18 +56,56 @@ const UI = {
         this.elements.inputHr.oninput  = syncAction;
         this.elements.inputMin.oninput = syncAction;
 
+        this.elements.modeTimer.onclick = () => this.setMode('timer');
+        this.elements.modeStopwatch.onclick = () => this.setMode('stopwatch');
+
         this.elements.enterBtn.onclick = () => {
             const hr  = parseInt(this.elements.inputHr.value)  || 0;
             const min = parseInt(this.elements.inputMin.value) || 0;
-            if (hr === 0 && min === 0) { alert('목표 시간을 설정하십시오.'); return; }
+            if (this.currentMode === 'timer' && hr === 0 && min === 0) {
+                alert('목표 시간을 설정하십시오.');
+                return;
+            }
+
             this.elements.body.classList.add('active');
             this.elements.enterBtn.style.display = 'none';
             this.elements.breakBtn.style.display = 'inline-block';
+
+            if (this.currentMode === 'stopwatch') {
+                this.elements.breakBtn.textContent = 'COMPLETE PATH';
+            } else {
+                this.elements.breakBtn.textContent = 'ABORT PATH';
+            }
+
             TimerEngine.start(hr, min);
         };
 
-        this.elements.breakBtn.onclick = () => TimerEngine.interrupt();
+        this.elements.breakBtn.onclick = () => {
+            if (this.currentMode === 'stopwatch') {
+                TimerEngine.completeStopwatch();
+            } else {
+                TimerEngine.interrupt();
+            }
+        };
         this.elements.resetBtn.onclick = () => location.reload();
+    },
+
+    setMode(mode) {
+        this.currentMode = mode === 'stopwatch' ? 'stopwatch' : 'timer';
+        if (typeof TimerEngine !== 'undefined' && TimerEngine.setMode) {
+            TimerEngine.setMode(this.currentMode);
+        }
+
+        const isStopwatch = this.currentMode === 'stopwatch';
+        this.elements.modeTimer.classList.toggle('active', !isStopwatch);
+        this.elements.modeStopwatch.classList.toggle('active', isStopwatch);
+        this.elements.setupArea.style.display = isStopwatch ? 'none' : 'flex';
+
+        if (isStopwatch) {
+            this.updateTimer(0);
+        } else {
+            this.syncInputToDisplay();
+        }
     },
 
     syncInputToDisplay() {
@@ -93,7 +135,7 @@ const UI = {
         if (this.elements.tierTag)   this.elements.tierTag.innerText   = data.university || data.tier || '-';
     },
 
-    showResult(type, gold = 0, ticket = 0) {
+    showResult(type, gold = 0, mode = 'timer') {
         this.elements.body.classList.remove('active');
         this.elements.overlay.classList.remove('hidden');
 
@@ -102,7 +144,7 @@ const UI = {
             this.elements.resTitle.style.color = 'var(--gold)';
             this.elements.resLoot.innerHTML    =
                 `<span style="font-size:2.5rem;color:#fff">+${gold.toLocaleString()}G</span><br>` +
-                `<small>목표 달성 완수 보너스</small>`;
+                `<small>${mode === 'stopwatch' ? '스톱워치 모드 (골드 50%)' : '목표 달성 완수 보너스'}</small>`;
         } else if (type === 'INTERRUPTED') {
             this.elements.resTitle.innerText   = 'PATH BROKEN';
             this.elements.resTitle.style.color = '#444';

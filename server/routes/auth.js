@@ -67,11 +67,17 @@ router.post('/register', async (req, res) => {
         if (existing.rows.length > 0) return res.status(409).json({ error: '이미 사용 중인 닉네임입니다.' });
 
         const hash = await bcrypt.hash(password, 10);
+
+        // [FIX] 초기 영지(Estate) 설정 로직 변경
+        // 목표 대학(university input)을 기본 영지로 설정하지 않도록 수정.
+        // N수생인 경우 전적대(prev_university)를 영지로, 그 외(고등학생 등)는 영지 없음(null)으로 시작.
+        const initialEstate = is_n_su ? prev_university : null;
+
         const result = await pool.query(
             `INSERT INTO users (nickname, password_hash, university, real_name, privacy_agreed, is_n_su, prev_university)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING ${USER_FIELDS}`,
-            [nickname, hash, university, real_name, !!privacy_agreed, !!is_n_su, prev_university || null]
+            [nickname, hash, initialEstate, real_name, !!privacy_agreed, !!is_n_su, prev_university || null]
         );
         const user = result.rows[0];
         req.session.userId = user.id;

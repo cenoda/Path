@@ -17,13 +17,13 @@ const StorageManager = {
         }
     },
 
-    async completeStudy(type) {
+    async completeStudy(type, mode = 'timer') {
         try {
             const r = await fetch('/api/study/complete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ result: type })
+                body: JSON.stringify({ result: type, mode })
             });
             if (!r.ok) {
                 const err = await r.json();

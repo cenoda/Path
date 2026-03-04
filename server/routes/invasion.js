@@ -1,18 +1,63 @@
 const express = require('express');
 const pool = require('../db');
+const { findUniversity } = require('../data/universities');
 
 const router = express.Router();
 
-function getMaxSlots(score, scoreStatus) {
-    if (scoreStatus !== 'approved' || !score || score < 1) return 1;
-    if (score >= 380) return 6;
-    if (score >= 340) return 5;
-    if (score >= 300) return 4;
-    if (score >= 260) return 3;
-    if (score >= 220) return 2;
-    return 1;
+// ── 정규분포 수학 유틸리티 ────────────────────────────────────────────
+// Abramowitz & Stegun 근사를 이용한 표준정규분포 CDF
+function normalCDF(x) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(x));
+    const d = 0.3989422820 * Math.exp(-x * x / 2);
+    const poly = t * (0.3193815 + t * (-0.3565638 + t * (1.7814779 + t * (-1.8212560 + t * 1.3302744))));
+    const cdf = 1 - d * poly;
+    return x > 0 ? cdf : 1 - cdf;
 }
 
+// 역정규분포 (probit) - Beasley-Springer-Moro 근사
+function probit(p) {
+    if (p <= 0.0001) return -3.7;
+    if (p >= 0.9999) return 3.7;
+    const a = [2.515517, 0.802853, 0.010328];
+    const b = [1.432788, 0.189269, 0.001308];
+    if (p > 0.5) {
+        const t = Math.sqrt(-2 * Math.log(1 - p));
+        return t - (a[0] + t * (a[1] + t * a[2])) / (1 + t * (b[0] + t * (b[1] + t * b[2])));
+    } else {
+        const t = Math.sqrt(-2 * Math.log(p));
+        return -(t - (a[0] + t * (a[1] + t * a[2])) / (1 + t * (b[0] + t * (b[1] + t * b[2]))));
+    }
+}
+
+// 수능 점수 분포 파라미터 (표준점수 합계 기준)
+const SCORE_MEAN = 260;   // 전체 수험생 평균
+const SCORE_STD  = 40;    // 표준편차
+const CUTLINE_SIGMA = 6;  // 컷트라인 연도별 변동 표준편차
+
+// basePercentile → 변환점수 컷트라인
+function percentileToCutline(basePercentile) {
+    const p = Math.min(0.9999, Math.max(0.0001, basePercentile / 100));
+    return SCORE_MEAN + probit(p) * SCORE_STD;
+}
+
+// 유저 변환점수 + 대학 컷트라인 → 합격 확률 (0~1, 0.1 단위로 반올림)
+function calcAcceptProb(userScore, basePercentile) {
+    const cutline = percentileToCutline(basePercentile);
+    const z = (userScore - cutline) / CUTLINE_SIGMA;
+    const rawProb = normalCDF(z);
+    // 일의 자리에서 반올림 → 10% 단위
+    const rounded = Math.round(rawProb * 10) / 10;
+    // 최소 10%, 최대 90% (0%/100%는 현실에서 불가능하므로 클램핑)
+    return Math.max(0.1, Math.min(0.9, rounded));
+}
+
+// 대학 이름으로 basePercentile 조회
+function getBasePercentile(universityName) {
+    const uni = findUniversity(universityName);
+    return uni ? uni.basePercentile : null;
+}
+
+// ── 모의지원: 도전하기 ────────────────────────────────────────────────
 router.post('/attack', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
@@ -31,17 +76,21 @@ router.post('/attack', async (req, res) => {
         const attacker = attackerRes.rows[0];
         if (!attacker) { await client.query('ROLLBACK'); return res.status(404).json({ error: '유저를 찾을 수 없습니다.' }); }
         if (attacker.tickets < 1) { await client.query('ROLLBACK'); return res.status(400).json({ error: '원서비가 없습니다.' }); }
-        if (attacker.mock_exam_score < 1) { await client.query('ROLLBACK'); return res.status(400).json({ error: '평가원 모의고사 점수를 먼저 등록해주세요.' }); }
+        if (!attacker.mock_exam_score || attacker.mock_exam_score < 1) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '평가원 모의고사 점수를 먼저 등록해주세요.' });
+        }
 
-        const maxSlots = getMaxSlots(attacker.mock_exam_score, attacker.score_status);
+        // 하루 지원 횟수 확인
         const todayCount = await client.query(
             `SELECT COUNT(*) as cnt FROM invasions WHERE attacker_id = $1 AND created_at >= CURRENT_DATE`,
             [req.session.userId]
         );
         const usedSlots = parseInt(todayCount.rows[0].cnt);
-        if (usedSlots >= maxSlots) {
+        const MAX_DAILY = 6;
+        if (usedSlots >= MAX_DAILY) {
             await client.query('ROLLBACK');
-            return res.status(400).json({ error: `오늘 지원 가능 횟수(${maxSlots}회)를 모두 사용했습니다. 내일 다시 도전하세요.` });
+            return res.status(400).json({ error: `오늘 지원 가능 횟수(${MAX_DAILY}회)를 모두 사용했습니다. 내일 다시 도전하세요.` });
         }
 
         const defenderRes = await client.query(
@@ -50,9 +99,27 @@ router.post('/attack', async (req, res) => {
         );
         const defender = defenderRes.rows[0];
         if (!defender) { await client.query('ROLLBACK'); return res.status(404).json({ error: '상대를 찾을 수 없습니다.' }); }
-        if (defender.mock_exam_score < 1) { await client.query('ROLLBACK'); return res.status(400).json({ error: '상대방이 아직 점수를 등록하지 않았습니다.' }); }
 
-        const attackerWins = attacker.mock_exam_score > defender.mock_exam_score;
+        // 대학 컷트라인 기반 합격 확률 계산
+        const targetUniversity = defender.university;
+        const basePercentile = getBasePercentile(targetUniversity);
+
+        let attackerWins;
+        let acceptProb;
+
+        if (basePercentile !== null) {
+            acceptProb = calcAcceptProb(attacker.mock_exam_score, basePercentile);
+            attackerWins = Math.random() < acceptProb;
+        } else {
+            // 대학 정보 없으면 직접 점수 비교 fallback
+            if (!defender.mock_exam_score || defender.mock_exam_score < 1) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: '상대방이 아직 점수를 등록하지 않았습니다.' });
+            }
+            acceptProb = attacker.mock_exam_score > defender.mock_exam_score ? 0.7 : 0.3;
+            attackerWins = Math.random() < acceptProb;
+        }
+
         const invasionResult = attackerWins ? 'WIN' : 'LOSS';
 
         await client.query('UPDATE users SET tickets = tickets - 1 WHERE id = $1', [req.session.userId]);
@@ -61,7 +128,7 @@ router.post('/attack', async (req, res) => {
             `INSERT INTO invasions (attacker_id, defender_id, attacker_study_sec, defender_study_sec, result, loot_gold)
              VALUES ($1,$2,$3,$4,$5,$6)`,
             [req.session.userId, defender_id,
-             attacker.mock_exam_score, defender.mock_exam_score,
+             attacker.mock_exam_score, Math.round(acceptProb * 100),
              invasionResult, 0]
         );
 
@@ -83,11 +150,12 @@ router.post('/attack', async (req, res) => {
             ok: true,
             result: invasionResult,
             attacker_score: attacker.mock_exam_score,
-            defender_score: defender.mock_exam_score,
+            target_university: targetUniversity,
+            accept_prob: Math.round(acceptProb * 100),
             defender_nickname: defender.nickname,
             defender_university: defender.university,
             used_slots: usedSlots + 1,
-            max_slots: maxSlots,
+            max_slots: MAX_DAILY,
             user: finalRes.rows[0]
         });
     } catch (err) {
@@ -99,6 +167,42 @@ router.post('/attack', async (req, res) => {
     }
 });
 
+// ── 합격 확률 조회 (모달용) ───────────────────────────────────────────
+router.get('/accept-prob', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { university } = req.query;
+    if (!university) return res.status(400).json({ error: '대학명을 입력해주세요.' });
+
+    try {
+        const userRes = await pool.query(
+            'SELECT mock_exam_score FROM users WHERE id = $1',
+            [req.session.userId]
+        );
+        const userScore = userRes.rows[0]?.mock_exam_score || 0;
+        const basePercentile = getBasePercentile(university);
+
+        if (!basePercentile) {
+            return res.json({ accept_prob: null, message: '대학 정보 없음' });
+        }
+        if (!userScore || userScore < 1) {
+            return res.json({ accept_prob: null, message: '점수 미등록' });
+        }
+
+        const prob = calcAcceptProb(userScore, basePercentile);
+        const cutline = Math.round(percentileToCutline(basePercentile));
+        res.json({
+            accept_prob: Math.round(prob * 100),
+            cutline,
+            user_score: userScore,
+            base_percentile: basePercentile
+        });
+    } catch (err) {
+        console.error('accept-prob error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+// ── 내 지원 이력 조회 ─────────────────────────────────────────────────
 router.get('/my-applications', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     try {
@@ -107,7 +211,6 @@ router.get('/my-applications', async (req, res) => {
             [req.session.userId]
         );
         const user = userRes.rows[0];
-        const maxSlots = getMaxSlots(user.mock_exam_score, user.score_status);
 
         const todayRes = await pool.query(
             `SELECT COUNT(*) as cnt FROM invasions WHERE attacker_id = $1 AND created_at >= CURRENT_DATE`,
@@ -116,7 +219,8 @@ router.get('/my-applications', async (req, res) => {
         const usedSlots = parseInt(todayRes.rows[0].cnt);
 
         const logsRes = await pool.query(
-            `SELECT i.id, i.result, i.attacker_study_sec as my_score, i.defender_study_sec as target_score,
+            `SELECT i.id, i.result, i.attacker_study_sec as my_score,
+                    i.defender_study_sec as accept_prob_stored,
                     i.created_at,
                     d.nickname as target_nickname, d.university as target_university
              FROM invasions i
@@ -126,13 +230,26 @@ router.get('/my-applications', async (req, res) => {
             [req.session.userId]
         );
 
+        // 각 이력에 대해 현재 대학 컷트라인으로 확률 재계산
+        const applications = logsRes.rows.map(row => {
+            const bp = getBasePercentile(row.target_university);
+            const userScore = row.my_score;
+            let acceptProb = row.accept_prob_stored;
+            let cutline = null;
+            if (bp && userScore) {
+                acceptProb = Math.round(calcAcceptProb(userScore, bp) * 100);
+                cutline = Math.round(percentileToCutline(bp));
+            }
+            return { ...row, accept_prob: acceptProb, cutline };
+        });
+
         res.json({
-            max_slots: maxSlots,
+            max_slots: 6,
             used_slots: usedSlots,
             my_score: user.mock_exam_score || 0,
             score_status: user.score_status,
             tickets: user.tickets,
-            applications: logsRes.rows
+            applications
         });
     } catch (err) {
         console.error('my-applications error:', err);
@@ -140,6 +257,7 @@ router.get('/my-applications', async (req, res) => {
     }
 });
 
+// ── 기존 로그 조회 (LOGS 패널용) ─────────────────────────────────────
 router.get('/logs', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     try {

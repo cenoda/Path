@@ -33,12 +33,57 @@ document.addEventListener('DOMContentLoaded', () => {
 let currentUser = null;
 let myTotalSec = 0;
 let allUsers = [];
+let allUniversities = [];
 let selectedUser = null;
 let isDragging = false;
 let dragStartX, dragStartY;
 let mapOffsetX = 0, mapOffsetY = 0;
 let scale = 1.0;
 let currentRankTab = 'total';
+
+// ── 합격 확률 계산 (프론트엔드) ───────────────────────────────────────
+(function() {
+    function normalCDF(x) {
+        const t = 1 / (1 + 0.2316419 * Math.abs(x));
+        const d = 0.3989422820 * Math.exp(-x * x / 2);
+        const poly = t * (0.3193815 + t * (-0.3565638 + t * (1.7814779 + t * (-1.8212560 + t * 1.3302744))));
+        const cdf = 1 - d * poly;
+        return x > 0 ? cdf : 1 - cdf;
+    }
+    function probit(p) {
+        if (p <= 0.0001) return -3.7;
+        if (p >= 0.9999) return 3.7;
+        const a = [2.515517, 0.802853, 0.010328];
+        const b = [1.432788, 0.189269, 0.001308];
+        if (p > 0.5) {
+            const t = Math.sqrt(-2 * Math.log(1 - p));
+            return t - (a[0] + t*(a[1] + t*a[2])) / (1 + t*(b[0] + t*(b[1] + t*b[2])));
+        } else {
+            const t = Math.sqrt(-2 * Math.log(p));
+            return -(t - (a[0] + t*(a[1] + t*a[2])) / (1 + t*(b[0] + t*(b[1] + t*b[2]))));
+        }
+    }
+    const SCORE_MEAN = 260, SCORE_STD = 40, CUTLINE_SIGMA = 6;
+    window.percentileToCutline = function(basePercentile) {
+        const p = Math.min(0.9999, Math.max(0.0001, basePercentile / 100));
+        return Math.round(SCORE_MEAN + probit(p) * SCORE_STD);
+    };
+    window.calcAcceptProb = function(userScore, basePercentile) {
+        const cutline = SCORE_MEAN + probit(Math.min(0.9999, Math.max(0.0001, basePercentile / 100))) * SCORE_STD;
+        const z = (userScore - cutline) / CUTLINE_SIGMA;
+        const raw = normalCDF(z);
+        const rounded = Math.round(raw * 10) / 10;
+        return Math.max(0.1, Math.min(0.9, rounded));
+    };
+    window.getUniBasePercentile = function(universityName) {
+        if (!universityName) return null;
+        const uni = allUniversities.find(u =>
+            u.name === universityName ||
+            (u.aliases && u.aliases.some(a => universityName.includes(a) || a.includes(universityName)))
+        );
+        return uni ? uni.basePercentile : null;
+    };
+})();
 
 const container = document.getElementById('world-container');
 const mapLayer  = document.getElementById('map-layer');
@@ -89,7 +134,7 @@ async function initHub() {
 
         updateHUD(currentUser);
         updateMyBuilding(currentUser);
-        await Promise.all([loadRankingAndMap(), loadNotifBadge()]);
+        await Promise.all([loadRankingAndMap(), loadNotifBadge(), loadUniversitiesCache()]);
 
         // [Agent Notice] Show once
         if (!localStorage.getItem('agent_notice_v1')) {
@@ -141,6 +186,17 @@ async function loadRankingAndMap() {
         }
     } catch (e) {
         console.error('loadRankingAndMap 오류:', e);
+    }
+}
+
+async function loadUniversitiesCache() {
+    try {
+        const r = await fetch('/api/universities', { credentials: 'include' });
+        if (!r.ok) return;
+        const data = await r.json();
+        allUniversities = data.universities || [];
+    } catch (e) {
+        console.error('loadUniversitiesCache 오류:', e);
     }
 }
 
@@ -559,6 +615,39 @@ function openUserModal(user) {
     selectedUser = user;
     document.getElementById('user-modal-title').textContent = `🎓 ${user.nickname}의 모의진학`;
     const myScore = currentUser?.mock_exam_score || 0;
+
+    // 합격 확률 계산
+    const bp = getUniBasePercentile(user.university);
+    let probHTML = '';
+    if (myScore > 0 && bp !== null) {
+        const prob = calcAcceptProb(myScore, bp);
+        const probPct = Math.round(prob * 100);
+        const cutline = percentileToCutline(bp);
+        const probColor = probPct >= 70 ? '#4CAF50' : probPct >= 40 ? 'var(--accent-gold)' : '#e55';
+        probHTML = `
+            <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;">
+                <div style="font-size:10px;color:var(--text-sub);letter-spacing:1px;font-weight:700;margin-bottom:8px;">모의지원 합격 확률</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <span style="font-size:28px;font-weight:800;color:${probColor};font-family:var(--font-mono);">${probPct}%</span>
+                    <div style="text-align:right;font-size:10px;color:#666;line-height:1.6;">
+                        내 점수: <strong style="color:var(--text)">${myScore}점</strong><br>
+                        컷트라인: <strong style="color:var(--text)">${cutline}점</strong>
+                    </div>
+                </div>
+                <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;">
+                    <div style="width:${probPct}%;height:100%;background:${probColor};border-radius:3px;transition:width 0.4s ease;"></div>
+                </div>
+                <div style="font-size:10px;color:#666;margin-top:6px;line-height:1.5;">
+                    📄 원서비 1장 소모 · 합격 시 <strong style="color:var(--accent-gold)">${esc(user.university)}</strong> 취득
+                </div>
+            </div>
+        `;
+    } else if (myScore < 1) {
+        probHTML = `<div style="margin-top:10px;padding:8px 12px;border:1px solid rgba(255,100,100,0.2);border-radius:6px;font-size:11px;color:#e88;">내 성채에서 점수를 먼저 등록하세요.</div>`;
+    } else {
+        probHTML = `<div style="margin-top:10px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:#666;">해당 대학 정보가 없습니다.</div>`;
+    }
+
     document.getElementById('user-modal-body').innerHTML = `
         <div class="estate-section">
             <div class="estate-label">🏫 모의진학 대학</div>
@@ -572,11 +661,7 @@ function openUserModal(user) {
             <div class="estate-label">상태</div>
             <div class="estate-val">${user.is_studying ? '📖 공부 중' : '휴식 중'}</div>
         </div>
-        <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-sub);line-height:1.7">
-            📋 <strong style="color:var(--text)">평가원 모의고사 점수</strong>로 합격 여부 결정<br>
-            🏆 합격 시 상대방 모의진학 대학 취득<br>
-            📄 원서비 1장 소모 · 내 점수: <strong style="color:var(--accent-gold)">${myScore > 0 ? myScore + '점' : '미등록'}</strong>
-        </div>
+        ${probHTML}
     `;
     const tickets = currentUser?.tickets || 0;
     const hasScore = myScore > 0;
@@ -605,9 +690,10 @@ async function doInvade() {
         if (!r.ok) { alert(data.error || '오류 발생'); return; }
 
         const won = data.result === 'WIN';
+        const probLine = data.accept_prob != null ? `\n합격 확률: ${data.accept_prob}%` : '';
         const msg = won
-            ? `🎉 모의지원 합격!\n\n내 점수: ${data.attacker_score}점\n상대 점수: ${data.defender_score}점\n\n🏫 모의진학 대학: ${data.defender_university}(으)로 변경!`
-            : `📝 모의지원 불합격\n\n내 점수: ${data.attacker_score}점\n상대 점수: ${data.defender_score}점\n\n더 열심히 공부해서 다시 도전하세요!`;
+            ? `🎉 모의지원 합격!\n\n내 점수: ${data.attacker_score}점${probLine}\n🏫 대학: ${data.defender_university}(으)로 변경!`
+            : `📝 모의지원 불합격\n\n내 점수: ${data.attacker_score}점${probLine}\n\n더 열심히 공부해서 다시 도전하세요!`;
         alert(msg);
         currentUser = data.user;
         updateHUD(data.user);
@@ -649,20 +735,29 @@ async function renderApplyPanel() {
             ? `<span style="color:#888">미인증 (점수 인증 시 슬롯 확대)</span>`
             : `<span style="color:var(--accent-gold)">${my_score}점</span>`;
 
+        // 이력 항목별 합격 확률 계산 (프론트엔드)
         const histHTML = applications.length === 0
             ? '<div style="color:#555;font-size:11px;text-align:center;padding:16px;">지원 이력이 없습니다.</div>'
             : applications.map(app => {
                 const won = app.result === 'WIN';
                 const date = new Date(app.created_at).toLocaleDateString('ko-KR', { month:'numeric', day:'numeric' });
+                const bp = getUniBasePercentile(app.target_university);
+                let probStr = '';
+                if (bp !== null && app.my_score > 0) {
+                    const prob = Math.round(calcAcceptProb(app.my_score, bp) * 100);
+                    probStr = ` · 확률 ${prob}%`;
+                } else if (app.accept_prob) {
+                    probStr = ` · 확률 ${app.accept_prob}%`;
+                }
                 return `
                     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid ${won ? 'rgba(212,175,55,0.3)' : 'var(--border)'};border-radius:4px;background:${won ? 'rgba(212,175,55,0.05)' : 'transparent'};">
                         <div>
                             <div style="font-size:12px;font-weight:600;color:var(--text);">${esc(app.target_university || '?')}</div>
-                            <div style="font-size:10px;color:#666;margin-top:1px;">${esc(app.target_nickname)} · ${date}</div>
+                            <div style="font-size:10px;color:#666;margin-top:1px;">${esc(app.target_nickname)} · ${date}${probStr}</div>
                         </div>
                         <div style="text-align:right;flex-shrink:0;margin-left:8px;">
                             <div style="font-size:12px;font-weight:700;color:${won ? 'var(--accent-gold)' : '#e55'};">${won ? '합격' : '불합격'}</div>
-                            <div style="font-size:10px;color:#666;">${app.my_score}점 vs ${app.target_score}점</div>
+                            <div style="font-size:10px;color:#666;">${app.my_score}점</div>
                         </div>
                     </div>
                 `;

@@ -97,10 +97,10 @@ body.active { border-color: var(--accent-red); }
     font-size: 16vw; line-height: 1; font-weight: 700;
     color: var(--text-primary); letter-spacing: -3px;
     text-shadow: 0 0 50px rgba(255,255,255,0.1);
-    margin: 45px 0; font-variant-numeric: tabular-nums;
+    margin: 24px 0; font-variant-numeric: tabular-nums;
     transition: color 0.5s;
 }
-.timer-ms { font-size: 4vw; color: #333; margin-left: -20px; letter-spacing: 0; }
+.timer-ms { font-size: 4vw; color: #333; margin-left: -10px; letter-spacing: 0; vertical-align: baseline; }
 
 /* Active State Styles */
 body.active .setup-group { opacity: 0; transform: translateY(-20px); pointer-events: none; position: absolute; }
@@ -109,7 +109,7 @@ body.active .timer-display { color: var(--text-primary); }
 body.active .timer-ms { color: #444; }
 
 /* Buttons */
-.control-group { margin-top: 40px; text-align: center; height: 60px; }
+.control-group { margin-top: 24px; text-align: center; }
 .cmd-btn {
     background: transparent; border: 1px solid var(--border-color);
     color: var(--text-secondary); padding: 16px 40px;

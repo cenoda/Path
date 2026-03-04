@@ -78,7 +78,7 @@ function updateHUD(user) {
     document.getElementById('hud-univ').textContent = user.university || '-';
     document.getElementById('hud-gold').textContent = (user.gold || 0).toLocaleString();
     document.getElementById('hud-hours').textContent = secToHour(myTotalSec);
-    document.getElementById('hud-tickets').textContent = (user.tickets || 0);
+    document.getElementById('hud-tickets').textContent = (user.tickets || 0) + '장';
 }
 
 function updateMyBuilding(user) {

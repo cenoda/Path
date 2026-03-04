@@ -7,6 +7,22 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="path-interface">
+<script>
+(function(){
+    const t = localStorage.getItem('path_theme') || 'dark';
+    if (t === 'light') document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', function(){
+        const btn = document.getElementById('theme-btn');
+        if (btn) btn.textContent = (t === 'light') ? '🌙' : '☀️';
+    });
+})();
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light');
+    localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = isLight ? '🌙' : '☀️';
+}
+</script>
     
     <!-- Top Status Line -->
     <header class="status-bar">
@@ -19,6 +35,7 @@
         <div class="status-right">
             <span class="resource">🪙 <span id="gold-val">14,500</span></span>
             <span class="resource">📄 원서비 <span id="ticket-val">01</span>장</span>
+            <button id="theme-btn" class="exit-timer-btn" onclick="toggleTheme()" title="라이트/다크 모드" style="font-size:16px;">☀️</button>
         </div>
     </header>
 

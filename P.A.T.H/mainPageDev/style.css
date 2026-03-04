@@ -1,3 +1,32 @@
+body.light {
+    --bg-color: #edf4fb;
+    --text-primary: #1a1f2e;
+    --text-secondary: #6a7585;
+    --border-color: rgba(0,0,0,0.10);
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    border-color: rgba(0,0,0,0.12);
+}
+body.light.active { border-color: var(--accent-red); }
+body.light .status-bar { border-bottom-color: rgba(0,0,0,0.10); }
+body.light .exit-timer-btn { border-color: rgba(0,0,0,0.12); color: var(--text-secondary); }
+body.light .exit-timer-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-primary); border-color: rgba(0,0,0,0.25); }
+body.light .mode-group { border-color: rgba(0,0,0,0.12); }
+body.light .mode-btn + .mode-btn { border-left-color: rgba(0,0,0,0.10); }
+body.light .time-input { color: var(--text-primary); border-bottom-color: #b0b8c8; }
+body.light .time-input:focus { border-color: var(--accent-gold); color: var(--accent-gold); }
+body.light .input-sep { color: #b0b8c8; }
+body.light .timer-display { text-shadow: none; }
+body.light .timer-ms { color: #b0b8c8; }
+body.light body.active .timer-ms { color: #9aacbc; }
+body.light .cmd-btn { border-color: rgba(0,0,0,0.12); color: var(--text-secondary); }
+body.light .cmd-btn:hover { border-color: rgba(0,0,0,0.35); color: var(--text-primary); background: rgba(0,0,0,0.04); }
+body.light .btn-primary { border-color: var(--accent-gold); color: var(--accent-gold); }
+body.light .btn-danger { border-color: var(--accent-red); color: var(--accent-red); }
+body.light .system-msg { color: #b0b8c8; }
+body.light .result-overlay { background: rgba(240,246,252,0.97); }
+body.light .result-card { color: var(--text-primary); }
+
 :root {
     --bg-color: #050505;
     --accent-gold: #D4AF37;

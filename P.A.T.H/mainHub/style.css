@@ -11,6 +11,57 @@
     --font-mono: "SF Mono", "Monaco", monospace;
 }
 
+body.light {
+    --bg-color: #e8f2fa;
+    --surface-color: rgba(255, 255, 255, 0.88);
+    --surface-hover: rgba(245, 248, 252, 0.97);
+    --border-color: rgba(0, 0, 0, 0.10);
+    --text-primary: #1a1f2e;
+    --text-secondary: #6a7585;
+    background: var(--bg-color);
+    color: var(--text-primary);
+}
+body.light .hud-header {
+    background: rgba(235,245,255,0.88);
+    border-bottom-color: rgba(0,0,0,0.10);
+}
+body.light .glass-panel {
+    background: rgba(240,248,255,0.97);
+    border-color: rgba(0,0,0,0.10);
+}
+body.light .building-label {
+    background: rgba(240,248,255,0.92);
+    border-color: rgba(0,0,0,0.12);
+    color: var(--text-primary);
+}
+body.light .building-label.mine { border-color: var(--accent-gold); color: var(--accent-gold); }
+body.light .map-controls {
+    background: rgba(235,245,255,0.80);
+    border-color: rgba(0,0,0,0.10);
+}
+body.light .map-controls button { color: var(--text-secondary); }
+body.light .map-controls button:hover { background: rgba(0,0,0,0.06); color: var(--text-primary); }
+body.light .rank-btn { background: rgba(235,245,255,0.80); border-color: rgba(0,0,0,0.10); }
+body.light .sys-btn:hover { border-color: rgba(0,0,0,0.25); color: var(--text-primary); }
+body.light .action-main { background: rgba(240,248,255,0.90); }
+body.light #global-search { background: rgba(0,0,0,0.05); color: var(--text-primary); }
+body.light #global-search:focus { background: rgba(0,0,0,0.08); }
+body.light .full-overlay { background: #f0f6fc; }
+body.light .modal-backdrop { background: rgba(0,0,0,0.5); }
+body.light .modal-card { background: #f5f9ff; border-color: rgba(0,0,0,0.10); }
+body.light .tab { border-color: rgba(0,0,0,0.10); color: var(--text-secondary); }
+body.light .tab.active { border-color: var(--accent-gold); color: var(--accent-gold); }
+body.light .rank-item { border-bottom-color: rgba(0,0,0,0.05); }
+body.light .interior-card { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
+body.light .shop-item { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
+body.light .shop-icon { background: rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.08); }
+body.light .shop-btn { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.10); color: var(--text-secondary); }
+body.light #world-container {
+    background-image:
+        linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
 
 body, html {

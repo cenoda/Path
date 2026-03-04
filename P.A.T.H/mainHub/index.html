@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<script>
+(function(){
+    const t = localStorage.getItem('path_theme') || 'dark';
+    if (t === 'light') document.body.classList.add('light');
+})();
+</script>
     <div id="ui-overlay">
         <!-- Top Bar -->
         <header class="hud-header">
@@ -38,6 +44,7 @@
                     <button class="sys-btn" onclick="togglePanel('panel-notif')">
                         LOGS <span id="notif-badge" class="dot hidden"></span>
                     </button>
+                    <button class="sys-btn" id="theme-btn" onclick="toggleTheme()" title="라이트/다크 모드">☀</button>
                     <button class="sys-btn" onclick="doLogout()">EXIT</button>
                 </div>
             </div>

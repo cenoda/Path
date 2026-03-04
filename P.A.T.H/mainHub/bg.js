@@ -279,15 +279,128 @@ const BG = {
         `;
     },
 
+    drawDaytime() {
+        const W = this.canvas.width;
+        const H = this.canvas.height;
+        const ctx = this.ctx;
+        const t = this.t;
+
+        const sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0,    '#1460a8');
+        sky.addColorStop(0.42, '#4aa5e0');
+        sky.addColorStop(0.72, '#b5daf5');
+        sky.addColorStop(0.88, '#f0dab8');
+        sky.addColorStop(1,    '#e8cfa0');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, W, H);
+
+        const sunX = W * 0.78, sunY = H * 0.16;
+        const halo = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 240);
+        halo.addColorStop(0, 'rgba(255,244,180,0.24)');
+        halo.addColorStop(1, 'rgba(255,244,180,0)');
+        ctx.fillStyle = halo; ctx.fillRect(0, 0, W, H);
+
+        const inner = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 72);
+        inner.addColorStop(0, 'rgba(255,252,200,0.58)');
+        inner.addColorStop(1, 'rgba(255,252,200,0)');
+        ctx.fillStyle = inner; ctx.fillRect(0, 0, W, H);
+
+        ctx.fillStyle = '#fffbe8';
+        ctx.beginPath(); ctx.arc(sunX, sunY, 36, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(sunX, sunY, 24, 0, Math.PI * 2); ctx.fill();
+
+        this.drawClouds(ctx, W, H, t);
+
+        const haze = ctx.createLinearGradient(0, H * 0.72, 0, H);
+        haze.addColorStop(0, 'rgba(255,230,180,0)');
+        haze.addColorStop(1, 'rgba(255,215,155,0.28)');
+        ctx.fillStyle = haze; ctx.fillRect(0, 0, W, H);
+
+        this.drawDayCity(ctx, W, H);
+    },
+
+    drawClouds(ctx, W, H, t) {
+        const defs = [
+            { bx: 0.12, by: 0.11, sc: 1.2,  sp: 0.000075 },
+            { bx: 0.40, by: 0.07, sc: 0.82, sp: 0.000055 },
+            { bx: 0.65, by: 0.14, sc: 1.05, sp: 0.000090 },
+            { bx: 0.28, by: 0.21, sc: 0.62, sp: 0.000065 },
+        ];
+        defs.forEach(c => {
+            const cx = ((c.bx * W + t * c.sp * W) % (W * 1.35)) - W * 0.18;
+            const cy = c.by * H;
+            ctx.globalAlpha = 0.90;
+            this.drawCloud(ctx, cx, cy, c.sc);
+            ctx.globalAlpha = 1;
+        });
+    },
+
+    drawCloud(ctx, cx, cy, sc) {
+        const s = sc * 46;
+        ctx.fillStyle = 'rgba(255,255,255,0.93)';
+        ctx.beginPath();
+        ctx.arc(cx,             cy,           s * 0.60, 0, Math.PI * 2);
+        ctx.arc(cx + s * 0.70,  cy - s * 0.14, s * 0.50, 0, Math.PI * 2);
+        ctx.arc(cx + s * 1.32,  cy,           s * 0.55, 0, Math.PI * 2);
+        ctx.arc(cx + s * 0.66,  cy + s * 0.44, s * 0.60, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(180,210,240,0.28)';
+        ctx.beginPath();
+        ctx.ellipse(cx + s * 0.66, cy + s * 0.52, s * 0.92, s * 0.24, 0, 0, Math.PI * 2);
+        ctx.fill();
+    },
+
+    drawDayCity(ctx, W, H) {
+        const cityBaseY = H;
+        const windowW = 4, windowH = 3, gapX = 9, gapY = 9, padX = 4, padY = 5;
+        this.city.forEach(b => {
+            const bTop = cityBaseY - b.h;
+            const bGrad = ctx.createLinearGradient(b.x, 0, b.x + b.w, 0);
+            bGrad.addColorStop(0, '#7888a0');
+            bGrad.addColorStop(1, '#9aafc0');
+            ctx.fillStyle = bGrad;
+            ctx.fillRect(b.x, bTop, b.w, b.h);
+            ctx.fillStyle = 'rgba(255,255,255,0.13)';
+            ctx.fillRect(b.x, bTop, b.w, 4);
+            ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(b.x + 0.5, bTop + 0.5, b.w - 1, b.h - 1);
+
+            const cols = Math.max(1, Math.floor((b.w - padX * 2) / gapX));
+            const rows = Math.max(1, Math.floor((b.h - padY * 2) / gapY));
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const wx = b.x + padX + c * gapX;
+                    const wy = bTop + padY + r * gapY;
+                    ctx.fillStyle = 'rgba(40,60,90,0.68)';
+                    ctx.fillRect(wx, wy, windowW, windowH);
+                    ctx.fillStyle = 'rgba(180,220,255,0.22)';
+                    ctx.fillRect(wx, wy, windowW, 1);
+                }
+            }
+        });
+        const gnd = ctx.createLinearGradient(0, H - 50, 0, H);
+        gnd.addColorStop(0, 'rgba(180,160,120,0)');
+        gnd.addColorStop(1, 'rgba(160,140,100,0.82)');
+        ctx.fillStyle = gnd;
+        ctx.fillRect(0, H - 50, W, 50);
+    },
+
     loop() {
         const W = this.canvas.width;
         const H = this.canvas.height;
         this.ctx.clearRect(0, 0, W, H);
-        this.drawBg();
-        if (this.quality.aurora) this.drawAurora();
-        this.drawStars();
-        if (this.quality.shooting) { this.maybeShoot(); this.drawShootingStars(); }
-        this.drawCity();
+        const isLight = document.body.classList.contains('light');
+        if (isLight) {
+            this.drawDaytime();
+        } else {
+            this.drawBg();
+            if (this.quality.aurora) this.drawAurora();
+            this.drawStars();
+            if (this.quality.shooting) { this.maybeShoot(); this.drawShootingStars(); }
+            this.drawCity();
+        }
         this.t++;
         requestAnimationFrame(() => this.loop());
     }

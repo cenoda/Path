@@ -1,5 +1,18 @@
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light');
+    localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = isLight ? '🌙' : '☀';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('theme-btn');
+    const isLight = document.body.classList.contains('light');
+    if (btn) btn.textContent = isLight ? '🌙' : '☀';
+});
+
 let currentUser = null;
 let myTotalSec = 0;
 let allUsers = [];

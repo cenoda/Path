@@ -72,9 +72,60 @@
             line-height: 1.6; letter-spacing: 0.5px; display: none;
         }
         .privacy-box.show { display: block; }
+
+        .theme-toggle-btn {
+            position: fixed; top: 16px; right: 16px;
+            background: none; border: 1px solid #333;
+            color: #888; padding: 7px 12px; font-size: 16px;
+            cursor: pointer; border-radius: 4px; transition: 0.3s;
+            z-index: 999; line-height: 1;
+        }
+        .theme-toggle-btn:hover { border-color: #888; color: #ccc; }
+
+        body.light {
+            background: #edf4fb;
+            color: #1a1f2e;
+            border-color: rgba(0,0,0,0.10);
+        }
+        body.light .logo { color: #1a1f2e; text-shadow: 0 0 30px rgba(212,175,55,0.18); }
+        body.light .tagline { color: #8090a8; }
+        body.light .tabs { border-bottom-color: #d0d8e4; }
+        body.light .tab { color: #a0a8b8; }
+        body.light .tab.active { color: var(--gold); }
+        body.light label { color: #8090a8; }
+        body.light input[type="text"], body.light input[type="password"] {
+            color: #1a1f2e;
+            border-bottom-color: #b8c4d0;
+        }
+        body.light .btn-submit { border-color: #b8c4d0; color: #7a8898; }
+        body.light .btn-submit:hover { border-color: #1a1f2e; color: #1a1f2e; }
+        body.light .univ-results { background: #fff; border-color: #d0d8e4; }
+        body.light .univ-item { color: #444; border-bottom-color: #eef2f8; background: #fff; }
+        body.light .univ-item:hover { background: #f0f6fc; color: var(--gold); }
+        body.light .check-row label { color: #8090a8; }
+        body.light .privacy-box { background: rgba(0,0,0,0.03); border-color: #d0d8e4; color: #8090a8; }
+        body.light .theme-toggle-btn { border-color: #c0c8d8; color: #8090a8; }
+        body.light .theme-toggle-btn:hover { border-color: #1a1f2e; color: #1a1f2e; }
     </style>
 </head>
 <body>
+<script>
+(function(){
+    const th = localStorage.getItem('path_theme') || 'dark';
+    if (th === 'light') document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', function(){
+        const btn = document.getElementById('theme-btn');
+        if (btn) btn.textContent = (th === 'light') ? '🌙' : '☀️';
+    });
+})();
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light');
+    localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = isLight ? '🌙' : '☀️';
+}
+</script>
+<button id="theme-btn" class="theme-toggle-btn" onclick="toggleTheme()">☀️</button>
     <div class="logo">P.A.T.H</div>
     <div class="tagline">수험생을 위한 극한의 공부 경쟁</div>
 

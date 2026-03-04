@@ -44,6 +44,18 @@ function getBuildingStyle(percentile) {
 }
 
 // ── 초기화 ───────────────────────────────────────────────────────────
+function focusMyBuilding() {
+    const castle = document.getElementById('my-castle');
+    if (!castle) return;
+    const vW = window.innerWidth;
+    const vH = window.innerHeight;
+    const bX = 2000; // Default center as fallback
+    const bY = 2000;
+    mapOffsetX = (vW / 2) - (bX * scale);
+    mapOffsetY = (vH / 2) - (bY * scale);
+    updateMapTransform();
+}
+
 async function initHub() {
     try {
         const [meRes, rankMeRes] = await Promise.all([
@@ -63,7 +75,6 @@ async function initHub() {
             topPct = parseFloat(rankData.pct) || 100;
             document.getElementById('hud-pct').textContent = `TIME TOP ${rankData.pct}%`;
 
-            // [New] Score Percentile Display
             const elScore = document.getElementById('hud-score-pct');
             if (rankData.scorePct) {
                 elScore.style.display = 'block';
@@ -78,8 +89,9 @@ async function initHub() {
         updateHUD(currentUser);
         updateMyBuilding(currentUser);
         await Promise.all([loadRankingAndMap(), loadNotifBadge()]);
+        
+        focusMyBuilding();
 
-        // [Agent Notice] Show once
         if (!localStorage.getItem('agent_notice_v1')) {
             setTimeout(() => togglePanel('panel-agent-notice'), 800);
             localStorage.setItem('agent_notice_v1', 'true');

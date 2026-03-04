@@ -29,7 +29,20 @@
         .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
         .form { display: none; flex-direction: column; gap: 20px; }
         .form.active { display: flex; }
-        .field { display: flex; flex-direction: column; gap: 8px; }
+        .field { display: flex; flex-direction: column; gap: 8px; position: relative; }
+        .univ-results {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: #111; border: 1px solid #222; border-top: none;
+            max-height: 200px; overflow-y: auto; z-index: 100;
+            display: none;
+        }
+        .univ-results.show { display: block; }
+        .univ-item {
+            padding: 10px; font-size: 13px; color: #ccc; cursor: pointer;
+            border-bottom: 1px solid #1a1a1a;
+        }
+        .univ-item:hover { background: #1a1a1a; color: var(--gold); }
+        .univ-item:last-child { border-bottom: none; }
         label { font-size: 10px; letter-spacing: 3px; color: #555; text-transform: uppercase; }
         input[type="text"], input[type="password"] {
             background: none; border: none; border-bottom: 1px solid #222;
@@ -95,7 +108,8 @@
             </div>
             <div class="field">
                 <label>목표 대학교</label>
-                <input type="text" id="reg-univ" placeholder="ex) 연세대학교" autocomplete="off">
+                <input type="text" id="reg-univ" placeholder="대학명 검색 (예: 연세)" autocomplete="off" oninput="searchUniv(this.value, 'reg-univ-results')">
+                <div id="reg-univ-results" class="univ-results"></div>
             </div>
             <div class="field">
                 <label>비밀번호</label>
@@ -110,7 +124,8 @@
             <div class="nsu-fields" id="nsu-fields">
                 <div class="field">
                     <label>전적 대학교 (재학/졸업)</label>
-                    <input type="text" id="reg-prev-univ" placeholder="ex) 건국대학교" autocomplete="off">
+                    <input type="text" id="reg-prev-univ" placeholder="대학명 검색" autocomplete="off" oninput="searchUniv(this.value, 'reg-prev-results')">
+                    <div id="reg-prev-results" class="univ-results"></div>
                 </div>
             </div>
 
@@ -163,6 +178,43 @@
         function checkSubmit() {
             document.getElementById('reg-submit').disabled = !document.getElementById('reg-privacy').checked;
         }
+
+        async function searchUniv(q, resultsId) {
+            const resEl = document.getElementById(resultsId);
+            if (!q || q.length < 1) {
+                resEl.classList.remove('show');
+                return;
+            }
+            try {
+                const r = await fetch(`/api/university/search?q=${encodeURIComponent(q)}`);
+                const data = await r.json();
+                const list = data.results || [];
+                if (list.length === 0) {
+                    resEl.classList.remove('show');
+                    return;
+                }
+                resEl.innerHTML = list.map(u => `
+                    <div class="univ-item" onclick="selectUniv('${u.name}', '${resultsId.replace('-results', '')}', '${resultsId}')">
+                        ${u.name} <span style="font-size:10px;color:#555">(${u.region})</span>
+                    </div>
+                `).join('');
+                resEl.classList.add('show');
+            } catch (e) {
+                console.error('univ search error', e);
+            }
+        }
+
+        function selectUniv(name, inputId, resultsId) {
+            document.getElementById(inputId).value = name;
+            document.getElementById(resultsId).classList.remove('show');
+        }
+
+        // Close results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.field')) {
+                document.querySelectorAll('.univ-results').forEach(el => el.classList.remove('show'));
+            }
+        });
 
         async function doLogin(e) {
             e.preventDefault();

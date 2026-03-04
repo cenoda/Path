@@ -78,10 +78,10 @@ const BG = {
         const [r2, g2, b2] = q.bgMid;
         
         const grad = this.ctx.createLinearGradient(0, 0, 0, H);
-        grad.addColorStop(0,   `rgb(${r1},${g1},${b1})`);
-        grad.addColorStop(0.4, `rgb(${r2},${g2},${b2})`);
-        grad.addColorStop(0.8, `rgb(2,2,4)`);
-        grad.addColorStop(1,   `rgb(0,0,0)`);
+        grad.addColorStop(0,   `rgb(${r1+15},${g1+15},${b1+25})`);
+        grad.addColorStop(0.4, `rgb(${r2+10},${g2+10},${b2+20})`);
+        grad.addColorStop(0.8, `rgb(10,10,25)`);
+        grad.addColorStop(1,   `rgb(5,5,15)`);
         this.ctx.fillStyle = grad;
         this.ctx.fillRect(0, 0, W, H);
 
@@ -212,12 +212,12 @@ const BG = {
 
             // Gradient for building side to give 3D feel
             const bGrad = ctx.createLinearGradient(b.x, 0, b.x + b.w, 0);
-            bGrad.addColorStop(0, '#030305');
-            bGrad.addColorStop(1, '#08080c');
+            bGrad.addColorStop(0, '#050508');
+            bGrad.addColorStop(1, '#0c0c15');
             ctx.fillStyle = bGrad;
             ctx.fillRect(b.x, bTop, b.w, b.h);
             
-            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
             ctx.lineWidth = 1;
             ctx.strokeRect(b.x + 0.5, bTop + 0.5, b.w - 1, b.h - 1);
 

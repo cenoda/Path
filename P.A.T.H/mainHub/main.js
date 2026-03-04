@@ -78,7 +78,7 @@ function updateHUD(user) {
     document.getElementById('hud-univ').textContent = user.university || '-';
     document.getElementById('hud-gold').textContent = (user.gold || 0).toLocaleString();
     document.getElementById('hud-hours').textContent = secToHour(myTotalSec);
-    document.getElementById('hud-tickets').textContent = (user.tickets || 0) + '장';
+    document.getElementById('hud-tickets').textContent = (user.tickets || 0);
 }
 
 function updateMyBuilding(user) {
@@ -304,19 +304,6 @@ async function openEstate() {
                 </div>
 
                 <div class="interior-card">
-                    <div class="interior-card-title">🎟️ 토너먼트</div>
-                    <div class="estate-section">
-                        <div class="estate-label">보유 토너먼트권</div>
-                        <div class="estate-val" style="font-size:18px;font-weight:700">${currentUser?.tickets || 0}장</div>
-                    </div>
-                    <div class="estate-section">
-                        <div class="estate-label">가격</div>
-                        <div class="estate-val">1장 = ${data.ticketPrice.toLocaleString()}G</div>
-                    </div>
-                    <button class="interior-action-btn" onclick="buyTicket(${data.ticketPrice})">🎟️ 구매</button>
-                </div>
-
-                <div class="interior-card">
                     <div class="interior-card-title">📋 평가원 점수 인증</div>
                     ${scoreSection}
                 </div>
@@ -526,22 +513,6 @@ async function collectTax() {
     } catch (e) { alert('오류 발생'); }
 }
 
-async function buyTicket(price) {
-    if (!confirm(`토너먼트권 1장을 ${price.toLocaleString()}G에 구매하시겠습니까?`)) return;
-    try {
-        const r = await fetch('/api/estate/buy-ticket', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ quantity: 1 })
-        });
-        const data = await r.json();
-        if (!r.ok) { alert(data.error || '구매 실패'); return; }
-        alert(`토너먼트권 1장 구매 완료! (-${data.spent.toLocaleString()}G)`);
-        await refreshCurrentUser();
-        closeInterior();
-    } catch (e) { alert('오류 발생'); }
-}
 
 // ── 유저 모달 (침략) ──────────────────────────────────────────────────
 function openUserModal(user) {
@@ -564,7 +535,7 @@ function openUserModal(user) {
         <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-sub);line-height:1.7">
             ⚔️ <strong style="color:var(--text)">평가원 모의고사 점수</strong>로 승패 결정<br>
             🏆 승리 시 상대방 영지(대학)를 취득<br>
-            🎟️ 토너먼트권 1장 소모 · 내 점수: <strong style="color:var(--gold)">${myScore > 0 ? myScore + '점' : '미등록'}</strong>
+            📄 원서비 1장 소모 · 내 점수: <strong style="color:var(--gold)">${myScore > 0 ? myScore + '점' : '미등록'}</strong>
         </div>
     `;
     const tickets = currentUser?.tickets || 0;
@@ -578,10 +549,10 @@ function openUserModal(user) {
 
 async function doInvade() {
     if (!selectedUser) return;
-    if ((currentUser?.tickets || 0) < 1) { alert('토너먼트권이 없습니다.\n내 영지에서 골드로 구매하세요!'); return; }
+    if ((currentUser?.tickets || 0) < 1) { alert('원서비가 없습니다.\nSHOP에서 골드로 구매하세요!'); return; }
     if (!currentUser?.mock_exam_score) { alert('평가원 점수를 먼저 등록해주세요.\n(내 성채 클릭 → 점수 등록)'); return; }
 
-    if (!confirm(`${selectedUser.nickname}의 영지(${selectedUser.university || '?'})를 침략하시겠습니까?\n토너먼트권 1장 소모`)) return;
+    if (!confirm(`${selectedUser.nickname}의 영지(${selectedUser.university || '?'})를 침략하시겠습니까?\n원서비 1장 소모`)) return;
 
     try {
         const r = await fetch('/api/invasion/attack', {
@@ -632,6 +603,7 @@ function togglePanel(id) {
         el.classList.remove('hidden');
         if (id === 'panel-rank') loadRankPanel(currentRankTab);
         if (id === 'panel-notif') loadNotifPanel();
+        if (id === 'panel-shop') renderShopContent(currentShopTab);
     }
 }
 
@@ -690,114 +662,94 @@ async function doLogout() {
     window.location.href = '/P.A.T.H/login/index.html';
 }
 
-/* ── SHOP SYSTEM (Added) ── */
-let currentShopTab = 'gacha';
-
-// Mock Data
-const shopItems = {
-    skin: [
-        { id: 's1', name: 'OBSIDIAN CASTLE', desc: 'Sleek black finish.', price: 50000, icon: '🏰' },
-        { id: 's2', name: 'GOLDEN AGE', desc: 'Symbol of wealth.', price: 120000, icon: '🏯' },
-        { id: 's3', name: 'CYBER FORTRESS', desc: 'Advanced defensive aesthetic.', price: 85000, icon: '🏙️' }
-    ],
-    item: [
-        { id: 'i1', name: 'TOURNAMENT TICKET', desc: 'Entry pass for study battles.', price: 1000, icon: '🎟️' },
-        { id: 'i2', name: 'EXP BOOSTER (1H)', desc: '+50% Gold gain for 1 hour.', price: 5000, icon: '⚡' },
-        { id: 'i3', name: 'SHIELD GEN', desc: 'Prevents one invasion.', price: 3000, icon: '🛡️' }
-    ]
-};
+/* ── SHOP SYSTEM ── */
+let currentShopTab = 'item';
+let cachedTicketPrice = null;
 
 function switchShopTab(tab, btn) {
     currentShopTab = tab;
-    // Update Tab UI
     const parent = btn.parentElement;
     parent.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    
     renderShopContent(tab);
 }
 
-function renderShopContent(tab) {
+async function renderShopContent(tab) {
     const container = document.getElementById('shop-content');
-    if (!container) return; // Guard clause
-    container.innerHTML = '';
-    
-    if (tab === 'gacha') {
+    if (!container) return;
+    container.innerHTML = '<div style="color:#666;text-align:center;padding:20px;font-size:12px">로딩 중...</div>';
+
+    if (tab === 'item') {
+        try {
+            const r = await fetch('/api/estate/tax', { credentials: 'include' });
+            const data = r.ok ? await r.json() : {};
+            const price = data.ticketPrice || 1000;
+            cachedTicketPrice = price;
+            const myTickets = currentUser?.tickets || 0;
+            const myGold = currentUser?.gold || 0;
+
+            container.innerHTML = `
+                <div style="padding:12px 0;">
+                    <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:12px;">내 보유 원서비: <strong style="color:var(--gold)">${myTickets}장</strong> &nbsp;|&nbsp; 보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong></div>
+                    <div class="shop-grid">
+                        <div class="shop-item">
+                            <div class="shop-icon">📄</div>
+                            <div class="shop-info">
+                                <div class="shop-name">원서비</div>
+                                <div class="shop-desc">침략 시 1장 소모. 승리하면 상대 대학 취득.</div>
+                                <div class="shop-cost">
+                                    <span>1장 가격</span>
+                                    <span>${price.toLocaleString()} G</span>
+                                </div>
+                                <div style="font-size:10px;color:#555;margin-top:4px;">대학 등급에 따라 가격이 다름</div>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;">
+                                <button class="shop-btn" onclick="buyApplicationFee(1)">1장 구매</button>
+                                <button class="shop-btn" style="background:rgba(255,193,7,0.15);border-color:var(--gold)" onclick="buyApplicationFee(5)">5장 구매</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            container.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;font-size:12px">정보를 불러오지 못했습니다.</div>';
+        }
+    } else if (tab === 'skin') {
         container.innerHTML = `
-            <div class="gacha-container">
-                <div class="gacha-box" id="gacha-visual-box">
-                    <div class="gacha-visual">📦</div>
-                </div>
-                <div class="gacha-action">
-                    <button class="gacha-btn-1" onclick="runGacha(1)">DRAW 1 <br> (1,000G)</button>
-                    <button class="gacha-btn-10" onclick="runGacha(10)">DRAW 10 <br> (9,500G)</button>
-                </div>
-                <div style="font-size:10px; color:#666; margin-top:20px;">
-                    LEGENDARY: 1% &nbsp;|&nbsp; EPIC: 4% &nbsp;|&nbsp; RARE: 15% &nbsp;|&nbsp; COMMON: 80%
-                </div>
+            <div style="text-align:center;padding:30px 0;color:#555;font-size:12px;letter-spacing:1px;">
+                SKINS — COMING SOON
             </div>
         `;
     } else {
-        const items = shopItems[tab] || [];
-        const grid = document.createElement('div');
-        grid.className = 'shop-grid';
-        
-        items.forEach(async (item) => { // async to allow using await if needed, but here simple
-            const el = document.createElement('div');
-            el.className = 'shop-item';
-            el.innerHTML = `
-                <div class="shop-icon">${item.icon}</div>
-                <div class="shop-info">
-                    <div class="shop-name">${item.name}</div>
-                    <div class="shop-desc">${item.desc}</div>
-                    <div class="shop-cost">
-                        <span>PRICE</span>
-                        <span>${item.price.toLocaleString()} G</span>
-                    </div>
-                </div>
-                <button class="shop-btn" onclick="buyShopItem('${item.id}', ${item.price})">PURCHASE</button>
-            `;
-            grid.appendChild(el);
+        container.innerHTML = `
+            <div style="text-align:center;padding:30px 0;color:#555;font-size:12px;letter-spacing:1px;">
+                준비 중입니다.
+            </div>
+        `;
+    }
+}
+
+async function buyApplicationFee(qty) {
+    if (!cachedTicketPrice) {
+        alert('가격 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+    const totalCost = cachedTicketPrice * qty;
+    if (!confirm(`원서비 ${qty}장을 ${totalCost.toLocaleString()}G에 구매하시겠습니까?`)) return;
+    try {
+        const r = await fetch('/api/estate/buy-ticket', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ quantity: qty })
         });
-        container.appendChild(grid);
-    }
-}
-
-async function buyShopItem(id, price) {
-    if (!confirm(`Confirm purchase for ${price.toLocaleString()} G?`)) return;
-    
-    if ((currentUser.gold || 0) < price) {
-        alert('INSUFFICIENT FUNDS');
-        return;
-    }
-    
-    // In real implementation: await fetch('/api/shop/buy', ...)
-    alert('PURCHASE SUCCESSFUL (Simulation)');
-}
-
-function runGacha(amount) {
-    const cost = amount === 1 ? 1000 : 9500;
-    if ((currentUser.gold || 0) < cost) {
-        alert('INSUFFICIENT FUNDS');
-        return;
-    }
-
-    const box = document.getElementById('gacha-visual-box');
-    box.classList.add('flashing');
-    
-    // Simulate API delay
-    setTimeout(() => {
-        box.classList.remove('flashing');
-        const results = [];
-        for(let i=0; i<amount; i++) {
-            const r = Math.random();
-            if(r < 0.01) results.push('LEGENDARY');
-            else if(r < 0.05) results.push('EPIC');
-            else if(r < 0.20) results.push('RARE');
-            else results.push('COMMON');
-        }
-        alert(`GACHA RESULTS:\n${results.join(', ')}`);
-    }, 800);
+        const data = await r.json();
+        if (!r.ok) { alert(data.error || '구매 실패'); return; }
+        alert(`원서비 ${qty}장 구매 완료! (-${data.spent.toLocaleString()}G)`);
+        currentUser = data.user;
+        updateHUD(data.user);
+        renderShopContent('item');
+    } catch (e) { alert('오류 발생'); }
 }
 
 // ── 대학교 영지 목록 로드 ────────────────────────────────────────────
@@ -889,9 +841,4 @@ async function viewUniversityEstate(universityName) {
 // Or just check if panel-shop is visible.
 
 initHub();
-
-/* Init Shop Default */
-document.addEventListener('DOMContentLoaded', () => {
-    renderShopContent('gacha'); 
-});
 

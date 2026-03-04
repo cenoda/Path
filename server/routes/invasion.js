@@ -22,7 +22,7 @@ router.post('/attack', async (req, res) => {
         );
         const attacker = attackerRes.rows[0];
         if (!attacker) { await client.query('ROLLBACK'); return res.status(404).json({ error: '유저를 찾을 수 없습니다.' }); }
-        if (attacker.tickets < 1) { await client.query('ROLLBACK'); return res.status(400).json({ error: '토너먼트권이 없습니다.' }); }
+        if (attacker.tickets < 1) { await client.query('ROLLBACK'); return res.status(400).json({ error: '원서비가 없습니다.' }); }
         if (attacker.mock_exam_score < 1) { await client.query('ROLLBACK'); return res.status(400).json({ error: '평가원 모의고사 점수를 먼저 등록해주세요.' }); }
 
         // 방어자

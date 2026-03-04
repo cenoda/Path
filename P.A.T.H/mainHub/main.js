@@ -70,7 +70,7 @@ let currentRankTab = 'total';
     };
     window.getSigma = function(basePercentile) {
         const p = Math.max(0, Math.min(100, basePercentile));
-        return 2.5 + (100 - p) * 0.12;
+        return (100 - p) * 0.12;
     };
     window.calcAcceptProb = function(userScore, basePercentile) {
         const cutline = SCORE_MEAN + probit(Math.min(0.9999, Math.max(0.0001, basePercentile / 100))) * SCORE_STD;

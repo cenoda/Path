@@ -39,12 +39,12 @@ function percentileToCutline(basePercentile) {
     return SCORE_MEAN + probit(p) * SCORE_STD;
 }
 
-// 대학 수준에 따른 변동폭(Sigma) 계산: 상위권일수록 작고 하위권일수록 큼
+// 대학 수준에 따른 변동폭(Sigma) 계산: 상위권일수록 0에 수렴하고 하위권일수록 큼
 function getSigma(basePercentile) {
-    // basePercentile가 100에 가까울수록(상위권) Sigma가 작아짐
-    // 99% 이상(초상위권): ~2.5, 80%(중위권): ~5.0, 50% 이하: ~8.0
+    // basePercentile가 100에 가까울수록(상위권) Sigma가 0에 가까워짐
+    // 100%(최상위): 0, 90%(상위): 1.2, 80%(중위): 2.4, 50%(하위): 6.0
     const p = Math.max(0, Math.min(100, basePercentile));
-    return 2.5 + (100 - p) * 0.12; 
+    return (100 - p) * 0.12; 
 }
 
 // 유저 변환점수 + 대학 컷트라인 → 합격 확률 (0~1, 0.1 단위로 반올림)

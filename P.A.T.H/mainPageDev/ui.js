@@ -69,6 +69,7 @@ const UI = {
 
             this.elements.body.classList.add('active');
             this.elements.enterBtn.style.display = 'none';
+            this.elements.breakBtn.classList.remove('hidden'); // hidden 클래스 제거
             this.elements.breakBtn.style.display = 'inline-block';
 
             if (this.currentMode === 'stopwatch') {

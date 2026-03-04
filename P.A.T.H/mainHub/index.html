@@ -65,6 +65,7 @@
             </div>
             <button class="sys-btn rank-btn" onclick="togglePanel('panel-rank')">RANK</button>
             <button class="sys-btn rank-btn" onclick="togglePanel('panel-shop')">SHOP</button>
+            <button class="sys-btn rank-btn" onclick="toggleApplyPanel()">지원</button>
         </div>
 
         <!-- Bottom Center -->
@@ -131,6 +132,17 @@
         </div>
     </div>
 
+    <!-- 모의지원 Panel -->
+    <div class="glass-panel hidden" id="panel-apply" style="width: 400px;">
+        <div class="panel-head">
+            <h3>모의지원</h3>
+            <button class="close-btn" onclick="togglePanel('panel-apply')">×</button>
+        </div>
+        <div class="panel-content" id="apply-content">
+            <!-- Dynamic Content -->
+        </div>
+    </div>
+
     <!-- Agent Announcement Panel -->
     <div class="glass-panel hidden" id="panel-agent-notice" style="z-index: 2000; width: 320px; text-align: left;">
         <div class="panel-head">
@@ -171,7 +183,7 @@
             <h3 id="user-modal-title">TARGET INFO</h3>
             <div id="user-modal-body" class="modal-content"></div>
             <div class="modal-foot">
-                <button class="danger-btn" id="btn-invade" onclick="doInvade()">INVADE</button>
+                <button class="shop-btn" id="btn-invade" onclick="doInvade()" style="padding:8px 16px;font-size:11px;border-color:var(--accent-gold);color:var(--accent-gold);">도전하기</button>
                 <button class="cancel-btn" onclick="closeModal('modal-user')">CLOSE</button>
             </div>
         </div>

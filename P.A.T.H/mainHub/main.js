@@ -129,6 +129,21 @@ function updateMyBuilding(user) {
     if (label) label.textContent = user?.university || 'MY BALLOON';
 }
 
+async function loadRankingAndMap() {
+    try {
+        const r = await fetch('/api/ranking', { credentials: 'include' });
+        if (!r.ok) return;
+        const data = await r.json();
+        allUsers = data.ranking || [];
+        renderOtherUsers(allUsers);
+        if (!document.getElementById('panel-rank').classList.contains('hidden')) {
+            loadRankPanel(currentRankTab);
+        }
+    } catch (e) {
+        console.error('loadRankingAndMap 오류:', e);
+    }
+}
+
 function renderOtherUsers(users) {
     document.querySelectorAll('.other-building').forEach(el => el.remove());
 
@@ -539,10 +554,10 @@ async function collectTax() {
 }
 
 
-// ── 유저 모달 (침략) ──────────────────────────────────────────────────
+// ── 유저 모달 (도전/모의지원) ─────────────────────────────────────────
 function openUserModal(user) {
     selectedUser = user;
-    document.getElementById('user-modal-title').textContent = `⚔️ ${user.nickname}의 모의진학`;
+    document.getElementById('user-modal-title').textContent = `🎓 ${user.nickname}의 모의진학`;
     const myScore = currentUser?.mock_exam_score || 0;
     document.getElementById('user-modal-body').innerHTML = `
         <div class="estate-section">
@@ -558,9 +573,9 @@ function openUserModal(user) {
             <div class="estate-val">${user.is_studying ? '📖 공부 중' : '휴식 중'}</div>
         </div>
         <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-sub);line-height:1.7">
-            ⚔️ <strong style="color:var(--text)">평가원 모의고사 점수</strong>로 승패 결정<br>
-            🏆 승리 시 상대방 모의진학 대학 취득<br>
-            📄 원서비 1장 소모 · 내 점수: <strong style="color:var(--gold)">${myScore > 0 ? myScore + '점' : '미등록'}</strong>
+            📋 <strong style="color:var(--text)">평가원 모의고사 점수</strong>로 합격 여부 결정<br>
+            🏆 합격 시 상대방 모의진학 대학 취득<br>
+            📄 원서비 1장 소모 · 내 점수: <strong style="color:var(--accent-gold)">${myScore > 0 ? myScore + '점' : '미등록'}</strong>
         </div>
     `;
     const tickets = currentUser?.tickets || 0;
@@ -577,7 +592,7 @@ async function doInvade() {
     if ((currentUser?.tickets || 0) < 1) { alert('원서비가 없습니다.\nSHOP에서 골드로 구매하세요!'); return; }
     if (!currentUser?.mock_exam_score) { alert('평가원 점수를 먼저 등록해주세요.\n(내 성채 클릭 → 점수 등록)'); return; }
 
-    if (!confirm(`${selectedUser.nickname}의 모의진학(${selectedUser.university || '?'})을 침략하시겠습니까?\n원서비 1장 소모`)) return;
+    if (!confirm(`${selectedUser.nickname}의 모의진학(${selectedUser.university || '?'})에 지원하시겠습니까?\n원서비 1장 소모`)) return;
 
     try {
         const r = await fetch('/api/invasion/attack', {
@@ -591,8 +606,8 @@ async function doInvade() {
 
         const won = data.result === 'WIN';
         const msg = won
-            ? `⚔️ 침략 성공!\n\n내 점수: ${data.attacker_score}점\n상대 점수: ${data.defender_score}점\n\n🏫 모의진학 대학: ${data.defender_university}(으)로 변경!`
-            : `🛡️ 침략 실패!\n\n내 점수: ${data.attacker_score}점\n상대 점수: ${data.defender_score}점`;
+            ? `🎉 모의지원 합격!\n\n내 점수: ${data.attacker_score}점\n상대 점수: ${data.defender_score}점\n\n🏫 모의진학 대학: ${data.defender_university}(으)로 변경!`
+            : `📝 모의지원 불합격\n\n내 점수: ${data.attacker_score}점\n상대 점수: ${data.defender_score}점\n\n더 열심히 공부해서 다시 도전하세요!`;
         alert(msg);
         currentUser = data.user;
         updateHUD(data.user);
@@ -600,6 +615,89 @@ async function doInvade() {
         closeModal('modal-user');
         loadRankingAndMap();
     } catch (e) { alert('서버 오류 발생'); }
+}
+
+// ── 모의지원 패널 ──────────────────────────────────────────────────────
+async function toggleApplyPanel() {
+    const panel = document.getElementById('panel-apply');
+    if (panel.classList.contains('hidden')) {
+        panel.classList.remove('hidden');
+        await renderApplyPanel();
+    } else {
+        panel.classList.add('hidden');
+    }
+}
+
+async function renderApplyPanel() {
+    const content = document.getElementById('apply-content');
+    content.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:var(--text-sub)">로딩 중...</div>';
+    try {
+        const r = await fetch('/api/invasion/my-applications', { credentials: 'include' });
+        const data = await r.json();
+        if (!r.ok) { content.innerHTML = `<div style="color:var(--accent);padding:16px;font-size:12px">${data.error}</div>`; return; }
+
+        const { max_slots, used_slots, my_score, score_status, tickets, applications } = data;
+        const remaining = Math.max(0, max_slots - used_slots);
+
+        const slotCircles = Array.from({ length: max_slots }, (_, i) => {
+            const used = i < used_slots;
+            return `<div style="width:22px;height:22px;border-radius:50%;border:2px solid ${used ? 'var(--accent-gold)' : 'var(--border)'};background:${used ? 'var(--accent-gold)' : 'transparent'};"></div>`;
+        }).join('');
+
+        const noScore = !my_score || my_score < 1 || score_status !== 'approved';
+        const scoreLabel = noScore
+            ? `<span style="color:#888">미인증 (점수 인증 시 슬롯 확대)</span>`
+            : `<span style="color:var(--accent-gold)">${my_score}점</span>`;
+
+        const histHTML = applications.length === 0
+            ? '<div style="color:#555;font-size:11px;text-align:center;padding:16px;">지원 이력이 없습니다.</div>'
+            : applications.map(app => {
+                const won = app.result === 'WIN';
+                const date = new Date(app.created_at).toLocaleDateString('ko-KR', { month:'numeric', day:'numeric' });
+                return `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid ${won ? 'rgba(212,175,55,0.3)' : 'var(--border)'};border-radius:4px;background:${won ? 'rgba(212,175,55,0.05)' : 'transparent'};">
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--text);">${esc(app.target_university || '?')}</div>
+                            <div style="font-size:10px;color:#666;margin-top:1px;">${esc(app.target_nickname)} · ${date}</div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;margin-left:8px;">
+                            <div style="font-size:12px;font-weight:700;color:${won ? 'var(--accent-gold)' : '#e55'};">${won ? '합격' : '불합격'}</div>
+                            <div style="font-size:10px;color:#666;">${app.my_score}점 vs ${app.target_score}점</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        content.innerHTML = `
+            <div style="padding:14px 14px 8px;">
+                <div style="font-size:10px;color:var(--text-sub);letter-spacing:1px;font-weight:700;margin-bottom:8px;">진학사 슬롯</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <div style="display:flex;gap:6px;">${slotCircles}</div>
+                    <span style="font-size:11px;color:var(--text-sub);">${used_slots}/${max_slots} 사용</span>
+                </div>
+                <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">
+                    내 점수: ${scoreLabel}
+                </div>
+                <div style="font-size:10px;color:#555;line-height:1.5;">
+                    원서비: <strong style="color:var(--accent-gold)">${tickets}장</strong> 보유 · 오늘 <strong style="color:${remaining > 0 ? 'var(--accent-gold)' : '#e55'}">${remaining}회</strong> 지원 가능
+                </div>
+                ${noScore ? `<div style="margin-top:8px;padding:7px 10px;background:rgba(255,100,100,0.06);border:1px solid rgba(255,100,100,0.2);border-radius:4px;font-size:10px;color:#e88;line-height:1.5;">점수 인증 후 슬롯이 확장됩니다.<br>내 성채 → 점수 등록에서 인증하세요.</div>` : ''}
+            </div>
+
+            <div style="border-top:1px solid var(--border);padding:10px 14px 4px;">
+                <div style="font-size:10px;color:var(--text-sub);letter-spacing:1px;font-weight:700;margin-bottom:8px;">지원하기</div>
+                <div style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.5;">맵에서 다른 유저의 열기구를 클릭하거나, 랭킹에서 유저를 선택하여 도전하세요.<br>원서비 1장 소모 · 점수 비교로 합격 여부 결정</div>
+                <button class="shop-btn" style="width:100%;padding:8px;font-size:11px;" onclick="togglePanel('panel-apply');togglePanel('panel-rank')">랭킹에서 도전 상대 찾기 →</button>
+            </div>
+
+            <div style="border-top:1px solid var(--border);padding:10px 14px;">
+                <div style="font-size:10px;color:var(--text-sub);letter-spacing:1px;font-weight:700;margin-bottom:8px;">지원 이력</div>
+                <div style="display:flex;flex-direction:column;gap:5px;">${histHTML}</div>
+            </div>
+        `;
+    } catch (e) {
+        content.innerHTML = '<div style="color:var(--accent);padding:16px;font-size:12px">로드 실패</div>';
+    }
 }
 
 // ── 검색 ─────────────────────────────────────────────────────────────

@@ -76,12 +76,32 @@ const BG = {
         const q = this.quality;
         const [r1, g1, b1] = q.bgTop;
         const [r2, g2, b2] = q.bgMid;
+        
         const grad = this.ctx.createLinearGradient(0, 0, 0, H);
         grad.addColorStop(0,   `rgb(${r1},${g1},${b1})`);
-        grad.addColorStop(0.5, `rgb(${r2},${g2},${b2})`);
-        grad.addColorStop(1,   `rgb(2,2,3)`);
+        grad.addColorStop(0.4, `rgb(${r2},${g2},${b2})`);
+        grad.addColorStop(0.8, `rgb(2,2,4)`);
+        grad.addColorStop(1,   `rgb(0,0,0)`);
         this.ctx.fillStyle = grad;
         this.ctx.fillRect(0, 0, W, H);
+
+        // Add subtle radial vignette
+        const vignette = this.ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W);
+        vignette.addColorStop(0, 'rgba(0,0,0,0)');
+        vignette.addColorStop(1, 'rgba(0,0,0,0.6)');
+        this.ctx.fillStyle = vignette;
+        this.ctx.fillRect(0, 0, W, H);
+
+        // Add nebula-like clouds for high rankers
+        if (q.stars > 400) {
+            this.ctx.globalCompositeOperation = 'screen';
+            const cloudGrad = this.ctx.createRadialGradient(W*0.3, H*0.3, 0, W*0.3, H*0.3, W*0.6);
+            cloudGrad.addColorStop(0, 'rgba(40,20,80,0.15)');
+            cloudGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            this.ctx.fillStyle = cloudGrad;
+            this.ctx.fillRect(0, 0, W, H);
+            this.ctx.globalCompositeOperation = 'source-over';
+        }
     },
 
     drawAurora() {
@@ -131,18 +151,19 @@ const BG = {
     },
 
     maybeShoot() {
-        if (this.shootingStars.length < 3 && Math.random() < 0.0025) {
+        if (this.shootingStars.length < 4 && Math.random() < 0.004) {
             const W = this.canvas.width;
             const H = this.canvas.height;
-            const angle = (Math.random() * 20 + 20) * Math.PI / 180;
-            const speed = 5 + Math.random() * 4;
+            const angle = (Math.random() * 30 + 15) * Math.PI / 180;
+            const speed = 7 + Math.random() * 8;
             this.shootingStars.push({
-                x: Math.random() * W * 0.75 + W * 0.05,
-                y: Math.random() * H * 0.35 + H * 0.03,
+                x: Math.random() * W,
+                y: Math.random() * H * 0.4,
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed,
                 life: 1,
-                maxLen: 80 + Math.random() * 60
+                maxLen: 120 + Math.random() * 100,
+                color: Math.random() < 0.2 ? '#ffccaa' : '#ffffff'
             });
         }
     },
@@ -151,20 +172,29 @@ const BG = {
         const ctx = this.ctx;
         this.shootingStars = this.shootingStars.filter(s => s.life > 0);
         this.shootingStars.forEach(s => {
-            const tailX = s.x - s.vx * (s.maxLen / (Math.abs(s.vx) + 0.1));
-            const tailY = s.y - s.vy * (s.maxLen / (Math.abs(s.vx) + 0.1));
+            const tailX = s.x - s.vx * (s.maxLen / 10);
+            const tailY = s.y - s.vy * (s.maxLen / 10);
             const grad = ctx.createLinearGradient(tailX, tailY, s.x, s.y);
             grad.addColorStop(0, `rgba(255,255,255,0)`);
-            grad.addColorStop(1, `rgba(255,255,255,${s.life * 0.85})`);
+            grad.addColorStop(1, s.color || '#ffffff');
             ctx.strokeStyle = grad;
-            ctx.lineWidth = 1.4;
+            ctx.lineWidth = 1.8;
             ctx.beginPath();
             ctx.moveTo(tailX, tailY);
             ctx.lineTo(s.x, s.y);
             ctx.stroke();
+            
+            // Add point glow
+            ctx.fillStyle = s.color || '#ffffff';
+            ctx.globalAlpha = s.life;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 1.2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+
             s.x += s.vx;
             s.y += s.vy;
-            s.life -= 0.022;
+            s.life -= 0.018;
         });
     },
 
@@ -180,9 +210,14 @@ const BG = {
         this.city.forEach(b => {
             const bTop = cityBaseY - b.h;
 
-            ctx.fillStyle = '#020204';
+            // Gradient for building side to give 3D feel
+            const bGrad = ctx.createLinearGradient(b.x, 0, b.x + b.w, 0);
+            bGrad.addColorStop(0, '#030305');
+            bGrad.addColorStop(1, '#08080c');
+            ctx.fillStyle = bGrad;
             ctx.fillRect(b.x, bTop, b.w, b.h);
-            ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+            
+            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
             ctx.lineWidth = 1;
             ctx.strokeRect(b.x + 0.5, bTop + 0.5, b.w - 1, b.h - 1);
 

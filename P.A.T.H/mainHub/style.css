@@ -44,8 +44,8 @@ body, html {
     font-weight: 700; color: var(--text-secondary); border-radius: 4px;
 }
 .char-info { display: flex; flex-direction: column; justify-content: center; }
-.info-univ { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; }
-.info-rank { font-size: 11px; color: var(--accent-gold); font-family: var(--font-mono); }
+.info-univ { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; }
+.info-rank { font-size: 12px; font-weight: 700; color: var(--accent-gold); font-family: var(--font-mono); }
 
 /* Search */
 .search-command {
@@ -63,8 +63,8 @@ body, html {
 /* Stats */
 .stat-group { display: flex; gap: 16px; margin-right: 16px; padding-right: 16px; border-right: 1px solid var(--border-color); }
 .stat-unit { display: flex; flex-direction: column; align-items: flex-end; }
-.stat-unit .label { font-size: 9px; color: var(--text-secondary); letter-spacing: 1px; font-weight: 700; }
-.stat-unit .val { font-size: 13px; font-family: var(--font-mono); color: var(--accent-gold); }
+.stat-unit .label { font-size: 10px; color: var(--text-secondary); letter-spacing: 1.2px; font-weight: 800; }
+.stat-unit .val { font-size: 15px; font-weight: 800; font-family: var(--font-mono); color: var(--accent-gold); }
 
 /* System Controls */
 .sys-controls { display: flex; gap: 8px; }
@@ -98,9 +98,9 @@ body, html {
     display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
 .action-main {
-    background: rgba(5,5,5,0.8); border: 1px solid var(--accent-gold);
-    color: var(--accent-gold); padding: 16px 48px; font-size: 14px; letter-spacing: 3px;
-    font-weight: 600; cursor: pointer; backdrop-filter: blur(10px);
+    background: rgba(5,5,5,0.85); border: 2px solid var(--accent-gold);
+    color: var(--accent-gold); padding: 18px 56px; font-size: 16px; letter-spacing: 4px;
+    font-weight: 800; cursor: pointer; backdrop-filter: blur(15px);
     transition: 0.3s; text-transform: uppercase;
 }
 .action-main:hover { background: rgba(212, 175, 55, 0.1); box-shadow: 0 0 20px rgba(212, 175, 55, 0.15); }

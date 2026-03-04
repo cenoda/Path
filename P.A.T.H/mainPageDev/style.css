@@ -35,9 +35,9 @@ body.active { border-color: var(--accent-red); }
 }
 .status-left, .status-right { display: flex; align-items: center; gap: 10px; }
 .status-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 1px; font-weight: 700; }
-.status-val { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
-.status-val.sub { font-family: var(--font-mono); color: var(--accent-gold); }
-.resource { font-size: 12px; font-family: var(--font-mono); color: var(--text-secondary); }
+.status-val { font-size: 14px; font-weight: 800; letter-spacing: 0.5px; }
+.status-val.sub { font-family: var(--font-mono); font-weight: 700; color: var(--accent-gold); }
+.resource { font-size: 14px; font-weight: 700; font-family: var(--font-mono); color: var(--text-secondary); }
 .resource span { color: var(--text-primary); }
 
 /* Main Focus Area */
@@ -79,10 +79,10 @@ body.active { border-color: var(--accent-red); }
 }
 .input-unit { position: relative; }
 .time-input {
-    background: transparent; border: none; border-bottom: 2px solid #222;
-    color: var(--text-primary); font-size: 4rem; width: 120px; text-align: center;
-    font-family: var(--font-mono); outline: none; transition: 0.3s; padding: 10px 0;
-    font-weight: 300;
+    background: transparent; border: none; border-bottom: 3px solid #333;
+    color: var(--text-primary); font-size: 5rem; width: 140px; text-align: center;
+    font-family: var(--font-mono); outline: none; transition: 0.3s; padding: 12px 0;
+    font-weight: 700;
 }
 .time-input:focus { border-color: var(--accent-gold); color: var(--accent-gold); }
 .unit-label {
@@ -94,10 +94,10 @@ body.active { border-color: var(--accent-red); }
 /* Timer Display */
 .timer-display {
     font-family: var(--font-mono);
-    font-size: 15vw; line-height: 1; font-weight: 200;
-    color: var(--text-primary); letter-spacing: -5px;
-    text-shadow: 0 0 40px rgba(255,255,255,0.05);
-    margin: 40px 0; font-variant-numeric: tabular-nums;
+    font-size: 16vw; line-height: 1; font-weight: 700;
+    color: var(--text-primary); letter-spacing: -3px;
+    text-shadow: 0 0 50px rgba(255,255,255,0.1);
+    margin: 45px 0; font-variant-numeric: tabular-nums;
     transition: color 0.5s;
 }
 .timer-ms { font-size: 4vw; color: #333; margin-left: -20px; letter-spacing: 0; }

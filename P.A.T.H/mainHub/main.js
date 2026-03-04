@@ -210,37 +210,26 @@ function renderOtherUsers(users) {
 
     const isLight = document.body.classList.contains('light');
 
-    const others = users.filter(u => u.id !== currentUser?.id).slice(0, 60);
-    const positions = [
-        { x: 1150, y: 1700 }, { x: 1100, y: 2050 }, { x: 1250, y: 2400 },
-        { x: 2720, y: 1420 }, { x: 2820, y: 1820 }, { x: 1020, y: 2730 },
-        { x: 2870, y: 2530 }, { x: 2580, y: 2880 }, { x: 1380, y: 1350 },
-        { x: 2620, y: 1180 }, { x: 1600, y: 2700 }, { x: 2200, y: 2950 },
-        { x: 850, y: 1500 }, { x: 950, y: 1900 }, { x: 800, y: 2300 },
-        { x: 3050, y: 1650 }, { x: 3120, y: 2000 }, { x: 1500, y: 2050 },
-        { x: 3000, y: 2700 }, { x: 2300, y: 3100 }, { x: 1700, y: 1450 },
-        { x: 2450, y: 1300 }, { x: 1800, y: 2900 }, { x: 2700, y: 3200 },
-        { x: 1300, y: 1200 }, { x: 990, y: 1600 }, { x: 1100, y: 2600 },
-        { x: 2800, y: 1600 }, { x: 2950, y: 2100 }, { x: 1450, y: 2400 },
-        { x: 3100, y: 2400 }, { x: 2200, y: 2200 }, { x: 1600, y: 1600 },
-        { x: 920, y: 2000 }, { x: 1050, y: 2400 }, { x: 2850, y: 1850 },
-        { x: 2700, y: 2200 }, { x: 1250, y: 1400 }, { x: 980, y: 1300 },
-        { x: 3000, y: 2000 }, { x: 2400, y: 2600 }, { x: 1700, y: 2200 },
-        { x: 1120, y: 1400 }, { x: 2550, y: 1500 }, { x: 1350, y: 2700 },
-        { x: 3050, y: 2800 }, { x: 2100, y: 2800 }, { x: 1480, y: 1800 },
-        { x: 2900, y: 1400 }, { x: 1600, y: 1200 }, { x: 2400, y: 1900 },
-        { x: 810, y: 1800 }, { x: 1200, y: 2200 }, { x: 2750, y: 2900 },
-        { x: 2300, y: 1600 }, { x: 1550, y: 2550 }, { x: 1000, y: 2550 },
-        { x: 3000, y: 1900 }, { x: 2200, y: 1200 }, { x: 1900, y: 2400 }
-    ];
-
+    const others = users.filter(u => u.id !== currentUser?.id).slice(0, 100);
+    
+    // 중앙(성채) 주변으로 나선형 또는 밀집형 배치
+    // 내 성채 위치: 1900, 2000
+    const centerX = 1900;
+    const centerY = 2000;
+    
     others.forEach((user, i) => {
-        const pos = positions[i] || { x: 1100 + i * 120, y: 1800 + i * 80 };
+        // 나선형 배치 알고리즘 (Golden Angle approximation)
+        const angle = i * 137.5; 
+        const radius = 180 + Math.sqrt(i) * 120; // 최소 거리 180px부터 시작하여 점진적으로 확장
+        
+        const x = centerX + radius * Math.cos(angle * Math.PI / 180);
+        const y = centerY + radius * Math.sin(angle * Math.PI / 180);
+
         const div = document.createElement('div');
         div.className = 'building other-building';
         if (user.is_studying) div.classList.add('studying');
-        div.style.left = pos.x + 'px';
-        div.style.top  = pos.y + 'px';
+        div.style.left = x + 'px';
+        div.style.top  = y + 'px';
         div.dataset.userId = user.id;
         div.onclick = () => openUserModal(user);
 
@@ -809,6 +798,23 @@ function onSearch(value) {
         (u.university && u.university.toLowerCase().includes(q))
     );
     renderOtherUsers(filtered);
+    
+    // 검색 결과 중 첫 번째 유저로 맵 이동 (편의 기능)
+    if (filtered.length > 0 && filtered[0].id !== currentUser?.id) {
+        const firstUser = filtered[0];
+        // 렌더링된 요소 찾아서 포커스 (약간의 지연 필요할 수 있음)
+        setTimeout(() => {
+            const el = document.querySelector(`.other-building[data-user-id="${firstUser.id}"]`);
+            if (el) {
+                // 맵 중앙으로 이동 로직 (간소화)
+                const x = parseFloat(el.style.left);
+                const y = parseFloat(el.style.top);
+                mapOffsetX = -x * scale + (container.clientWidth / 2);
+                mapOffsetY = -y * scale + (container.clientHeight / 2);
+                mapLayer.style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${scale})`;
+            }
+        }, 100);
+    }
 }
 
 function focusUser(userId) {

@@ -598,12 +598,17 @@ function focusUser(userId) {
 function togglePanel(id) {
     const el = document.getElementById(id);
     const isHidden = el.classList.contains('hidden');
+    
+    // side-panel 클래스가 있는 것들만 일괄 처리
     document.querySelectorAll('.side-panel').forEach(p => p.classList.add('hidden'));
+    
     if (isHidden) {
         el.classList.remove('hidden');
         if (id === 'panel-rank') loadRankPanel(currentRankTab);
         if (id === 'panel-notif') loadNotifPanel();
         if (id === 'panel-shop') renderShopContent(currentShopTab);
+    } else {
+        el.classList.add('hidden');
     }
 }
 

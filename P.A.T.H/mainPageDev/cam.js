@@ -22,6 +22,7 @@ const CamManager = {
     },
 
     async saveSettings(enabled, visibility) {
+        const wasEnabled = this.enabled;
         this.enabled = enabled;
         this.visibility = visibility;
         try {
@@ -31,6 +32,16 @@ const CamManager = {
                 credentials: 'include',
                 body: JSON.stringify({ cam_enabled: enabled, cam_visibility: visibility })
             });
+            
+            // 실시간 반영: 공부 중인데 껐다면 즉시 정지, 켰다면 즉시 시작
+            if (typeof isRunning !== 'undefined' && isRunning) {
+                if (wasEnabled && !enabled) {
+                    this.stopCapturing();
+                    this.flashStatus('● 캠인증 중단됨');
+                } else if (!wasEnabled && enabled) {
+                    this.startCapturing();
+                }
+            }
         } catch (e) {}
     },
 

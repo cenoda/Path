@@ -51,7 +51,7 @@ const BG = {
                 y: Math.random() * H * 0.82,
                 r: big ? (Math.random() * 1.8 + 1.2) : (Math.random() * 0.9 + 0.2),
                 op: Math.random() * q.maxOp * 0.5 + q.maxOp * 0.35,
-                ts: Math.random() * 0.018 + 0.004,
+                ts: Math.random() * 0.005 + 0.002,
                 to: Math.random() * Math.PI * 2,
                 color: Math.random() < 0.08 ? '#ffeebb'
                      : Math.random() < 0.05 ? '#aaccff'

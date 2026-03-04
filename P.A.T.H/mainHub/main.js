@@ -38,9 +38,11 @@ async function initHub() {
         const meData = await meRes.json();
         currentUser = meData.user;
 
+        let topPct = 100;
         if (rankMeRes.ok) {
             const rankData = await rankMeRes.json();
             myTotalSec = parseInt(rankData.total_sec || 0);
+            topPct = parseFloat(rankData.pct) || 100;
             document.getElementById('hud-pct').textContent = `TIME TOP ${rankData.pct}%`;
 
             // [New] Score Percentile Display
@@ -52,6 +54,8 @@ async function initHub() {
                 elScore.style.display = 'none';
             }
         }
+
+        if (typeof BG !== 'undefined') BG.init(topPct);
 
         updateHUD(currentUser);
         updateMyBuilding(currentUser);

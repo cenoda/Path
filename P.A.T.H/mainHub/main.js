@@ -664,7 +664,6 @@ async function doLogout() {
 
 /* ── SHOP SYSTEM ── */
 let currentShopTab = 'item';
-let cachedTicketPrice = null;
 
 function switchShopTab(tab, btn) {
     currentShopTab = tab;
@@ -681,49 +680,28 @@ async function renderShopContent(tab) {
 
     if (tab === 'item') {
         try {
-            const r = await fetch('/api/estate/tax', { credentials: 'include' });
-            const data = r.ok ? await r.json() : {};
-            const price = data.ticketPrice || 1000;
-            cachedTicketPrice = price;
+            const univRes = await fetch('/api/university/list', { credentials: 'include' });
+            const univData = univRes.ok ? await univRes.json() : { universities: [] };
+            const universities = univData.universities || [];
             const myTickets = currentUser?.tickets || 0;
             const myGold = currentUser?.gold || 0;
 
             container.innerHTML = `
-                <div style="padding:12px 0;">
-                    <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:12px;">내 보유 원서비: <strong style="color:var(--gold)">${myTickets}장</strong> &nbsp;|&nbsp; 보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong></div>
-                    <div class="shop-grid">
-                        <div class="shop-item">
-                            <div class="shop-icon">📄</div>
-                            <div class="shop-info">
-                                <div class="shop-name">원서비</div>
-                                <div class="shop-desc">침략 시 1장 소모. 승리하면 상대 대학 취득.</div>
-                                <div class="shop-cost">
-                                    <span>내 대학 기준</span>
-                                    <span style="color:var(--gold);font-weight:700">${price.toLocaleString()} G / 장</span>
-                                </div>
-                            </div>
-                            <div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;">
-                                <button class="shop-btn" onclick="buyApplicationFee(1)">1장 구매</button>
-                                <button class="shop-btn" style="background:rgba(255,193,7,0.15);border-color:var(--gold)" onclick="buyApplicationFee(5)">5장 구매</button>
-                            </div>
-                        </div>
+                <div style="padding:10px 0 6px;">
+                    <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:10px;">
+                        보유 원서비: <strong style="color:var(--gold)">${myTickets}장</strong>
+                        &nbsp;|&nbsp; 보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
                     </div>
-                    <div style="margin-top:16px;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
-                        <div style="padding:8px 12px;background:rgba(255,255,255,0.03);font-size:10px;letter-spacing:1px;color:#888;">원서비 등급별 가격표</div>
-                        <div style="padding:8px 12px;font-size:11px;line-height:2;">
-                            <div style="display:flex;justify-content:space-between;"><span style="color:#FFD700">TOP 1% 이상</span><span>5,000 G</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span style="color:#C0C0C0">TOP 3% 이상</span><span>3,500 G</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span style="color:#C0C0C0">TOP 5% 이상</span><span>2,500 G</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span style="color:#cd7f32">TOP 10% 이상</span><span>1,800 G</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span style="color:#cd7f32">TOP 15% 이상</span><span>1,200 G</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span style="color:#888">TOP 20% 이상</span><span>800 G</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span style="color:#888">TOP 30% 이상</span><span>500 G</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span style="color:#666">TOP 40% 이상</span><span>300 G</span></div>
-                            <div style="display:flex;justify-content:space-between;"><span style="color:#555">그 외</span><span>150 G</span></div>
-                        </div>
-                    </div>
+                    <div style="font-size:10px;color:#666;margin-bottom:8px;">목표 대학을 선택하면 해당 대학 기준 원서비를 구매할 수 있습니다.</div>
+                    <input type="text" id="shop-univ-search" placeholder="대학 검색..."
+                        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text);padding:7px 10px;font-size:12px;border-radius:4px;outline:none;margin-bottom:10px;"
+                        oninput="filterShopUnivList(this.value)">
+                    <div id="shop-univ-list" style="display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto;"></div>
                 </div>
             `;
+
+            window._shopUniversities = universities;
+            renderShopUnivList(universities);
         } catch (e) {
             container.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;font-size:12px">정보를 불러오지 못했습니다.</div>';
         }
@@ -742,23 +720,64 @@ async function renderShopContent(tab) {
     }
 }
 
-async function buyApplicationFee(qty) {
-    if (!cachedTicketPrice) {
-        alert('가격 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+function getTicketPriceClient(pct) {
+    if (pct >= 99) return 5000;
+    if (pct >= 97) return 3500;
+    if (pct >= 95) return 2500;
+    if (pct >= 90) return 1800;
+    if (pct >= 85) return 1200;
+    if (pct >= 80) return 800;
+    if (pct >= 70) return 500;
+    if (pct >= 60) return 300;
+    return 150;
+}
+
+function renderShopUnivList(universities) {
+    const listEl = document.getElementById('shop-univ-list');
+    if (!listEl) return;
+    if (universities.length === 0) {
+        listEl.innerHTML = '<div style="color:#555;font-size:11px;text-align:center;padding:16px;">검색 결과가 없습니다.</div>';
         return;
     }
-    const totalCost = cachedTicketPrice * qty;
-    if (!confirm(`원서비 ${qty}장을 ${totalCost.toLocaleString()}G에 구매하시겠습니까?`)) return;
+    listEl.innerHTML = universities.map(uni => {
+        const price = getTicketPriceClient(uni.basePercentile);
+        const isMyUniv = uni.name === currentUser?.university;
+        const tierColor = price >= 3500 ? '#FFD700' : price >= 1800 ? '#C0C0C0' : price >= 800 ? '#cd7f32' : '#888';
+        return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid ${isMyUniv ? 'var(--gold)' : 'var(--border)'};border-radius:4px;background:${isMyUniv ? 'rgba(255,193,7,0.05)' : 'transparent'};">
+                <div style="min-width:0;">
+                    <div style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(uni.name)}${isMyUniv ? ' <span style="color:var(--gold);font-size:9px;">내 대학</span>' : ''}</div>
+                    <div style="font-size:10px;color:#666;margin-top:1px;">${esc(uni.region)} &nbsp;·&nbsp; <span style="color:${tierColor}">TOP ${uni.basePercentile}%</span></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:8px;">
+                    <span style="font-size:12px;font-weight:700;color:${tierColor};">${price.toLocaleString()}G</span>
+                    <button class="shop-btn" style="padding:4px 10px;font-size:10px;" onclick="buyApplicationFee('${esc(uni.name)}', ${price})">구매</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterShopUnivList(query) {
+    const q = query.trim().toLowerCase();
+    const all = window._shopUniversities || [];
+    const filtered = q ? all.filter(u => u.name.toLowerCase().includes(q) || (u.aliases || []).some(a => a.toLowerCase().includes(q))) : all;
+    renderShopUnivList(filtered);
+}
+
+async function buyApplicationFee(targetUniversity, unitPrice) {
+    const total = unitPrice;
+    if (!confirm(`[${targetUniversity}] 원서비 1장을 ${total.toLocaleString()}G에 구매하시겠습니까?`)) return;
     try {
         const r = await fetch('/api/estate/buy-ticket', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ quantity: qty })
+            body: JSON.stringify({ quantity: 1, target_university: targetUniversity })
         });
         const data = await r.json();
         if (!r.ok) { alert(data.error || '구매 실패'); return; }
-        alert(`원서비 ${qty}장 구매 완료! (-${data.spent.toLocaleString()}G)`);
+        alert(`[${targetUniversity}] 원서비 1장 구매 완료! (-${data.spent.toLocaleString()}G)`);
         currentUser = data.user;
         updateHUD(data.user);
         renderShopContent('item');

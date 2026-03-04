@@ -116,7 +116,7 @@ router.post('/collect-tax', async (req, res) => {
 
 router.post('/buy-ticket', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
-    const { quantity = 1 } = req.body;
+    const { quantity = 1, target_university } = req.body;
     const qty = Math.max(1, Math.min(10, parseInt(quantity) || 1));
 
     const client = await pool.connect();
@@ -127,7 +127,10 @@ router.post('/buy-ticket', async (req, res) => {
             [req.session.userId]
         );
         const user = userRes.rows[0];
-        const price = getTicketPrice(user.university) * qty;
+
+        const priceUniversity = target_university || user.university;
+        const unitPrice = getTicketPrice(priceUniversity);
+        const price = unitPrice * qty;
 
         if (user.gold < price) {
             await client.query('ROLLBACK');
@@ -142,7 +145,7 @@ router.post('/buy-ticket', async (req, res) => {
         );
 
         await client.query('COMMIT');
-        res.json({ ok: true, spent: price, user: final.rows[0] });
+        res.json({ ok: true, spent: price, unitPrice, university: priceUniversity, user: final.rows[0] });
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('buy-ticket error:', err);

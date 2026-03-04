@@ -27,13 +27,6 @@
                 </div>
             </div>
             
-            <div class="hud-center">
-                <div class="search-command">
-                    <span class="cmd-icon">_</span>
-                    <input type="text" id="global-search" placeholder="SEARCH DATABASE..." oninput="onSearch(this.value)">
-                </div>
-            </div>
-
             <div class="hud-right">
                 <div class="stat-group">
                     <div class="stat-unit"><span class="label">GOLD</span> <span id="hud-gold" class="val">0</span></div>
@@ -41,6 +34,10 @@
                     <div class="stat-unit"><span class="label">원서비</span> <span id="hud-tickets" class="val">0장</span></div>
                 </div>
                 <div class="sys-controls">
+                    <div class="search-command" style="margin-right: 8px; width: 180px;">
+                        <span class="cmd-icon">_</span>
+                        <input type="text" id="global-search" placeholder="SEARCH..." oninput="onSearch(this.value)" style="width: 130px;">
+                    </div>
                     <button class="sys-btn" onclick="togglePanel('panel-notif')">
                         LOGS <span id="notif-badge" class="dot hidden"></span>
                     </button>

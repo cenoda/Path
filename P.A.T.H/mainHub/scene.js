@@ -374,45 +374,16 @@ const WorldScene = {
         group.userData = { userId: user.id, user, balloon, label, isMe, baseY: 0 };
 
         if (isMe) {
-            const glowGeo = new THREE.PlaneGeometry(160, 160);
+            const glowGeo = new THREE.CircleGeometry(110, 48);
             const glowMat = new THREE.ShaderMaterial({
-                uniforms: { 
-                    uTime: { value: 0 },
-                    uTexture: { value: balloonTex }
-                },
-                vertexShader: `
-                    varying vec2 vUv;
-                    void main() {
-                        vUv = uv;
-                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                    }
-                `,
-                fragmentShader: `
-                    uniform float uTime;
-                    uniform sampler2D uTexture;
-                    varying vec2 vUv;
-                    void main() {
-                        vec4 tex = texture2D(uTexture, vUv);
-                        float pulse = 0.6 + 0.4 * sin(uTime * 2.5);
-                        
-                        // 열기구 모양(알파 채널)을 기반으로 외곽 글로우 생성
-                        // 텍스처 알파가 있는 곳 주변으로 번지는 효과
-                        float glow = tex.a * 0.5;
-                        
-                        // 단순 알파 기반이 아닌, 모양을 약간 확장한 느낌을 위해 
-                        // 실제로는 더 복잡한 가우시안 블러가 필요하지만, 
-                        // 여기서는 텍스처 자체의 부드러운 알파와 가산 혼합을 활용
-                        gl_FragColor = vec4(0.83, 0.69, 0.21, tex.a * 0.4 * pulse);
-                    }
-                `,
-                transparent: true,
-                depthWrite: false,
-                blending: THREE.AdditiveBlending
+                uniforms: { uTime: { value: 0 } },
+                vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+                fragmentShader: `uniform float uTime; varying vec2 vUv; void main() { float d = length(vUv - vec2(0.5)); float pulse = 0.55 + 0.45 * sin(uTime * 2.2); float a = (1.0 - smoothstep(0.2, 0.5, d)) * 0.35 * pulse; gl_FragColor = vec4(0.83, 0.69, 0.21, a); }`,
+                transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
             });
             const glowMesh = new THREE.Mesh(glowGeo, glowMat);
             glowMesh.position.y = 80;
-            glowMesh.position.z = -2; 
-            glowMesh.scale.set(1.15, 1.15, 1); // 열기구보다 약간 크게
+            glowMesh.position.z = -5; // 배치: 열기구 뒤쪽 (후광)
             group.userData.glowMat = glowMat;
             group.add(glowMesh);
         }

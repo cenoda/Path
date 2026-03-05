@@ -18,10 +18,9 @@ function toggleTheme() {
     const btn = document.getElementById('theme-btn');
     if (btn) btn.textContent = isLight ? '🌙' : '☀';
     
-    // Update balloons on theme change
     const user = currentUser || { university: '' };
     updateMyBuilding(user);
-    loadRankingAndMap(); 
+    loadRankingAndMap();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -135,7 +134,7 @@ async function initHub() {
             }
         }
 
-        if (typeof BG !== 'undefined') BG.init(topPct);
+        // BG is replaced by the Three.js WorldScene; skip legacy BG.init
 
         updateHUD(currentUser);
         updateMyBuilding(currentUser);
@@ -166,17 +165,16 @@ function updateHUD(user) {
 }
 
 function updateMyBuilding(user) {
-    const castle = document.getElementById('my-castle');
-    if (!castle) return;
     const img = document.getElementById('my-castle-img');
     const isLight = document.body.classList.contains('light');
     const skinId = user?.balloon_skin || 'default';
-    if (img) {
-        img.src = getBalloonSrc(skinId, isLight);
-        img.style.width = '160px'; 
-    }
+    const src = getBalloonSrc(skinId, isLight);
+    if (img) { img.src = src; img.style.width = '160px'; }
     const label = document.getElementById('my-castle-label');
     if (label) label.textContent = user?.university || 'MY BALLOON';
+    if (window.WorldScene && window.WorldScene.isReady) {
+        window.WorldScene.updateMyBalloon(src);
+    }
 }
 
 async function loadRankingAndMap() {
@@ -206,40 +204,10 @@ async function loadUniversitiesCache() {
 }
 
 function renderOtherUsers(users) {
-    document.querySelectorAll('.other-building').forEach(el => el.remove());
-
     const isLight = document.body.classList.contains('light');
-
-    const others = users.filter(u => u.id !== currentUser?.id).slice(0, 100);
-    
-    // 중앙(성채) 주변으로 나선형 또는 밀집형 배치
-    // 내 성채 위치: 1900, 2000
-    const centerX = 1900;
-    const centerY = 2000;
-    
-    others.forEach((user, i) => {
-        // 나선형 배치 알고리즘 (Golden Angle approximation)
-        const angle = i * 137.5; 
-        const radius = 180 + Math.sqrt(i) * 120; // 최소 거리 180px부터 시작하여 점진적으로 확장
-        
-        const x = centerX + radius * Math.cos(angle * Math.PI / 180);
-        const y = centerY + radius * Math.sin(angle * Math.PI / 180);
-
-        const div = document.createElement('div');
-        div.className = 'building other-building';
-        if (user.is_studying) div.classList.add('studying');
-        div.style.left = x + 'px';
-        div.style.top  = y + 'px';
-        div.dataset.userId = user.id;
-        div.onclick = () => openUserModal(user);
-
-        const skinSrc = getBalloonSrc(user.balloon_skin || 'default', isLight);
-        div.innerHTML = `
-            <img src="${skinSrc}" alt="${esc(user.nickname)}" style="width:100px;opacity:0.8;">
-            <div class="building-label">${esc(user.nickname)}<br><span style="font-size:9px;opacity:0.6">${esc(user.university)}</span></div>
-        `;
-        mapLayer.appendChild(div);
-    });
+    if (window.WorldScene && window.WorldScene.isReady) {
+        window.WorldScene.setUsers(users, currentUser, isLight);
+    }
 }
 
 // ── 랭킹 패널 ────────────────────────────────────────────────────────
@@ -885,22 +853,8 @@ function onSearch(value) {
         (u.university && u.university.toLowerCase().includes(q))
     );
     renderOtherUsers(filtered);
-    
-    // 검색 결과 중 첫 번째 유저로 맵 이동 (편의 기능)
     if (filtered.length > 0 && filtered[0].id !== currentUser?.id) {
-        const firstUser = filtered[0];
-        // 렌더링된 요소 찾아서 포커스 (약간의 지연 필요할 수 있음)
-        setTimeout(() => {
-            const el = document.querySelector(`.other-building[data-user-id="${firstUser.id}"]`);
-            if (el) {
-                // 맵 중앙으로 이동 로직 (간소화)
-                const x = parseFloat(el.style.left);
-                const y = parseFloat(el.style.top);
-                mapOffsetX = -x * scale + (container.clientWidth / 2);
-                mapOffsetY = -y * scale + (container.clientHeight / 2);
-                mapLayer.style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${scale})`;
-            }
-        }, 100);
+        if (window.WorldScene) window.WorldScene.focusUserById(filtered[0].id);
     }
 }
 
@@ -908,6 +862,7 @@ function focusUser(userId) {
     const user = allUsers.find(u => u.id === userId);
     if (!user) return;
     openUserModal(user);
+    if (window.WorldScene) window.WorldScene.focusUserById(userId);
 }
 
 // ── 패널/모달 ────────────────────────────────────────────────────────
@@ -936,45 +891,17 @@ document.querySelectorAll('.modal-backdrop').forEach(el => {
     el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
 });
 
-// ── 드래그 / 줌 ──────────────────────────────────────────────────────
-container.addEventListener('mousedown', startDrag);
-container.addEventListener('touchstart', e => startDrag(e.touches[0]), { passive: true });
-window.addEventListener('mouseup', endDrag);
-window.addEventListener('touchend', endDrag);
-window.addEventListener('mousemove', onDrag);
-window.addEventListener('touchmove', e => { if (isDragging) onDrag(e.touches[0]); }, { passive: true });
-
-function startDrag(e) {
-    if (e.target.closest('.glass-panel,.modal-backdrop,.hud-header,.fab-rail,.pill-action-wrap')) return;
-    isDragging = true;
-    container.classList.add('grabbing');
-    dragStartX = e.clientX - mapOffsetX;
-    dragStartY = e.clientY - mapOffsetY;
-}
-function endDrag() { isDragging = false; container.classList.remove('grabbing'); }
-function onDrag(e) {
-    if (!isDragging) return;
-    mapOffsetX = e.clientX - dragStartX;
-    mapOffsetY = e.clientY - dragStartY;
-    applyTransform();
-}
-container.addEventListener('wheel', e => {
-    e.preventDefault(); zoomMap(e.deltaY * -0.001);
-}, { passive: false });
-
+// ── 드래그 / 줌 ── WorldScene이 입력을 직접 처리 ──────────────────────
+function startDrag(e) {}
+function endDrag() {}
+function onDrag(e) {}
 function zoomMap(delta) {
-    scale = Math.min(Math.max(0.4, scale + delta), 2.0);
-    applyTransform();
+    if (window.WorldScene) window.WorldScene.zoom(delta);
 }
-function panMap(dx, dy) { mapOffsetX += dx; mapOffsetY += dy; applyTransform(); }
-function applyTransform() {
-    mapLayer.style.transform = `translate(${mapOffsetX}px, ${mapOffsetY}px) scale(${scale})`;
-}
+function panMap(dx, dy) {}
+function applyTransform() {}
 function returnToHome() {
-    mapOffsetX = 0; mapOffsetY = 0; scale = 1.0;
-    mapLayer.style.transition = 'transform 0.5s ease-in-out';
-    applyTransform();
-    setTimeout(() => { mapLayer.style.transition = 'none'; }, 500);
+    if (window.WorldScene) window.WorldScene.focusHome();
 }
 
 function goToTimer() { window.location.href = '/P.A.T.H/mainPageDev/index.html'; }
@@ -1453,16 +1380,7 @@ async function deleteFriend(targetId) {
 }
 
 function focusFriend(userId) {
-    const el = document.querySelector(`.other-building[data-user-id="${userId}"]`);
-    if (el) {
-        const x = parseFloat(el.style.left);
-        const y = parseFloat(el.style.top);
-        mapLayer.style.transition = 'transform 0.5s ease-in-out';
-        mapOffsetX = -x * scale + (container.clientWidth / 2);
-        mapOffsetY = -y * scale + (container.clientHeight / 2);
-        applyTransform();
-        setTimeout(() => { mapLayer.style.transition = 'none'; }, 500);
-    }
+    if (window.WorldScene) window.WorldScene.focusUserById(userId);
     closeFriendPanel();
 }
 
@@ -1608,5 +1526,16 @@ function stopChatPoll() {
 // 30초마다 배지 갱신
 setInterval(refreshFriendBadge, 30000);
 
-initHub();
+function _startApp() {
+    if (window._worldSceneReady && window.WorldScene) {
+        window.WorldScene.init();
+        initHub();
+    } else {
+        window._onWorldSceneReady = function() {
+            window.WorldScene.init();
+            initHub();
+        };
+    }
+}
+_startApp();
 

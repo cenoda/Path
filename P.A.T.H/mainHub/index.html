@@ -7,6 +7,15 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="scene.js"></script>
 </head>
 <body>
 <script>
@@ -90,12 +99,11 @@
         </div>
     </div>
 
-    <canvas id="bg-canvas"></canvas>
+    <canvas id="bg-canvas" style="display:none;"></canvas>
 
-    <div id="world-container">
+    <div id="world-container" style="display:none;">
         <div id="map-layer">
-            <div class="building" id="my-castle" onclick="openEstate()" style="left:1900px; top:2000px;">
-                <div class="b-marker"></div>
+            <div class="building" id="my-castle" style="left:1900px; top:2000px;">
                 <img id="my-castle-img" src="assets/balloon_dark.png" alt="Estate">
                 <div class="building-label mine" id="my-castle-label">MY BALLOON</div>
             </div>

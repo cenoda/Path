@@ -37,5 +37,76 @@ const StorageManager = {
             console.error('StorageManager.completeStudy 오류:', e);
             return { user: this._cache, earnedGold: 0 };
         }
+    },
+
+    async fetchSubjects() {
+        try {
+            const r = await fetch('/api/study/subjects', { credentials: 'include' });
+            if (!r.ok) return [];
+            const data = await r.json();
+            return Array.isArray(data.subjects) ? data.subjects : [];
+        } catch (e) {
+            console.error('StorageManager.fetchSubjects 오류:', e);
+            return [];
+        }
+    },
+
+    async addSubject(name) {
+        try {
+            const r = await fetch('/api/study/subjects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ name })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || '과목 추가 실패');
+            return data.subject;
+        } catch (e) {
+            console.error('StorageManager.addSubject 오류:', e);
+            throw e;
+        }
+    },
+
+    async fetchWeekCalendar(offset = 0) {
+        try {
+            const r = await fetch(`/api/study/calendar/week?offset=${offset}`, { credentials: 'include' });
+            if (!r.ok) throw new Error('캘린더 조회 실패');
+            return await r.json();
+        } catch (e) {
+            console.error('StorageManager.fetchWeekCalendar 오류:', e);
+            throw e;
+        }
+    },
+
+    async addPlan(payload) {
+        try {
+            const r = await fetch('/api/study/calendar/plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(payload)
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || '타임라인 추가 실패');
+            return data.plan;
+        } catch (e) {
+            console.error('StorageManager.addPlan 오류:', e);
+            throw e;
+        }
+    },
+
+    async deletePlan(planId) {
+        try {
+            const r = await fetch(`/api/study/calendar/plan/${planId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            if (!r.ok) throw new Error('타임라인 삭제 실패');
+            return true;
+        } catch (e) {
+            console.error('StorageManager.deletePlan 오류:', e);
+            throw e;
+        }
     }
 };

@@ -65,6 +65,19 @@ function toggleTheme() {
                 </select>
             </div>
             <div class="ts-note" id="ts-cam-note">공개 범위는 모든 유저에게 표시됩니다.</div>
+
+            <div class="ts-section-title">문의 (SUPPORT)</div>
+            <div class="ts-stack">
+                <label for="ts-admin-message" class="ts-label">관리자에게 문의하기</label>
+                <textarea
+                    id="ts-admin-message"
+                    class="ts-textarea"
+                    maxlength="500"
+                    placeholder="불편사항, 오류 제보, 건의사항을 남겨주세요."
+                ></textarea>
+                <button type="button" class="ts-send-btn" onclick="submitAdminInquiry()">메시지 보내기</button>
+                <div class="ts-note" id="ts-admin-note">문의 내용은 관리자에게 메시지로 전달됩니다.</div>
+            </div>
         </div>
     </div>
 
@@ -80,35 +93,70 @@ function toggleTheme() {
 
     <!-- Main Content -->
     <main class="focus-container">
-        <div class="mode-group" id="mode-group">
-            <button id="mode-timer" class="mode-btn active" type="button">TIMER</button>
-            <button id="mode-stopwatch" class="mode-btn" type="button">STOPWATCH</button>
+        <div class="page-tabs" id="page-tabs">
+            <button id="tab-study-btn" class="page-tab-btn active" type="button">STUDY</button>
+            <button id="tab-calendar-btn" class="page-tab-btn" type="button">CALENDAR</button>
         </div>
-        
-        <!-- Timer Setup (Visible initially) -->
-        <div id="setup-area" class="setup-group">
-            <div class="input-unit">
-                <input type="number" id="input-hr" class="time-input" value="01" placeholder="00">
-                <span class="unit-label">HRS</span>
+
+        <section id="tab-study" class="tab-panel active">
+            <div class="subject-control" id="subject-control">
+                <div class="subject-row">
+                    <select id="subject-select" class="subject-select"></select>
+                    <button id="subject-add-btn" class="subject-add-btn" type="button">과목 추가</button>
+                </div>
+                <div class="subject-row">
+                    <input id="subject-input" class="subject-input" type="text" maxlength="60" placeholder="예: 미적분, 영어 독해">
+                    <span class="subject-hint">공부 시작 전 과목을 선택하세요</span>
+                </div>
             </div>
-            <div class="input-sep">:</div>
-            <div class="input-unit">
-                <input type="number" id="input-min" class="time-input" value="40" placeholder="40">
-                <span class="unit-label">MIN</span>
+
+            <div class="mode-group" id="mode-group">
+                <button id="mode-timer" class="mode-btn active" type="button">TIMER</button>
+                <button id="mode-stopwatch" class="mode-btn" type="button">STOPWATCH</button>
             </div>
-        </div>
 
-        <!-- Active Timer Display -->
-        <div id="main-timer" class="timer-display">
-            <span id="display-time">00:00</span><span id="ms" class="timer-ms">.00</span>
-        </div>
+            <!-- Timer Setup (Visible initially) -->
+            <div id="setup-area" class="setup-group">
+                <div class="input-unit">
+                    <input type="number" id="input-hr" class="time-input" value="01" placeholder="00">
+                    <span class="unit-label">HRS</span>
+                </div>
+                <div class="input-sep">:</div>
+                <div class="input-unit">
+                    <input type="number" id="input-min" class="time-input" value="40" placeholder="40">
+                    <span class="unit-label">MIN</span>
+                </div>
+            </div>
 
-        <!-- Controls -->
-        <div class="control-group">
-            <button id="enter-btn" class="btn-primary cmd-btn">INITIALIZE PATH</button>
-            <button id="break-btn" class="btn-danger cmd-btn hidden">ABORT PATH</button>
-        </div>
+            <!-- Active Timer Display -->
+            <div id="main-timer" class="timer-display">
+                <span id="display-time">00:00</span><span id="ms" class="timer-ms">.00</span>
+            </div>
 
+            <!-- Controls -->
+            <div class="control-group">
+                <button id="enter-btn" class="btn-primary cmd-btn">INITIALIZE PATH</button>
+                <button id="break-btn" class="btn-danger cmd-btn hidden">ABORT PATH</button>
+            </div>
+        </section>
+
+        <section id="tab-calendar" class="tab-panel">
+            <div class="calendar-head">
+                <button id="week-prev-btn" class="week-nav-btn" type="button">◀ 이전 주</button>
+                <div id="week-label" class="week-label">이번 주</div>
+                <button id="week-next-btn" class="week-nav-btn" type="button">다음 주 ▶</button>
+            </div>
+            <div id="calendar-timeline" class="calendar-timeline"></div>
+
+            <form id="calendar-plan-form" class="plan-form">
+                <select id="plan-subject-select" class="plan-input" required></select>
+                <input id="plan-date" class="plan-input" type="date" required>
+                <input id="plan-start-time" class="plan-input" type="time" required>
+                <input id="plan-end-time" class="plan-input" type="time" required>
+                <input id="plan-note" class="plan-input" type="text" maxlength="120" placeholder="메모(선택)">
+                <button id="plan-add-btn" class="plan-submit-btn" type="submit">타임라인 추가</button>
+            </form>
+        </section>
     </main>
 
     <!-- Bottom Info -->

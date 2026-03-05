@@ -207,6 +207,50 @@ router.post('/send', requireAuth, async (req, res) => {
     }
 });
 
+// 관리자에게 문의 메시지 보내기 (친구 여부 무관)
+router.post('/contact-admin', requireAuth, async (req, res) => {
+    const raw = typeof req.body?.content === 'string' ? req.body.content : '';
+    const content = raw.trim();
+
+    if (!content) {
+        return res.status(400).json({ error: '문의 내용을 입력하세요' });
+    }
+    if (content.length > 500) {
+        return res.status(400).json({ error: '문의는 500자 이내로 입력하세요' });
+    }
+
+    try {
+        const adminsRes = await pool.query(
+            'SELECT id FROM users WHERE is_admin = TRUE AND id <> $1 ORDER BY id ASC',
+            [req.session.userId]
+        );
+
+        if (adminsRes.rows.length === 0) {
+            return res.status(404).json({ error: '현재 문의 가능한 관리자가 없습니다' });
+        }
+
+        const senderRes = await pool.query('SELECT nickname FROM users WHERE id = $1', [req.session.userId]);
+        const senderNickname = senderRes.rows[0]?.nickname || '사용자';
+
+        for (const admin of adminsRes.rows) {
+            await pool.query(
+                'INSERT INTO messages (sender_id, receiver_id, content) VALUES ($1, $2, $3)',
+                [req.session.userId, admin.id, content]
+            );
+
+            await pool.query(
+                'INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)',
+                [admin.id, 'message', `${senderNickname}님이 관리자 문의를 보냈습니다.`]
+            );
+        }
+
+        res.json({ ok: true, sent_to_admins: adminsRes.rows.length });
+    } catch (err) {
+        console.error('messages/contact-admin 오류:', err.message);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
 // 파일 메시지 보내기
 router.post('/send-file', requireAuth, upload.single('file'), async (req, res) => {
     const { receiver_id, content } = req.body;

@@ -4,16 +4,218 @@ const { STUDY_GOLD_PER_HR } = require('../data/universities');
 
 const router = express.Router();
 
+function parseTimeToMinute(timeText) {
+    const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(timeText || '').trim());
+    if (!m) return null;
+    return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+function getWeekRange(offsetWeek = 0, anchorDateText = null) {
+    const anchor = anchorDateText ? new Date(anchorDateText) : new Date();
+    const base = Number.isNaN(anchor.getTime()) ? new Date() : anchor;
+    base.setHours(0, 0, 0, 0);
+    const day = (base.getDay() + 6) % 7; // monday=0
+    base.setDate(base.getDate() - day + (offsetWeek * 7));
+
+    const start = new Date(base);
+    const end = new Date(base);
+    end.setDate(end.getDate() + 7);
+    return { start, end };
+}
+
+function dateToYmd(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+router.get('/subjects', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    try {
+        const result = await pool.query(
+            `SELECT id, name, created_at
+             FROM study_subjects
+             WHERE user_id = $1
+             ORDER BY created_at ASC`,
+            [req.session.userId]
+        );
+        res.json({ subjects: result.rows });
+    } catch (err) {
+        console.error('study/subjects GET error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/subjects', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const rawName = String(req.body.name || '').trim();
+    if (!rawName) return res.status(400).json({ error: '과목명을 입력하세요.' });
+    if (rawName.length > 60) return res.status(400).json({ error: '과목명은 60자 이하입니다.' });
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO study_subjects (user_id, name)
+             VALUES ($1, $2)
+             ON CONFLICT (user_id, name)
+             DO UPDATE SET name = EXCLUDED.name
+             RETURNING id, name, created_at`,
+            [req.session.userId, rawName]
+        );
+        res.json({ ok: true, subject: result.rows[0] });
+    } catch (err) {
+        console.error('study/subjects POST error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.get('/calendar/week', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const offset = Math.max(-52, Math.min(parseInt(req.query.offset, 10) || 0, 52));
+    const { start, end } = getWeekRange(offset, req.query.anchor || null);
+    const endDisplay = new Date(end);
+    endDisplay.setDate(endDisplay.getDate() - 1);
+    const startDateText = dateToYmd(start);
+    const endDateText = dateToYmd(end);
+    const endDisplayText = dateToYmd(endDisplay);
+
+    try {
+        const [subjects, plans, records] = await Promise.all([
+            pool.query(
+                `SELECT id, name, created_at
+                 FROM study_subjects
+                 WHERE user_id = $1
+                 ORDER BY created_at ASC`,
+                [req.session.userId]
+            ),
+            pool.query(
+                `SELECT p.id,
+                        p.subject_id,
+                        COALESCE(s.name, '미지정') AS subject_name,
+                        p.plan_date,
+                        p.start_minute,
+                        p.end_minute,
+                        p.note,
+                        p.is_completed
+                 FROM study_plans p
+                 LEFT JOIN study_subjects s ON s.id = p.subject_id
+                 WHERE p.user_id = $1
+                   AND p.plan_date >= $2::date
+                   AND p.plan_date <  $3::date
+                 ORDER BY p.plan_date, p.start_minute`,
+                                [req.session.userId, startDateText, endDateText]
+            ),
+            pool.query(
+                `SELECT r.id,
+                        r.subject_id,
+                        COALESCE(s.name, '미지정') AS subject_name,
+                        r.duration_sec,
+                        r.result,
+                        r.created_at,
+                        DATE(r.created_at) AS record_date
+                 FROM study_records r
+                 LEFT JOIN study_subjects s ON s.id = r.subject_id
+                 WHERE r.user_id = $1
+                   AND r.created_at >= $2
+                   AND r.created_at <  $3
+                 ORDER BY r.created_at ASC`,
+                [req.session.userId, start.toISOString(), end.toISOString()]
+            )
+        ]);
+
+        res.json({
+            week: {
+                offset,
+                start_date: startDateText,
+                end_date: endDisplayText
+            },
+            subjects: subjects.rows,
+            plans: plans.rows,
+            records: records.rows
+        });
+    } catch (err) {
+        console.error('study/calendar/week error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/calendar/plan', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const subjectId = parseInt(req.body.subject_id, 10);
+    const planDate = String(req.body.plan_date || '').trim();
+    const startMinute = parseTimeToMinute(req.body.start_time);
+    const endMinute = parseTimeToMinute(req.body.end_time);
+    const note = String(req.body.note || '').trim().slice(0, 120);
+
+    if (!subjectId) return res.status(400).json({ error: '과목을 선택하세요.' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(planDate)) return res.status(400).json({ error: '날짜 형식이 올바르지 않습니다.' });
+    if (startMinute === null || endMinute === null || startMinute >= endMinute) {
+        return res.status(400).json({ error: '시간 구간이 올바르지 않습니다.' });
+    }
+
+    try {
+        const ownsSubject = await pool.query(
+            'SELECT id, name FROM study_subjects WHERE id = $1 AND user_id = $2',
+            [subjectId, req.session.userId]
+        );
+        if (ownsSubject.rows.length === 0) {
+            return res.status(400).json({ error: '유효하지 않은 과목입니다.' });
+        }
+
+        const result = await pool.query(
+            `INSERT INTO study_plans (user_id, subject_id, plan_date, start_minute, end_minute, note)
+             VALUES ($1, $2, $3::date, $4, $5, $6)
+             RETURNING id, subject_id, plan_date, start_minute, end_minute, note, is_completed`,
+            [req.session.userId, subjectId, planDate, startMinute, endMinute, note || null]
+        );
+        res.json({ ok: true, plan: result.rows[0] });
+    } catch (err) {
+        console.error('study/calendar/plan POST error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.delete('/calendar/plan/:id', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: '유효하지 않은 계획 ID입니다.' });
+    try {
+        await pool.query(
+            'DELETE FROM study_plans WHERE id = $1 AND user_id = $2',
+            [id, req.session.userId]
+        );
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('study/calendar/plan DELETE error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
 // 공부 시작: 목표 시간 저장 + is_studying
 router.post('/start', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     const { target_sec } = req.body;
+    const subjectId = parseInt(req.body.subject_id, 10);
     const target = Math.max(0, Math.min(parseInt(target_sec) || 0, 86400));
+    if (!subjectId) return res.status(400).json({ error: '공부 시작 전 과목을 선택하세요.' });
     try {
+        const subjectRes = await pool.query(
+            'SELECT id FROM study_subjects WHERE id = $1 AND user_id = $2',
+            [subjectId, req.session.userId]
+        );
+        if (subjectRes.rows.length === 0) {
+            return res.status(400).json({ error: '유효하지 않은 과목입니다.' });
+        }
+
         await pool.query(
-            `UPDATE users SET is_studying = true, study_started_at = NOW(), target_duration_sec = $1
-             WHERE id = $2`,
-            [target, req.session.userId]
+            `UPDATE users
+             SET is_studying = true,
+                 study_started_at = NOW(),
+                 target_duration_sec = $1,
+                 current_study_subject_id = $2
+             WHERE id = $3`,
+            [target, subjectId, req.session.userId]
         );
         res.json({ ok: true });
     } catch (err) {
@@ -36,7 +238,9 @@ router.post('/complete', async (req, res) => {
         await client.query('BEGIN');
 
         const userRes = await client.query(
-            'SELECT study_started_at, target_duration_sec, is_studying FROM users WHERE id = $1 FOR UPDATE',
+            `SELECT study_started_at, target_duration_sec, is_studying, current_study_subject_id
+             FROM users
+             WHERE id = $1 FOR UPDATE`,
             [req.session.userId]
         );
         const user = userRes.rows[0];
@@ -91,9 +295,30 @@ router.post('/complete', async (req, res) => {
         }
 
         await client.query(
-            'INSERT INTO study_records (user_id, duration_sec, result, earned_gold, earned_exp) VALUES ($1,$2,$3,$4,$5)',
-            [req.session.userId, elapsedSec, studyResult, earnedGold, earnedExp]
+            `INSERT INTO study_records (user_id, duration_sec, result, earned_gold, earned_exp, subject_id)
+             VALUES ($1,$2,$3,$4,$5,$6)`,
+            [req.session.userId, elapsedSec, studyResult, earnedGold, earnedExp, user.current_study_subject_id || null]
         );
+
+        if (studyResult === 'SUCCESS' && user.current_study_subject_id) {
+            await client.query(
+                `WITH target_plan AS (
+                    SELECT id
+                    FROM study_plans
+                    WHERE user_id = $1
+                      AND subject_id = $2
+                      AND plan_date = CURRENT_DATE
+                      AND is_completed = FALSE
+                    ORDER BY start_minute ASC
+                    LIMIT 1
+                 )
+                 UPDATE study_plans p
+                 SET is_completed = TRUE
+                 FROM target_plan
+                 WHERE p.id = target_plan.id`,
+                [req.session.userId, user.current_study_subject_id]
+            );
+        }
 
         const updRes = await client.query(
             `UPDATE users
@@ -101,7 +326,8 @@ router.post('/complete', async (req, res) => {
                  exp  = exp  + $2,
                  is_studying = false,
                  study_started_at = NULL,
-                 target_duration_sec = 0
+                 target_duration_sec = 0,
+                 current_study_subject_id = NULL
              WHERE id = $3
              RETURNING id, nickname, university, gold, exp, tier, tickets, is_studying, mock_exam_score`,
             [earnedGold, earnedExp, req.session.userId]

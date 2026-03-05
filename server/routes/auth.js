@@ -1,15 +1,17 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const pool = require('../db');
 const { getPercentile } = require('../data/universities');
 const aligoService = require('../utils/aligo');
 
 const router = express.Router();
 
-const USER_FIELDS = 'id, nickname, university, gold, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, balloon_skin, owned_skins, status_emoji, status_message, phone_verified, phone_verified_at';
+const USER_FIELDS = 'id, nickname, university, gold, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, balloon_skin, owned_skins, status_emoji, status_message, phone_verified, phone_verified_at, auth_provider, google_email';
 
 function escapeHtml(str) {
     if (!str) return str;
@@ -52,6 +54,26 @@ const imageFilter = (req, file, cb) => {
 const upload = multer({ storage: scoreStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFilter });
 const uploadGpa = multer({ storage: gpaStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFilter });
 
+function makeOAuthState() {
+    return crypto.randomBytes(24).toString('hex');
+}
+
+function slugifyNickname(source) {
+    const safe = (source || 'user').toLowerCase().replace(/[^a-z0-9가-힣_]/g, '');
+    return safe.slice(0, 18) || 'user';
+}
+
+async function makeUniqueNickname(base) {
+    const root = slugifyNickname(base);
+    for (let i = 0; i < 10; i += 1) {
+        const suffix = i === 0 ? '' : String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+        const candidate = `${root}${suffix}`.slice(0, 20);
+        const exists = await pool.query('SELECT id FROM users WHERE nickname = $1', [candidate]);
+        if (exists.rows.length === 0) return candidate;
+    }
+    return `user${Date.now().toString().slice(-8)}`;
+}
+
 router.post('/register', async (req, res) => {
     const { real_name, nickname, password, university, is_n_su, prev_university, privacy_agreed } = req.body;
     if (!nickname || !password || !university) {
@@ -63,31 +85,31 @@ router.post('/register', async (req, res) => {
     if (password.length < 4) return res.status(400).json({ error: '비밀번호는 4자 이상이어야 합니다.' });
     if (is_n_su && !prev_university) return res.status(400).json({ error: 'N수생은 전적 대학교를 입력해주세요.' });
 
-    // 휴대폰 인증 확인
-    if (!req.session.verifiedPhone) {
-        return res.status(400).json({ error: '휴대폰 인증이 필요합니다.' });
-    }
-
-    // 인증 유효시간 확인 (10분)
-    const verificationAge = Date.now() - (req.session.verifiedAt || 0);
-    if (verificationAge > 10 * 60 * 1000) {
-        req.session.verifiedPhone = null;
-        req.session.verifiedAt = null;
-        return res.status(400).json({ error: '휴대폰 인증이 만료되었습니다. 다시 인증해주세요.' });
-    }
-
     try {
         const existing = await pool.query('SELECT id FROM users WHERE nickname = $1', [nickname]);
         if (existing.rows.length > 0) return res.status(409).json({ error: '이미 사용 중인 닉네임입니다.' });
 
-        // 같은 전화번호로 가입된 계정 수 확인
-        const phoneCheck = await pool.query(
-            'SELECT COUNT(*) as count FROM users WHERE phone_hash = $1 AND phone_verified = true',
-            [req.session.verifiedPhone]
-        );
-        const accountLimit = parseInt(process.env.PHONE_ACCOUNT_LIMIT || '2');
-        if (parseInt(phoneCheck.rows[0].count) >= accountLimit) {
-            return res.status(409).json({ error: '이 전화번호로 더 이상 계정을 생성할 수 없습니다.' });
+        // 휴대폰 인증 여부 확인 (선택사항)
+        let phoneHash = null;
+        let phoneVerified = false;
+        
+        if (req.session.verifiedPhone) {
+            // 인증 유효시간 확인 (10분)
+            const verificationAge = Date.now() - (req.session.verifiedAt || 0);
+            if (verificationAge <= 10 * 60 * 1000) {
+                // 같은 전화번호로 가입된 계정 수 확인
+                const phoneCheck = await pool.query(
+                    'SELECT COUNT(*) as count FROM users WHERE phone_hash = $1 AND phone_verified = true',
+                    [req.session.verifiedPhone]
+                );
+                const accountLimit = parseInt(process.env.PHONE_ACCOUNT_LIMIT || '2');
+                if (parseInt(phoneCheck.rows[0].count) >= accountLimit) {
+                    return res.status(409).json({ error: '이 전화번호로 더 이상 계정을 생성할 수 없습니다.' });
+                }
+                
+                phoneHash = req.session.verifiedPhone;
+                phoneVerified = true;
+            }
         }
 
         const hash = await bcrypt.hash(password, 10);
@@ -99,9 +121,9 @@ router.post('/register', async (req, res) => {
 
         const result = await pool.query(
             `INSERT INTO users (nickname, password_hash, university, real_name, privacy_agreed, is_n_su, prev_university, phone_hash, phone_verified, phone_verified_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, NOW())
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
              RETURNING ${USER_FIELDS}`,
-            [nickname, hash, initialEstate, real_name, !!privacy_agreed, !!is_n_su, prev_university || null, req.session.verifiedPhone]
+            [nickname, hash, initialEstate, real_name, !!privacy_agreed, !!is_n_su, prev_university || null, phoneHash, phoneVerified, phoneVerified ? new Date() : null]
         );
         const user = result.rows[0];
         
@@ -266,6 +288,124 @@ router.post('/status-message', requireAuth, async (req, res) => {
         res.json({ ok: true, status_message: raw || null });
     } catch (err) {
         res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+// ===== Google OAuth 로그인 =====
+
+router.get('/google', (req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+    if (!clientId || !redirectUri) {
+        return res.status(500).json({ error: 'Google OAuth 설정이 누락되었습니다.' });
+    }
+
+    const state = makeOAuthState();
+    req.session.googleOAuthState = state;
+
+    const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'openid email profile',
+        state,
+        prompt: 'select_account'
+    });
+
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+router.get('/google/callback', async (req, res) => {
+    const { code, state } = req.query;
+    const expectedState = req.session.googleOAuthState;
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    const successRedirect = process.env.GOOGLE_AUTH_SUCCESS_REDIRECT || '/mainHub/';
+    const errorRedirect = process.env.GOOGLE_AUTH_ERROR_REDIRECT || '/P.A.T.H/login/index.html?error=google_auth';
+
+    if (!code || !state || !expectedState || state !== expectedState) {
+        req.session.googleOAuthState = null;
+        return res.redirect(errorRedirect);
+    }
+
+    if (!clientId || !clientSecret || !redirectUri) {
+        req.session.googleOAuthState = null;
+        return res.redirect(`${errorRedirect}&reason=missing_config`);
+    }
+
+    try {
+        const tokenRes = await axios.post(
+            'https://oauth2.googleapis.com/token',
+            new URLSearchParams({
+                code: String(code),
+                client_id: clientId,
+                client_secret: clientSecret,
+                redirect_uri: redirectUri,
+                grant_type: 'authorization_code'
+            }),
+            {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            }
+        );
+
+        const tokenJson = tokenRes.data;
+        const accessToken = tokenJson.access_token;
+        if (!accessToken) throw new Error('missing access token');
+
+        const userRes = await axios.get('https://openidconnect.googleapis.com/v1/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+
+        const profile = userRes.data;
+        const googleId = profile.sub;
+        const email = profile.email || null;
+        const name = profile.name || 'Google User';
+
+        if (!googleId) throw new Error('missing google subject');
+
+        let userQuery = await pool.query(
+            `SELECT ${USER_FIELDS} FROM users WHERE google_id = $1`,
+            [googleId]
+        );
+
+        if (userQuery.rows.length === 0 && email) {
+            userQuery = await pool.query(
+                `SELECT ${USER_FIELDS} FROM users WHERE google_email = $1`,
+                [email]
+            );
+        }
+
+        let user;
+        if (userQuery.rows.length > 0) {
+            user = userQuery.rows[0];
+            await pool.query(
+                `UPDATE users SET google_id = COALESCE(google_id, $1), google_email = COALESCE(google_email, $2), auth_provider = 'google' WHERE id = $3`,
+                [googleId, email, user.id]
+            );
+        } else {
+            const nickname = await makeUniqueNickname((email || name).split('@')[0]);
+            const randomPasswordHash = await bcrypt.hash(crypto.randomUUID(), 10);
+
+            const created = await pool.query(
+                `INSERT INTO users (
+                    nickname, password_hash, university, real_name, privacy_agreed,
+                    is_n_su, prev_university, auth_provider, google_id, google_email
+                ) VALUES ($1, $2, $3, $4, true, false, NULL, 'google', $5, $6)
+                RETURNING ${USER_FIELDS}`,
+                [nickname, randomPasswordHash, null, name, googleId, email]
+            );
+            user = created.rows[0];
+        }
+
+        req.session.googleOAuthState = null;
+        req.session.userId = user.id;
+        return res.redirect(successRedirect);
+    } catch (err) {
+        console.error('google callback error:', err);
+        req.session.googleOAuthState = null;
+        return res.redirect(`${errorRedirect}&reason=oauth_failed`);
     }
 });
 

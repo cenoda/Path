@@ -59,6 +59,32 @@ async function initSchema() {
         `);
 
         await client.query(`
+            CREATE TABLE IF NOT EXISTS study_subjects (
+                id          SERIAL PRIMARY KEY,
+                user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name        VARCHAR(60) NOT NULL,
+                created_at  TIMESTAMP DEFAULT NOW(),
+                UNIQUE(user_id, name)
+            );
+            CREATE INDEX IF NOT EXISTS idx_study_subjects_user_id ON study_subjects(user_id);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS study_plans (
+                id              SERIAL PRIMARY KEY,
+                user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                subject_id      INTEGER REFERENCES study_subjects(id) ON DELETE SET NULL,
+                plan_date       DATE NOT NULL,
+                start_minute    INTEGER NOT NULL,
+                end_minute      INTEGER NOT NULL,
+                note            VARCHAR(120),
+                is_completed    BOOLEAN DEFAULT FALSE,
+                created_at      TIMESTAMP DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_study_plans_user_date ON study_plans(user_id, plan_date);
+        `);
+
+        await client.query(`
             CREATE TABLE IF NOT EXISTS invasions (
                 id                  SERIAL PRIMARY KEY,
                 attacker_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -91,6 +117,12 @@ async function initSchema() {
         `);
 
         await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS current_study_subject_id INTEGER DEFAULT NULL;
+            ALTER TABLE study_records ADD COLUMN IF NOT EXISTS subject_id INTEGER DEFAULT NULL;
+            CREATE INDEX IF NOT EXISTS idx_study_records_user_subject_created ON study_records(user_id, subject_id, created_at);
+        `);
+
+        await client.query(`
             ALTER TABLE users ADD COLUMN IF NOT EXISTS cam_enabled BOOLEAN DEFAULT FALSE;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS cam_visibility VARCHAR(20) DEFAULT 'all';
         `);
@@ -98,6 +130,13 @@ async function initSchema() {
         await client.query(`
             ALTER TABLE users ADD COLUMN IF NOT EXISTS status_emoji VARCHAR(12) DEFAULT NULL;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS status_message VARCHAR(60) DEFAULT NULL;
+        `);
+
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(20) DEFAULT 'local';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(64) UNIQUE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS google_email VARCHAR(255);
+            CREATE INDEX IF NOT EXISTS idx_users_google_email ON users(google_email);
         `);
 
         await client.query(`

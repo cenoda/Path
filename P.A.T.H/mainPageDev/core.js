@@ -13,22 +13,27 @@ const TimerEngine = {
         return studyMode;
     },
 
-    async start(hr, min) {
+    async start(hr, min, subjectId) {
         if (studyMode === 'stopwatch') {
             timeLeft = 0;
         } else {
             timeLeft = (hr * 3600 + min * 60) * 100;
         }
         originalTime = timeLeft;
-        isRunning = true;
 
         const targetSec = Math.floor(originalTime / 100);
-        fetch('/api/study/start', {
+        const startRes = await fetch('/api/study/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ target_sec: targetSec, mode: studyMode })
-        }).catch(() => {});
+            body: JSON.stringify({ target_sec: targetSec, mode: studyMode, subject_id: subjectId })
+        });
+        if (!startRes.ok) {
+            const err = await startRes.json().catch(() => ({}));
+            throw new Error(err.error || '공부 시작에 실패했습니다.');
+        }
+
+        isRunning = true;
 
         if (typeof WakeLockManager !== 'undefined') WakeLockManager.request();
         if (typeof CamManager !== 'undefined') CamManager.startCapturing();

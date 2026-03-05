@@ -189,3 +189,43 @@ async function saveTimerCamSettings() {
         }, 2000);
     }
 }
+
+async function submitAdminInquiry() {
+    const input = document.getElementById('ts-admin-message');
+    const note = document.getElementById('ts-admin-note');
+    if (!input) return;
+
+    const content = (input.value || '').trim();
+    if (!content) {
+        if (note) {
+            note.textContent = '문의 내용을 입력해주세요.';
+            note.style.color = '#ff6b6b';
+        }
+        return;
+    }
+
+    try {
+        const r = await fetch('/api/messages/contact-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ content })
+        });
+        const data = await r.json().catch(() => ({}));
+
+        if (!r.ok) {
+            throw new Error(data.error || '문의 전송에 실패했습니다.');
+        }
+
+        input.value = '';
+        if (note) {
+            note.textContent = '문의가 관리자에게 전달되었습니다.';
+            note.style.color = '#D4AF37';
+        }
+    } catch (err) {
+        if (note) {
+            note.textContent = err.message || '문의 전송 중 오류가 발생했습니다.';
+            note.style.color = '#ff6b6b';
+        }
+    }
+}

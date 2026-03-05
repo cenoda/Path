@@ -13,6 +13,8 @@ body.light .exit-timer-btn { border-color: rgba(0,0,0,0.12); color: var(--text-s
 body.light .exit-timer-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-primary); border-color: rgba(0,0,0,0.25); }
 body.light .mode-group { border-color: rgba(0,0,0,0.12); }
 body.light .mode-btn + .mode-btn { border-left-color: rgba(0,0,0,0.10); }
+body.light .page-tabs { border-color: rgba(0,0,0,0.12); }
+body.light .page-tab-btn + .page-tab-btn { border-left-color: rgba(0,0,0,0.10); }
 body.light .time-input { color: var(--text-primary); border-bottom-color: #b0b8c8; }
 body.light .time-input:focus { border-color: var(--accent-gold); color: var(--accent-gold); }
 body.light .input-sep { color: #b0b8c8; }
@@ -26,6 +28,19 @@ body.light .btn-danger { border-color: var(--accent-red); color: var(--accent-re
 body.light .system-msg { color: #b0b8c8; }
 body.light .result-overlay { background: rgba(240,246,252,0.97); }
 body.light .result-card { color: var(--text-primary); }
+body.light .subject-select,
+body.light .subject-input,
+body.light .plan-input { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.14); color: var(--text-primary); }
+body.light .subject-add-btn,
+body.light .plan-submit-btn,
+body.light .week-nav-btn { border-color: rgba(0,0,0,0.16); color: #485569; }
+body.light .subject-add-btn:hover,
+body.light .plan-submit-btn:hover,
+body.light .week-nav-btn:hover { border-color: rgba(0,0,0,0.34); color: var(--text-primary); }
+body.light .calendar-day { background: rgba(255,255,255,0.65); border-color: rgba(0,0,0,0.12); }
+body.light .day-title { color: #4c5b70; }
+body.light .timeline-plan { background: rgba(212, 175, 55, 0.14); border-color: rgba(212, 175, 55, 0.32); }
+body.light .timeline-record { background: rgba(52, 152, 219, 0.12); border-color: rgba(52, 152, 219, 0.28); }
 
 :root {
     --bg-color: #050505;
@@ -82,6 +97,198 @@ body.active { border-color: var(--accent-red); }
 .focus-container {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
     width: 100%;
+}
+
+.tab-panel {
+    width: 100%;
+    max-width: 920px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+}
+
+.tab-panel.active {
+    display: flex;
+}
+
+.page-tabs {
+    display: inline-flex;
+    border: 1px solid var(--border-color);
+    margin-bottom: 18px;
+}
+
+.page-tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 10px 18px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: 0.3s;
+    font-weight: 700;
+}
+
+.page-tab-btn + .page-tab-btn { border-left: 1px solid var(--border-color); }
+
+.page-tab-btn.active {
+    color: var(--accent-gold);
+    background: rgba(212, 175, 55, 0.08);
+}
+
+.subject-control {
+    width: 100%;
+    max-width: 620px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.subject-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    align-items: center;
+}
+
+.subject-select,
+.subject-input,
+.plan-input {
+    background: rgba(255,255,255,0.04);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-family: var(--font-ui);
+    min-height: 40px;
+}
+
+.subject-select,
+.subject-input {
+    flex: 1;
+}
+
+.subject-hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    min-width: 170px;
+}
+
+.subject-add-btn,
+.plan-submit-btn,
+.week-nav-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.subject-add-btn:hover,
+.plan-submit-btn:hover,
+.week-nav-btn:hover {
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+}
+
+.calendar-head {
+    width: 100%;
+    max-width: 920px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.week-label {
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+
+.calendar-timeline {
+    width: 100%;
+    max-width: 920px;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+.calendar-day {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    min-height: 190px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.day-title {
+    font-size: 11px;
+    color: #8e9ab1;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.day-items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.timeline-item {
+    border: 1px solid;
+    border-radius: 6px;
+    padding: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.timeline-plan {
+    background: rgba(212, 175, 55, 0.08);
+    border-color: rgba(212, 175, 55, 0.24);
+}
+
+.timeline-record {
+    background: rgba(52, 152, 219, 0.08);
+    border-color: rgba(52, 152, 219, 0.24);
+}
+
+.timeline-meta {
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+.plan-delete-btn {
+    margin-top: 4px;
+    font-size: 10px;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    background: transparent;
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: pointer;
+}
+
+.plan-form {
+    width: 100%;
+    max-width: 920px;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.plan-submit-btn {
+    font-weight: 600;
 }
 
 .mode-group {
@@ -206,10 +413,34 @@ body.active .timer-ms { color: #444; }
 }
 .ts-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .ts-label { font-size: 12px; color: #F5F5F7; }
+.ts-stack { display: flex; flex-direction: column; gap: 8px; }
 .ts-select {
     background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
     color: #F5F5F7; font-size: 11px; padding: 5px 8px; border-radius: 4px; cursor: pointer;
 }
+.ts-textarea {
+    width: 100%; min-height: 92px; resize: vertical;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    color: #F5F5F7; font-size: 12px; line-height: 1.5;
+    border-radius: 6px; padding: 8px 10px; box-sizing: border-box;
+}
+.ts-textarea:focus {
+    outline: none;
+    border-color: rgba(212,175,55,0.7);
+    box-shadow: 0 0 0 2px rgba(212,175,55,0.2);
+}
+.ts-send-btn {
+    align-self: flex-end;
+    border: 1px solid rgba(212,175,55,0.7);
+    background: rgba(212,175,55,0.08);
+    color: #D4AF37;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.ts-send-btn:hover { background: rgba(212,175,55,0.16); }
 .ts-note { font-size: 10px; color: #86868B; margin-top: 4px; line-height: 1.5; }
 
 /* Cam Preview */
@@ -230,6 +461,41 @@ body.active .timer-ms { color: #444; }
 }
 .cam-status { font-size: 9px; color: #86868B; letter-spacing: 0.5px; flex: 1; text-align: right; }
 
+@media (max-width: 980px) {
+    body {
+        overflow: auto;
+        padding: 18px 12px 28px;
+        height: auto;
+        min-height: 100vh;
+    }
+
+    .focus-container {
+        justify-content: flex-start;
+        padding-bottom: 20px;
+    }
+
+    .calendar-timeline {
+        grid-template-columns: 1fr;
+    }
+
+    .calendar-day {
+        min-height: 120px;
+    }
+
+    .plan-form {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .subject-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .subject-hint {
+        min-width: auto;
+    }
+}
+
 /* Settings Panel light mode */
 body.light .timer-settings-panel {
     background: rgba(240,248,255,0.97);
@@ -241,6 +507,8 @@ body.light .timer-settings-close { color: #1a1f2e; }
 body.light .ts-section-title { color: #6a7585; border-bottom-color: rgba(0,0,0,0.08); }
 body.light .ts-label { color: #1a1f2e; }
 body.light .ts-select { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.12); color: #1a1f2e; }
+body.light .ts-textarea { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.12); color: #1a1f2e; }
+body.light .ts-send-btn { border-color: rgba(184,134,11,0.8); color: #9a6f00; background: rgba(184,134,11,0.1); }
 body.light .ts-note { color: #6a7585; }
 body.light .cam-preview-container { background: rgba(240,248,255,0.95); border-color: rgba(0,0,0,0.15); }
 

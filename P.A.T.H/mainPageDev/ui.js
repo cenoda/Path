@@ -1,5 +1,9 @@
 const UI = {
     currentMode: 'timer',
+    currentTab: 'study',
+    subjects: [],
+    weekOffset: 0,
+    weekData: null,
 
     elements: {
         body:        document.body,
@@ -7,6 +11,23 @@ const UI = {
         ticketVal:   document.getElementById('ticket-val'),
         tierTag:     document.querySelector('.tier-tag'),
         rankPct:     document.getElementById('rank-pct'),
+        tabStudyBtn: document.getElementById('tab-study-btn'),
+        tabCalendarBtn: document.getElementById('tab-calendar-btn'),
+        tabStudy:    document.getElementById('tab-study'),
+        tabCalendar: document.getElementById('tab-calendar'),
+        subjectSelect: document.getElementById('subject-select'),
+        subjectInput: document.getElementById('subject-input'),
+        subjectAddBtn: document.getElementById('subject-add-btn'),
+        planSubjectSelect: document.getElementById('plan-subject-select'),
+        planDate: document.getElementById('plan-date'),
+        planStartTime: document.getElementById('plan-start-time'),
+        planEndTime: document.getElementById('plan-end-time'),
+        planNote: document.getElementById('plan-note'),
+        planForm: document.getElementById('calendar-plan-form'),
+        weekPrevBtn: document.getElementById('week-prev-btn'),
+        weekNextBtn: document.getElementById('week-next-btn'),
+        weekLabel: document.getElementById('week-label'),
+        calendarTimeline: document.getElementById('calendar-timeline'),
         setupArea:   document.getElementById('setup-area'),
         inputHr:     document.getElementById('input-hr'),
         inputMin:    document.getElementById('input-min'),
@@ -20,21 +41,34 @@ const UI = {
         overlay:     document.getElementById('overlay'),
         resTitle:    document.getElementById('res-title'),
         resLoot:     document.getElementById('res-loot'),
-        bottomInfo:  document.querySelector('.bottom-info')
+        bottomInfo:  document.querySelector('.footer-info .system-msg')
     },
 
     async init() {
         const userData = await StorageManager.load();
         if (!userData) return;
+
         this.updateAssets(userData);
         if (this.elements.bottomInfo) {
             this.elements.bottomInfo.textContent = `DOMAIN: ${userData.university || '-'}`;
         }
+
+        this.setTodayDefaults();
         this.loadRankInfo();
         this.bindEvents();
         this.syncInputToDisplay();
+        await this.loadSubjects();
+        await this.loadWeekCalendar(0);
+
         if (typeof CamManager !== 'undefined') CamManager.loadSettings();
         console.log('P.A.T.H: UI 초기화 완료');
+    },
+
+    setTodayDefaults() {
+        const today = new Date().toISOString().slice(0, 10);
+        if (this.elements.planDate) this.elements.planDate.value = today;
+        if (this.elements.planStartTime) this.elements.planStartTime.value = '09:00';
+        if (this.elements.planEndTime) this.elements.planEndTime.value = '11:00';
     },
 
     async loadRankInfo() {
@@ -57,14 +91,43 @@ const UI = {
         this.elements.inputHr.oninput  = syncAction;
         this.elements.inputMin.oninput = syncAction;
 
+        this.elements.tabStudyBtn.onclick = () => this.switchTab('study');
+        this.elements.tabCalendarBtn.onclick = () => this.switchTab('calendar');
+
         this.elements.modeTimer.onclick = () => this.setMode('timer');
         this.elements.modeStopwatch.onclick = () => this.setMode('stopwatch');
 
-        this.elements.enterBtn.onclick = () => {
+        this.elements.subjectAddBtn.onclick = () => this.handleAddSubject();
+        this.elements.subjectInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.handleAddSubject();
+            }
+        });
+
+        this.elements.weekPrevBtn.onclick = () => this.loadWeekCalendar(this.weekOffset - 1);
+        this.elements.weekNextBtn.onclick = () => this.loadWeekCalendar(this.weekOffset + 1);
+        this.elements.planForm.onsubmit = (e) => this.handlePlanSubmit(e);
+        this.elements.calendarTimeline.addEventListener('click', (e) => this.handlePlanDelete(e));
+
+        this.elements.enterBtn.onclick = async () => {
             const hr  = parseInt(this.elements.inputHr.value)  || 0;
             const min = parseInt(this.elements.inputMin.value) || 0;
+            const subjectId = parseInt(this.elements.subjectSelect.value, 10) || 0;
+
+            if (!subjectId) {
+                alert('공부 시작 전 과목을 선택하거나 추가하세요.');
+                return;
+            }
             if (this.currentMode === 'timer' && hr === 0 && min === 0) {
                 alert('목표 시간을 설정하십시오.');
+                return;
+            }
+
+            try {
+                await TimerEngine.start(hr, min, subjectId);
+            } catch (e) {
+                alert(e.message || '공부 시작에 실패했습니다.');
                 return;
             }
 
@@ -78,8 +141,6 @@ const UI = {
             } else {
                 this.elements.breakBtn.textContent = 'ABORT PATH';
             }
-
-            TimerEngine.start(hr, min);
         };
 
         this.elements.breakBtn.onclick = () => {
@@ -90,6 +151,197 @@ const UI = {
             }
         };
         this.elements.resetBtn.onclick = () => location.reload();
+    },
+
+    switchTab(tab) {
+        this.currentTab = tab === 'calendar' ? 'calendar' : 'study';
+        const isCalendar = this.currentTab === 'calendar';
+        this.elements.tabStudyBtn.classList.toggle('active', !isCalendar);
+        this.elements.tabCalendarBtn.classList.toggle('active', isCalendar);
+        this.elements.tabStudy.classList.toggle('active', !isCalendar);
+        this.elements.tabCalendar.classList.toggle('active', isCalendar);
+        this.elements.body.classList.remove('active');
+
+        if (isCalendar) {
+            this.loadWeekCalendar(this.weekOffset).catch(() => {});
+        }
+    },
+
+    async handleAddSubject() {
+        const name = (this.elements.subjectInput.value || '').trim();
+        if (!name) {
+            alert('과목명을 입력하세요.');
+            return;
+        }
+        try {
+            const added = await StorageManager.addSubject(name);
+            this.subjects = await StorageManager.fetchSubjects();
+            this.renderSubjectOptions(added?.id);
+            this.elements.subjectInput.value = '';
+            if (this.currentTab === 'calendar') await this.loadWeekCalendar(this.weekOffset);
+        } catch (e) {
+            alert(e.message || '과목 추가 실패');
+        }
+    },
+
+    async loadSubjects() {
+        this.subjects = await StorageManager.fetchSubjects();
+        if (this.subjects.length === 0) {
+            this.renderSubjectOptions(null);
+            return;
+        }
+        this.renderSubjectOptions(this.subjects[0].id);
+    },
+
+    renderSubjectOptions(selectedId) {
+        const build = (placeholder) => {
+            if (this.subjects.length === 0) return `<option value="">${placeholder}</option>`;
+            return this.subjects.map((s) => {
+                const selected = selectedId && Number(selectedId) === Number(s.id) ? ' selected' : '';
+                return `<option value="${s.id}"${selected}>${this.escapeHtml(s.name)}</option>`;
+            }).join('');
+        };
+
+        this.elements.subjectSelect.innerHTML = build('과목을 먼저 추가하세요');
+        this.elements.planSubjectSelect.innerHTML = build('과목 필요');
+    },
+
+    async loadWeekCalendar(offset) {
+        this.weekOffset = offset;
+        try {
+            this.weekData = await StorageManager.fetchWeekCalendar(this.weekOffset);
+            if (Array.isArray(this.weekData.subjects)) {
+                this.subjects = this.weekData.subjects;
+                this.renderSubjectOptions(this.elements.subjectSelect.value || this.subjects[0]?.id);
+            }
+            this.renderWeekLabel();
+            this.renderCalendarTimeline();
+        } catch (e) {
+            console.error(e);
+            if (this.elements.weekLabel) this.elements.weekLabel.textContent = '캘린더 로드 실패';
+        }
+    },
+
+    renderWeekLabel() {
+        if (!this.weekData?.week || !this.elements.weekLabel) return;
+        const start = this.weekData.week.start_date;
+        const end = this.weekData.week.end_date;
+        const offsetText = this.weekOffset === 0
+            ? '이번 주'
+            : `${this.weekOffset > 0 ? '+' : ''}${this.weekOffset}주`;
+        this.elements.weekLabel.textContent = `${start} ~ ${end} (${offsetText})`;
+    },
+
+    renderCalendarTimeline() {
+        if (!this.elements.calendarTimeline || !this.weekData?.week) return;
+
+        const dayNames = ['월', '화', '수', '목', '금', '토', '일'];
+        const start = new Date(`${this.weekData.week.start_date}T00:00:00`);
+        const plansByDate = new Map();
+        const recordsByDate = new Map();
+
+        for (const plan of (this.weekData.plans || [])) {
+            const key = String(plan.plan_date).slice(0, 10);
+            if (!plansByDate.has(key)) plansByDate.set(key, []);
+            plansByDate.get(key).push(plan);
+        }
+        for (const rec of (this.weekData.records || [])) {
+            const key = String(rec.record_date).slice(0, 10);
+            if (!recordsByDate.has(key)) recordsByDate.set(key, []);
+            recordsByDate.get(key).push(rec);
+        }
+
+        let html = '';
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            const key = d.toISOString().slice(0, 10);
+            const plans = plansByDate.get(key) || [];
+            const records = recordsByDate.get(key) || [];
+
+            const planItems = plans.map((p) => {
+                const status = p.is_completed ? '완료' : '예정';
+                return `<div class="timeline-item timeline-plan">
+                    <div><strong>${this.escapeHtml(p.subject_name || '미지정')}</strong> (${status})</div>
+                    <div class="timeline-meta">${this.minuteToTime(p.start_minute)} - ${this.minuteToTime(p.end_minute)}</div>
+                    <div class="timeline-meta">${this.escapeHtml(p.note || '')}</div>
+                    <button class="plan-delete-btn" data-plan-id="${p.id}" type="button">삭제</button>
+                </div>`;
+            }).join('');
+
+            const recordItems = records.map((r) => {
+                const sec = parseInt(r.duration_sec, 10) || 0;
+                const min = Math.floor(sec / 60);
+                const h = Math.floor(min / 60);
+                const mm = min % 60;
+                const duration = h > 0 ? `${h}h ${mm}m` : `${mm}m`;
+                return `<div class="timeline-item timeline-record">
+                    <div><strong>${this.escapeHtml(r.subject_name || '미지정')}</strong> (${this.escapeHtml(r.result)})</div>
+                    <div class="timeline-meta">실공부 ${duration}</div>
+                </div>`;
+            }).join('');
+
+            html += `<div class="calendar-day">
+                <div class="day-title">${key} (${dayNames[i]})</div>
+                <div class="day-items">${planItems}${recordItems || ''}${(!planItems && !recordItems) ? '<div class="timeline-meta">기록 없음</div>' : ''}</div>
+            </div>`;
+        }
+
+        this.elements.calendarTimeline.innerHTML = html;
+    },
+
+    async handlePlanSubmit(event) {
+        event.preventDefault();
+        const subjectId = parseInt(this.elements.planSubjectSelect.value, 10) || 0;
+        if (!subjectId) {
+            alert('과목을 먼저 추가하세요.');
+            return;
+        }
+
+        const payload = {
+            subject_id: subjectId,
+            plan_date: this.elements.planDate.value,
+            start_time: this.elements.planStartTime.value,
+            end_time: this.elements.planEndTime.value,
+            note: (this.elements.planNote.value || '').trim()
+        };
+
+        try {
+            await StorageManager.addPlan(payload);
+            this.elements.planNote.value = '';
+            await this.loadWeekCalendar(this.weekOffset);
+        } catch (e) {
+            alert(e.message || '타임라인 추가 실패');
+        }
+    },
+
+    async handlePlanDelete(event) {
+        const btn = event.target.closest('[data-plan-id]');
+        if (!btn) return;
+        const planId = parseInt(btn.getAttribute('data-plan-id'), 10);
+        if (!planId) return;
+        if (!confirm('이 타임라인 항목을 삭제할까요?')) return;
+        try {
+            await StorageManager.deletePlan(planId);
+            await this.loadWeekCalendar(this.weekOffset);
+        } catch (e) {
+            alert(e.message || '삭제 실패');
+        }
+    },
+
+    minuteToTime(minute) {
+        const h = Math.floor((minute || 0) / 60);
+        const m = (minute || 0) % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    },
+
+    escapeHtml(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     },
 
     setMode(mode) {

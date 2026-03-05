@@ -2,6 +2,7 @@ const express = require('express');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const cors = require('cors');
+const compression = require('compression');
 const path = require('path');
 const pool = require('./db');
 const { initSchema } = require('./schema');
@@ -17,6 +18,7 @@ const allowedOrigins = (process.env.CORS_ORIGIN || '')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
@@ -64,7 +66,10 @@ app.use('/uploads/scores/:filename', (req, res) => {
 app.use('/uploads/gpa/:filename', (req, res) => {
     res.redirect(`/api/auth/gpa-image/${req.params.filename}`);
 });
-app.use(express.static(path.join(__dirname, '..')));
+app.use(express.static(path.join(__dirname, '..'), {
+    maxAge: '1d',
+    etag: true
+}));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'P.A.T.H', 'login', 'index.html'));

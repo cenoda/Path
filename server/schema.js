@@ -55,6 +55,7 @@ async function initSchema() {
             );
             CREATE INDEX IF NOT EXISTS idx_study_records_user_id ON study_records(user_id);
             CREATE INDEX IF NOT EXISTS idx_study_records_created_at ON study_records(created_at);
+            CREATE INDEX IF NOT EXISTS idx_study_records_user_created ON study_records(user_id, created_at);
         `);
 
         await client.query(`

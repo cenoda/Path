@@ -374,16 +374,55 @@ const WorldScene = {
         group.userData = { userId: user.id, user, balloon, label, isMe, baseY: 0 };
 
         if (isMe) {
-            const glowGeo = new THREE.CircleGeometry(110, 48);
+            // 열기구(160×200)보다 1.8× 큰 plane — 텍스처 UV를 역산해 실루엣 글로우 생성
+            const GS = 1.8;
+            const glowGeo = new THREE.PlaneGeometry(160 * GS, 200 * GS);
+            // glowUV → balloonUV 변환: offset = (1-1/GS)/2, scale = 1/GS
+            const uvOffset = (1 - 1 / GS) / 2;   // ≈ 0.2222
+            const uvScale  = 1 / GS;               // ≈ 0.5556
             const glowMat = new THREE.ShaderMaterial({
-                uniforms: { uTime: { value: 0 } },
-                vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-                fragmentShader: `uniform float uTime; varying vec2 vUv; void main() { float d = length(vUv - vec2(0.5)); float pulse = 0.55 + 0.45 * sin(uTime * 2.2); float a = (1.0 - smoothstep(0.2, 0.5, d)) * 0.35 * pulse; gl_FragColor = vec4(0.83, 0.69, 0.21, a); }`,
+                uniforms: {
+                    uTime:     { value: 0 },
+                    uTex:      { value: tex },
+                    uOff:      { value: uvOffset },
+                    uScale:    { value: uvScale }
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+                `,
+                fragmentShader: `
+                    uniform sampler2D uTex;
+                    uniform float uTime, uOff, uScale;
+                    varying vec2 vUv;
+
+                    float sampleA(vec2 guv) {
+                        vec2 buv = (guv - uOff) / uScale;
+                        if (buv.x < 0.0 || buv.x > 1.0 || buv.y < 0.0 || buv.y > 1.0) return 0.0;
+                        return texture2D(uTex, buv).a;
+                    }
+
+                    void main() {
+                        float sp = 0.055;
+                        float a  = sampleA(vUv)
+                                 + sampleA(vUv + vec2( sp,  0.0))
+                                 + sampleA(vUv + vec2(-sp,  0.0))
+                                 + sampleA(vUv + vec2( 0.0, sp))
+                                 + sampleA(vUv + vec2( 0.0,-sp))
+                                 + sampleA(vUv + vec2( sp*0.7,  sp*0.7))
+                                 + sampleA(vUv + vec2(-sp*0.7,  sp*0.7))
+                                 + sampleA(vUv + vec2( sp*0.7, -sp*0.7))
+                                 + sampleA(vUv + vec2(-sp*0.7, -sp*0.7));
+                        a = smoothstep(0.08, 0.85, a / 9.0);
+                        float pulse = 0.55 + 0.45 * sin(uTime * 2.2);
+                        gl_FragColor = vec4(0.98, 0.85, 0.28, a * pulse * 0.75);
+                    }
+                `,
                 transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
             });
             const glowMesh = new THREE.Mesh(glowGeo, glowMat);
-            glowMesh.position.y = 80;
-            glowMesh.position.z = -5; // 배치: 열기구 뒤쪽 (후광)
+            glowMesh.position.y = 80;  // 열기구 본체와 동일 y
+            glowMesh.position.z = -4;  // 열기구 뒤
             group.userData.glowMat = glowMat;
             group.add(glowMesh);
         }

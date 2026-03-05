@@ -36,6 +36,8 @@ const WorldScene = {
     pinchStart: null,
 
     isLight: false,
+    dayNightMix: 0,
+    dayNightTarget: 0,
     isReady: false,
     frameCount: 0,
     friendIds: new Set(),
@@ -47,6 +49,8 @@ const WorldScene = {
 
     init() {
         this.isLight = document.body.classList.contains('light');
+        this.dayNightMix = this.isLight ? 1 : 0;
+        this.dayNightTarget = this.dayNightMix;
 
         const canvas = document.createElement('canvas');
         canvas.id = 'three-canvas';
@@ -73,14 +77,14 @@ const WorldScene = {
         this.camera.position.set(0, 0, this.camZ);
         this.camera.lookAt(0, 0, 0);
 
-        const ambientLight = new THREE.AmbientLight(0x8090c0, 0.8);
-        this.scene.add(ambientLight);
+        this.ambientLight = new THREE.AmbientLight(0x8090c0, 0.8);
+        this.scene.add(this.ambientLight);
         this.dirLight = new THREE.DirectionalLight(0xfff0dd, 1.6);
         this.dirLight.position.set(300, 500, 600);
         this.scene.add(this.dirLight);
-        const fillLight = new THREE.DirectionalLight(0x4060ff, 0.3);
-        fillLight.position.set(-200, -100, 300);
-        this.scene.add(fillLight);
+        this.fillLight = new THREE.DirectionalLight(0x4060ff, 0.3);
+        this.fillLight.position.set(-200, -100, 300);
+        this.scene.add(this.fillLight);
 
         this._buildStars();
         this._buildMoon();
@@ -99,41 +103,104 @@ const WorldScene = {
     },
 
     _updateSky() {
-        if (this.isLight) {
-            this.scene.background = new THREE.Color(0x87ceeb);
-            this.scene.fog = new THREE.Fog(0xb0d8f0, 1200, 4000);
-        } else {
-            this.scene.background = new THREE.Color(0x060814);
-            this.scene.fog = new THREE.FogExp2(0x060814, 0.00022);
+        this.setDayNightMode(this.isLight, false);
+    },
+
+    setDayNightMode(isLight, animate = true) {
+        this.isLight = !!isLight;
+        this.dayNightTarget = this.isLight ? 1 : 0;
+        if (!animate) {
+            this.dayNightMix = this.dayNightTarget;
+            this._applyDayNightBlend(this.dayNightMix);
         }
-        if (this.stars) this.stars.visible = !this.isLight;
-        if (this.moon) this.moon.visible = !this.isLight;
-        if (this.sun) this.sun.visible = this.isLight;
-        this.clouds.forEach(c => { c.visible = this.isLight; });
-        if (this.fireflies) this.fireflies.forEach(f => f.visible = !this.isLight);
-        
-        // 하늘섬 잔디 색상 업데이트
-        this.skyIslands.forEach(island => {
-            island.children.forEach(child => {
-                if (child.material && child.geometry && child.geometry.type === 'CylinderGeometry' && child.position.y > 0) {
-                    child.material.color.set(this.isLight ? 0x6fbf73 : 0x2d5a3d);
+    },
+
+    _applyDayNightBlend(mix) {
+        const nightBg = new THREE.Color(0x060814);
+        const dayBg = new THREE.Color(0x87ceeb);
+        const fogNight = new THREE.Color(0x060814);
+        const fogDay = new THREE.Color(0xb0d8f0);
+
+        if (!this.scene.background || !this.scene.background.isColor) {
+            this.scene.background = nightBg.clone();
+        }
+        this.scene.background.copy(nightBg).lerp(dayBg, mix);
+
+        const fogColor = fogNight.clone().lerp(fogDay, mix);
+        const fogDensity = 0.00022 * (1 - mix) + 0.00008 * mix;
+        if (!this.scene.fog || !this.scene.fog.isFogExp2) {
+            this.scene.fog = new THREE.FogExp2(fogColor, fogDensity);
+        } else {
+            this.scene.fog.color.copy(fogColor);
+            this.scene.fog.density = fogDensity;
+        }
+
+        if (this.dirLight) {
+            const nightColor = new THREE.Color(0x8090ff);
+            const dayColor = new THREE.Color(0xfffde0);
+            this.dirLight.color.copy(nightColor).lerp(dayColor, mix);
+            this.dirLight.intensity = 0.6 + mix * 1.6;
+            this.dirLight.position.set(
+                300 + mix * 300,
+                500 + mix * 300,
+                600
+            );
+        }
+
+        if (this.ambientLight) {
+            const nightColor = new THREE.Color(0x8090c0);
+            const dayColor = new THREE.Color(0xffffff);
+            this.ambientLight.color.copy(nightColor).lerp(dayColor, mix);
+            this.ambientLight.intensity = 0.65 + mix * 0.45;
+        }
+
+        if (this.fillLight) {
+            this.fillLight.intensity = 0.34 - mix * 0.16;
+        }
+
+        if (this.starMaterial) {
+            this.starMaterial.uniforms.uGlobalAlpha.value = 1 - mix;
+        }
+        if (this.stars) this.stars.visible = (1 - mix) > 0.01;
+        if (this.galaxy) {
+            this.galaxy.material.opacity = (1 - mix) * 0.7;
+            this.galaxy.visible = (1 - mix) > 0.01;
+        }
+        if (this.moon) {
+            this.moon.material.opacity = 1 - mix;
+            this.moon.visible = (1 - mix) > 0.01;
+        }
+        if (this.moonGlow) {
+            this.moonGlow.material.opacity = (1 - mix) * 0.18;
+            this.moonGlow.visible = (1 - mix) > 0.01;
+        }
+        if (this.sun) {
+            this.sun.material.opacity = mix;
+            this.sun.visible = mix > 0.01;
+        }
+        if (this.sunGlow) {
+            this.sunGlow.material.opacity = mix * 0.25;
+            this.sunGlow.visible = mix > 0.01;
+        }
+
+        this.clouds.forEach(c => {
+            c.visible = true;
+            c.traverse(child => {
+                if (child.material) {
+                    child.material.opacity = 0.88 * mix;
                 }
             });
         });
 
-        if (this.isLight) {
-            if (this.dirLight) {
-                this.dirLight.color.set(0xfffde0);
-                this.dirLight.intensity = 2.2;
-                this.dirLight.position.set(600, 800, 600);
-            }
-        } else {
-            if (this.dirLight) {
-                this.dirLight.color.set(0x8090ff);
-                this.dirLight.intensity = 0.6;
-                this.dirLight.position.set(300, 500, 600);
-            }
-        }
+        this.skyIslands.forEach(island => {
+            island.children.forEach(child => {
+                if (child.material && child.geometry && child.geometry.type === 'CylinderGeometry' && child.position.y > 0) {
+                    const nightGrass = new THREE.Color(0x2d5a3d);
+                    const dayGrass = new THREE.Color(0x6fbf73);
+                    child.material.color.copy(nightGrass).lerp(dayGrass, mix);
+                }
+            });
+        });
     },
 
     _buildStars() {
@@ -163,7 +230,7 @@ const WorldScene = {
         geo.setAttribute('phase', new THREE.BufferAttribute(phases, 1));
 
         const mat = new THREE.ShaderMaterial({
-            uniforms: { uTime: { value: 0 } },
+            uniforms: { uTime: { value: 0 }, uGlobalAlpha: { value: 1 } },
             vertexShader: `
                 attribute float starSize; attribute float phase; attribute vec3 starColor;
                 varying vec3 vColor; varying float vTwinkle;
@@ -178,10 +245,11 @@ const WorldScene = {
             `,
             fragmentShader: `
                 varying vec3 vColor; varying float vTwinkle;
+                uniform float uGlobalAlpha;
                 void main() {
                     float d = length(gl_PointCoord - vec2(0.5));
                     if (d > 0.5) discard;
-                    float alpha = (1.0 - d * 2.0) * vTwinkle;
+                    float alpha = (1.0 - d * 2.0) * vTwinkle * uGlobalAlpha;
                     gl_FragColor = vec4(vColor, alpha);
                 }
             `,
@@ -328,170 +396,6 @@ const WorldScene = {
             group.add(m);
         });
         return group;
-    },
-
-    _buildFireflies() {
-        this.fireflies = [];
-        const N = 20;
-        for (let i = 0; i < N; i++) {
-            const geo = new THREE.CircleGeometry(3, 8);
-            const mat = new THREE.MeshBasicMaterial({
-                color: 0xeeff66, transparent: true, opacity: 0.6,
-                depthWrite: false, blending: THREE.AdditiveBlending
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(
-                (Math.random() - 0.5) * 2400,
-                -100 + Math.random() * 300,
-                -200 + Math.random() * 400
-            );
-            mesh.userData.baseY = mesh.position.y;
-            mesh.userData.phase = Math.random() * Math.PI * 2;
-            mesh.userData.speed = 0.3 + Math.random() * 0.5;
-            mesh.visible = !this.isLight;
-            this.fireflies.push(mesh);
-            this.scene.add(mesh);
-        }
-    },
-
-    _buildSkyIslands() {
-        this.skyIslands = [];
-        const islandData = [
-            { name: '서울대', landmark: '관악산', x: -1600, y: 500, z: -600 },
-            { name: '연세대', landmark: '백양로', x: 1400, y: 450, z: -700 },
-            { name: 'KAIST', landmark: '오리연못', x: 800, y: 550, z: -900 },
-            { name: '고려대', landmark: '중앙광장', x: -900, y: 480, z: -800 },
-            { name: '성균관대', landmark: '명륜당', x: 200, y: 520, z: -1000 },
-        ];
-        islandData.forEach((data, i) => {
-            const island = new THREE.Group();
-
-            const baseMat = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.9 });
-            const baseGeo = new THREE.CylinderGeometry(80, 100, 50, 8);
-            const base = new THREE.Mesh(baseGeo, baseMat);
-            island.add(base);
-
-            const grassMat = new THREE.MeshStandardMaterial({
-                color: this.isLight ? 0x6fbf73 : 0x2d5a3d, roughness: 0.8
-            });
-            const grassGeo = new THREE.CylinderGeometry(82, 80, 10, 8);
-            const grass = new THREE.Mesh(grassGeo, grassMat);
-            grass.position.y = 30;
-            island.add(grass);
-
-            const labelCanvas = document.createElement('canvas');
-            labelCanvas.width = 256; labelCanvas.height = 64;
-            const ctx = labelCanvas.getContext('2d');
-            ctx.fillStyle = 'rgba(10,10,20,0.75)';
-            ctx.beginPath();
-            ctx.roundRect(16, 8, 224, 48, 12);
-            ctx.fill();
-            ctx.fillStyle = '#D4AF37';
-            ctx.font = 'bold 20px "Pretendard Variable", sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(data.name, 128, 40);
-            const labelTex = new THREE.CanvasTexture(labelCanvas);
-            const labelGeo = new THREE.PlaneGeometry(100, 25);
-            const labelMat = new THREE.MeshBasicMaterial({ map: labelTex, transparent: true, depthWrite: false });
-            const label = new THREE.Mesh(labelGeo, labelMat);
-            label.position.y = 80;
-            island.add(label);
-
-            const pGeo = new THREE.BufferGeometry();
-            const pCount = 12;
-            const pPositions = new Float32Array(pCount * 3);
-            for (let j = 0; j < pCount; j++) {
-                pPositions[j * 3]     = (Math.random() - 0.5) * 120;
-                pPositions[j * 3 + 1] = 20 + Math.random() * 60;
-                pPositions[j * 3 + 2] = (Math.random() - 0.5) * 120;
-            }
-            pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
-            const pMat = new THREE.PointsMaterial({
-                color: 0xD4AF37, size: 3, transparent: true, opacity: 0.6,
-                blending: THREE.AdditiveBlending, depthWrite: false
-            });
-            const particles = new THREE.Points(pGeo, pMat);
-            island.add(particles);
-            island.userData.particles = particles;
-
-            island.position.set(data.x, data.y, data.z);
-            island.userData = { ...data, baseY: data.y, floatSpeed: 0.3 + i * 0.05, floatPhase: i * 1.2, particles };
-            this.skyIslands.push(island);
-            this.scene.add(island);
-        });
-    },
-
-    cycleWeather() {
-        const modes = ['none', 'rain', 'snow'];
-        const idx = modes.indexOf(this.weatherMode);
-        this.weatherMode = modes[(idx + 1) % modes.length];
-
-        this.raindrops.forEach(d => { this.scene.remove(d); d.geometry.dispose(); d.material.dispose(); });
-        this.raindrops = [];
-        this.snowflakes.forEach(f => { this.scene.remove(f); f.geometry.dispose(); f.material.dispose(); });
-        this.snowflakes = [];
-
-        const camX = this.camPos.x;
-        const camY = this.camPos.y;
-
-        if (this.weatherMode === 'rain') {
-            for (let i = 0; i < 120; i++) {
-                const geo = new THREE.BoxGeometry(0.5, 12, 0.5);
-                const mat = new THREE.MeshBasicMaterial({ color: 0x8899cc, transparent: true, opacity: 0.5 });
-                const drop = new THREE.Mesh(geo, mat);
-                drop.position.set(
-                    camX + (Math.random() - 0.5) * 1600,
-                    camY + 200 + Math.random() * 400,
-                    -100 + Math.random() * 600
-                );
-                drop.userData.speed = 6 + Math.random() * 4;
-                drop.userData.resetY = camY + 400 + Math.random() * 200;
-                this.raindrops.push(drop);
-                this.scene.add(drop);
-            }
-        } else if (this.weatherMode === 'snow') {
-            for (let i = 0; i < 80; i++) {
-                const geo = new THREE.CircleGeometry(2 + Math.random() * 3, 6);
-                const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
-                const flake = new THREE.Mesh(geo, mat);
-                flake.position.set(
-                    camX + (Math.random() - 0.5) * 1600,
-                    camY + 200 + Math.random() * 400,
-                    -100 + Math.random() * 600
-                );
-                flake.userData.speed = 1 + Math.random() * 2;
-                flake.userData.drift = (Math.random() - 0.5) * 2;
-                flake.userData.resetY = camY + 400 + Math.random() * 200;
-                this.snowflakes.push(flake);
-                this.scene.add(flake);
-            }
-        }
-
-        const btn = document.getElementById('weather-btn');
-        if (btn) {
-            btn.textContent = this.weatherMode === 'rain' ? '🌧️' : this.weatherMode === 'snow' ? '❄️' : '☀️';
-        }
-    },
-
-    _createClickParticle(x, y, z) {
-        const count = 8;
-        for (let i = 0; i < count; i++) {
-            const geo = new THREE.CircleGeometry(4, 6);
-            const mat = new THREE.MeshBasicMaterial({
-                color: 0xD4AF37, transparent: true, opacity: 1,
-                depthWrite: false, blending: THREE.AdditiveBlending
-            });
-            const p = new THREE.Mesh(geo, mat);
-            p.position.set(x, y, z);
-            const angle = (i / count) * Math.PI * 2;
-            const speed = 3 + Math.random() * 4;
-            p.userData.vx = Math.cos(angle) * speed;
-            p.userData.vy = Math.sin(angle) * speed + 4;
-            p.userData.vz = (Math.random() - 0.5) * 2;
-            p.userData.life = 1.0;
-            this.clickParticles.push(p);
-            this.scene.add(p);
-        }
     },
 
     _loadTexture(src) {
@@ -711,8 +615,7 @@ const WorldScene = {
     },
 
     setUsers(users, me, isLight) {
-        this.isLight = isLight;
-        this._updateSky();
+        this.setDayNightMode(isLight, true);
 
         const keepIds = new Set(users.map(u => u.id));
         if (me) keepIds.add(me.id);
@@ -1240,7 +1143,6 @@ const WorldScene = {
 
         this.balloons.forEach((b) => {
             const grp = b.group;
-            if (!grp.visible && !b.isMe) return;
             grp.quaternion.copy(this.camera.quaternion);
             grp.rotation.z += this.tiltY * 0.4;
             grp.rotation.x += this.tiltX * 0.3;
@@ -1256,6 +1158,14 @@ const WorldScene = {
 
         if (this.starMaterial) {
             this.starMaterial.uniforms.uTime.value = t;
+        }
+
+        if (Math.abs(this.dayNightMix - this.dayNightTarget) > 0.001) {
+            this.dayNightMix += (this.dayNightTarget - this.dayNightMix) * 0.06;
+            this._applyDayNightBlend(this.dayNightMix);
+        } else if (this.dayNightMix !== this.dayNightTarget) {
+            this.dayNightMix = this.dayNightTarget;
+            this._applyDayNightBlend(this.dayNightMix);
         }
 
         if (!this.isLight) {
@@ -1315,7 +1225,8 @@ const WorldScene = {
             f.position.y = f.userData.baseY + Math.sin(t2 * 0.8) * 30;
             f.position.x += Math.cos(t2 * 0.3) * 0.5;
             f.position.z += Math.sin(t2 * 0.4) * 0.5;
-            f.material.opacity = 0.3 + Math.sin(t2 * 2) * 0.4;
+            f.material.opacity = (0.3 + Math.sin(t2 * 2) * 0.4) * (1 - this.dayNightMix);
+            f.visible = (1 - this.dayNightMix) > 0.01;
         });
 
         // 클릭 파티클 업데이트

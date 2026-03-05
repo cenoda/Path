@@ -78,8 +78,9 @@ router.get('/me', async (req, res) => {
         if (rankResult.rows.length === 0) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
 
         const { rank, total_sec, total } = rankResult.rows[0];
+        const rankNum = parseInt(rank);
         const totalNum = parseInt(total);
-        const pct = totalNum > 1 ? ((parseInt(rank) / totalNum) * 100).toFixed(2) : '100.00';
+        const pct = totalNum > 1 ? ((rankNum / totalNum) * 100).toFixed(2) : '100.00';
 
         let scorePct = null;
         const scoreRow = scoreResult.rows[0];
@@ -90,7 +91,7 @@ router.get('/me', async (req, res) => {
             scorePct = totalScored >= 1 ? ((myRank / totalScored) * 100).toFixed(2) : '0.00';
         }
 
-        res.json({ rank, total: totalNum, pct, total_sec, scorePct });
+        res.json({ rank: rankNum, total: totalNum, pct, total_sec, scorePct });
     } catch (err) {
         console.error('ranking/me error:', err);
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });

@@ -23,6 +23,8 @@ const WorldScene = {
     tiltX: 0, tiltY: 0,
 
     isDragging: false,
+    isDraggingBalloon: false,
+    balloonDragDist: 0,
     lastPointer: null,
     pinchStart: null,
 
@@ -522,25 +524,79 @@ const WorldScene = {
 
         canvas.addEventListener('pointerdown', (e) => {
             if (e.target.closest?.('.glass-panel,.hud-header,.fab-rail,.pill-action-wrap')) return;
+            this.lastPointer = { x: e.clientX, y: e.clientY };
+            this.balloonDragDist = 0;
+            canvas.setPointerCapture(e.pointerId);
+
+            if (this.myBalloon) {
+                const rect = canvas.getBoundingClientRect();
+                const mouse = new THREE.Vector2(
+                    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                    -((e.clientY - rect.top) / rect.height) * 2 + 1
+                );
+                const ray = new THREE.Raycaster();
+                ray.setFromCamera(mouse, this.camera);
+                const meshes = [];
+                this.myBalloon.group.traverse(ch => { if (ch.isMesh) meshes.push(ch); });
+                if (ray.intersectObjects(meshes, false).length > 0) {
+                    this.isDraggingBalloon = true;
+                    this.springActive = false;
+                    this.velX = 0; this.velY = 0;
+                    canvas.style.cursor = 'grabbing';
+                    this._showTravelHint(true);
+                    return;
+                }
+            }
+
             this.isDragging = true;
             this.springActive = false;
-            this.lastPointer = { x: e.clientX, y: e.clientY };
-            canvas.setPointerCapture(e.pointerId);
         });
 
         canvas.addEventListener('pointermove', (e) => {
-            if (!this.isDragging || !this.lastPointer) return;
+            if (!this.lastPointer) return;
             const dx = e.clientX - this.lastPointer.x;
             const dy = e.clientY - this.lastPointer.y;
+            this.lastPointer = { x: e.clientX, y: e.clientY };
+
+            if (this.isDraggingBalloon && this.myBalloon) {
+                const worldScale = this.camZ / 900;
+                this.balloonDragDist += Math.hypot(dx, dy);
+                this.myBalloon.group.position.x += dx * worldScale;
+                this.myBalloon.group.position.y -= dy * worldScale;
+                this.camPos.x += dx * worldScale;
+                this.camPos.y -= dy * worldScale;
+                this.velX = 0; this.velY = 0;
+                return;
+            }
+
+            if (!this.isDragging) {
+                if (this.myBalloon && !this.isDraggingBalloon && this.frameCount % 4 === 0) {
+                    const rect = canvas.getBoundingClientRect();
+                    const mouse = new THREE.Vector2(
+                        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                        -((e.clientY - rect.top) / rect.height) * 2 + 1
+                    );
+                    const ray = new THREE.Raycaster();
+                    ray.setFromCamera(mouse, this.camera);
+                    const meshes = [];
+                    this.myBalloon.group.traverse(ch => { if (ch.isMesh) meshes.push(ch); });
+                    canvas.style.cursor = ray.intersectObjects(meshes, false).length > 0 ? 'grab' : '';
+                }
+                return;
+            }
             const worldScale = this.camZ / 900;
             this.velX -= dx * worldScale * 1.2;
             this.velY += dy * worldScale * 1.2;
-            this.lastPointer = { x: e.clientX, y: e.clientY };
             this.tiltX += dy * this.TILT_STRENGTH;
             this.tiltY -= dx * this.TILT_STRENGTH;
         });
 
         canvas.addEventListener('pointerup', (e) => {
+            if (this.isDraggingBalloon) {
+                this.isDraggingBalloon = false;
+                canvas.style.cursor = '';
+                this._showTravelHint(false);
+            }
             this.isDragging = false;
             this.lastPointer = null;
             try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
@@ -552,6 +608,7 @@ const WorldScene = {
         }, { passive: false });
 
         canvas.addEventListener('click', (e) => {
+            if (this.balloonDragDist > 8) return;
             const rect = canvas.getBoundingClientRect();
             const mouse = new THREE.Vector2(
                 ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -591,6 +648,29 @@ const WorldScene = {
             }
         }, { passive: true });
         canvas.addEventListener('touchend', () => { pinchDist0 = null; }, { passive: true });
+    },
+
+    _showTravelHint(visible) {
+        let el = document.getElementById('travel-hint');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'travel-hint';
+            el.style.cssText = `
+                position:fixed; bottom:140px; left:50%; transform:translateX(-50%);
+                background:rgba(10,10,20,0.82); border:1px solid rgba(212,175,55,0.5);
+                color:#D4AF37; font-family:"Pretendard Variable",sans-serif; font-size:13px;
+                padding:8px 18px; border-radius:20px; z-index:50;
+                pointer-events:none; transition:opacity 0.3s;
+                letter-spacing:0.04em;
+            `;
+            document.body.appendChild(el);
+        }
+        if (visible) {
+            el.textContent = '✈  열기구를 드래그해 여행 중...';
+            el.style.opacity = '1';
+        } else {
+            el.style.opacity = '0';
+        }
     },
 
     _spawnShootingStar() {

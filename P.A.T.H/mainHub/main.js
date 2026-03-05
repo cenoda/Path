@@ -1327,19 +1327,29 @@ async function loadFriendList(content) {
             content.innerHTML = '<div style="text-align:center;padding:30px;font-size:11px;color:#555">동맹이 없습니다.<br>다른 유저의 열기구를 클릭해서 신청하세요.</div>';
             return;
         }
-        content.innerHTML = friends.map(f => `
+        content.innerHTML = friends.map(f => {
+            let posStr = '';
+            if (window.WorldScene) {
+                const pos = window.WorldScene.getUserPosition(f.id);
+                if (pos) {
+                    posStr = `<div style="font-size:9px;color:#555;margin-top:2px;">📍 (${pos.x}, ${pos.y})</div>`;
+                }
+            }
+            return `
             <div class="ally-item" onclick="focusFriend(${f.id})">
                 <div class="ally-status-dot ${f.is_studying ? 'studying' : ''}"></div>
                 <div class="ally-info">
                     <div class="ally-nick">${esc(f.nickname)}</div>
                     <div class="ally-univ">${esc(f.university) || '대학 미정'}</div>
+                    ${posStr}
                 </div>
                 <div class="ally-actions">
                     <button class="ally-btn msg-btn" onclick="event.stopPropagation();openAllyChat(${f.id},'${esc(f.nickname)}')">메시지</button>
                     <button class="ally-btn del-btn" onclick="event.stopPropagation();deleteFriend(${f.id})">삭제</button>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (e) {
         content.innerHTML = '<div style="color:#e55;padding:16px;font-size:11px">로드 실패</div>';
     }
@@ -1398,7 +1408,121 @@ async function deleteFriend(targetId) {
 
 function focusFriend(userId) {
     if (window.WorldScene) window.WorldScene.focusUserById(userId);
-    closeFriendPanel();
+}
+
+// ── 좌표 및 텔레포트 ──────────────────────────────────────────────────
+window.updateCoordinatesUI = function(x, y, z) {
+    const elX = document.getElementById('coord-x');
+    const elY = document.getElementById('coord-y');
+    const elZ = document.getElementById('coord-z');
+    if (elX) elX.textContent = x;
+    if (elY) elY.textContent = y;
+    if (elZ) elZ.textContent = z;
+};
+
+function openTeleportDialog() {
+    const pos = window.WorldScene ? window.WorldScene.getMyPosition() : { x: 0, y: 0 };
+    document.getElementById('tp-x').value = pos.x;
+    document.getElementById('tp-y').value = pos.y;
+    document.getElementById('modal-teleport').classList.remove('hidden');
+}
+
+function doTeleport() {
+    const x = parseInt(document.getElementById('tp-x').value) || 0;
+    const y = parseInt(document.getElementById('tp-y').value) || 0;
+    if (window.WorldScene) {
+        window.WorldScene.teleportTo(x, y);
+    }
+    closeModal('modal-teleport');
+    alert(`좌표 (${x}, ${y})로 이동했습니다!`);
+}
+
+// ── 날씨 및 미니맵 ──────────────────────────────────────────────────
+window.updateWeatherUI = function(mode) {
+    const btn = document.getElementById('weather-btn');
+    if (!btn) return;
+    const icons = { none: '☀️', rain: '🌧️', snow: '❄️' };
+    btn.textContent = icons[mode] || '☀️';
+};
+
+function toggleWeather() {
+    if (window.WorldScene) {
+        window.WorldScene.cycleWeather();
+    }
+}
+
+let minimapInterval = null;
+function toggleMinimap() {
+    const minimap = document.getElementById('minimap');
+    const isHidden = minimap.classList.toggle('hidden');
+    
+    if (!isHidden) {
+        if (!minimapInterval) {
+            updateMinimap();
+            minimapInterval = setInterval(updateMinimap, 100);
+        }
+    } else {
+        if (minimapInterval) {
+            clearInterval(minimapInterval);
+            minimapInterval = null;
+        }
+    }
+}
+
+function updateMinimap() {
+    const canvas = document.getElementById('minimap-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    
+    ctx.fillStyle = 'rgba(6, 8, 20, 0.95)';
+    ctx.fillRect(0, 0, w, h);
+    
+    // 격자
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * w / 4, 0);
+        ctx.lineTo(i * w / 4, h);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * h / 4);
+        ctx.lineTo(w, i * h / 4);
+        ctx.stroke();
+    }
+    
+    if (!window.WorldScene) return;
+    
+    const scale = 0.02;
+    const centerX = w / 2;
+    const centerY = h / 2;
+    
+    // 다른 유저
+    window.WorldScene.balloons.forEach((b) => {
+        if (b.isMe) return;
+        const pos = b.group.position;
+        const x = centerX + pos.x * scale;
+        const y = centerY - pos.y * scale;
+        if (x >= 0 && x <= w && y >= 0 && y <= h) {
+            ctx.fillStyle = window.WorldScene.friendIds.has(b.user.id) ? 'rgba(255,215,0,0.7)' : 'rgba(100,150,255,0.5)';
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+    
+    // 내 위치
+    if (window.WorldScene.myBalloon) {
+        ctx.fillStyle = '#D4AF37';
+        ctx.strokeStyle = 'rgba(212,175,55,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+    }
 }
 
 function openAllyChat(userId, nickname) {
@@ -1517,9 +1641,8 @@ async function loadChatMessages() {
         const r = await fetch(`/api/messages/conversation/${currentChatUserId}`, { credentials: 'include' });
         const msgs = r.ok ? await r.json() : [];
         const container = document.getElementById('chat-messages');
-        const myId = currentUser?.id;
         container.innerHTML = msgs.map(m => {
-            const isMine = Number(m.sender_id) === Number(myId);
+            const isMine = m.is_mine === true || m.is_mine === 1;
             const time = new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
             return `
                 <div class="msg-row ${isMine ? 'mine' : 'theirs'}">

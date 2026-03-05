@@ -12,6 +12,13 @@ const WorldScene = {
     moon: null,
     sun: null,
     clouds: [],
+    raindrops: [],
+    snowflakes: [],
+    fireflies: [],
+    clickParticles: [],
+    weatherMode: 'none',
+    hoveredBalloon: null,
+    keysPressed: {},
 
     camPos: { x: 0, y: 0 },
     camTarget: { x: 0, y: 0 },
@@ -77,9 +84,11 @@ const WorldScene = {
         this._buildStars();
         this._buildMoon();
         this._buildClouds();
+        this._buildFireflies();
 
         this._setupComposer(W, H);
         this._setupInput();
+        this._setupKeyboard();
 
         window.addEventListener('resize', () => this._onResize());
 
@@ -99,6 +108,7 @@ const WorldScene = {
         if (this.moon) this.moon.visible = !this.isLight;
         if (this.sun) this.sun.visible = this.isLight;
         this.clouds.forEach(c => { c.visible = this.isLight; });
+        if (this.fireflies) this.fireflies.forEach(f => f.visible = !this.isLight);
 
         if (this.isLight) {
             if (this.dirLight) {
@@ -555,7 +565,10 @@ const WorldScene = {
             }
         }
 
-        const others = users.filter(u => !me || u.id !== me.id).slice(0, 100);
+        // 거리 기반 렌더링: 최대 500명까지 확장 가능
+        const others = users.filter(u => !me || u.id !== me.id).slice(0, 500);
+        const myPos = this.myBalloon ? this.myBalloon.group.position : new THREE.Vector3(0, 0, 0);
+        
         others.forEach((user, i) => {
             const angle = i * 137.508;
             const radius = 260 + Math.sqrt(i) * 160;
@@ -572,10 +585,25 @@ const WorldScene = {
                 const mat = b.group.userData.balloon.material;
                 mat.map = this._loadTexture(src);
                 mat.needsUpdate = true;
+                
+                // 거리 기반 LOD (Level of Detail)
+                const dist = Math.hypot(x - myPos.x, y - myPos.y, z - myPos.z);
+                if (dist > 3000) {
+                    b.group.visible = false; // 매우 먼 거리는 숨김
+                } else {
+                    b.group.visible = true;
+                    // 거리에 따라 세부 표현 조절
+                    if (b.group.userData.label) b.group.userData.label.visible = dist < 1500;
+                    if (b.group.userData.bubbleMesh) b.group.userData.bubbleMesh.visible = dist < 1000;
+                }
             } else {
                 const grp = this.addBalloon(user, src, false);
                 grp.position.set(x, y, z);
                 grp.userData.baseY = y;
+                
+                // 초기 LOD 설정
+                const dist = Math.hypot(x - myPos.x, y - myPos.y, z - myPos.z);
+                grp.visible = dist <= 3000;
             }
         });
     },
@@ -616,6 +644,30 @@ const WorldScene = {
             this.camTarget.x = 0;
             this.camTarget.y = 0;
         }
+        this.camZTarget = 820;
+    },
+
+    getMyPosition() {
+        if (this.myBalloon) {
+            const pos = this.myBalloon.group.position;
+            return { x: Math.round(pos.x), y: Math.round(pos.y), z: Math.round(pos.z) };
+        }
+        return { x: 0, y: 0, z: 0 };
+    },
+
+    getUserPosition(userId) {
+        const b = this.balloons.get(userId);
+        if (b) {
+            const pos = b.group.position;
+            return { x: Math.round(pos.x), y: Math.round(pos.y), z: Math.round(pos.z) };
+        }
+        return null;
+    },
+
+    teleportTo(x, y) {
+        this.springActive = true;
+        this.camTarget.x = -x;
+        this.camTarget.y = -y;
         this.camZTarget = 820;
     },
 
@@ -774,6 +826,83 @@ const WorldScene = {
             }
         }, { passive: true });
         canvas.addEventListener('touchend', () => { pinchDist0 = null; }, { passive: true });
+
+        // 더블클릭으로 빠른 이동
+        let lastClickTime = 0;
+        canvas.addEventListener('dblclick', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            const worldScale = this.camZ / 400;
+            const worldX = -this.camPos.x + mouse.x * worldScale * rect.width / 2;
+            const worldY = -this.camPos.y - mouse.y * worldScale * rect.height / 2;
+            this.teleportTo(worldX, worldY);
+            this._createClickParticle(worldX, worldY, 0);
+        });
+
+        // 호버 효과
+        canvas.addEventListener('mousemove', (e) => {
+            if (this.isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, this.camera);
+            const meshes = [];
+            this.balloons.forEach(b => {
+                b.group.traverse(ch => { if (ch.isMesh) meshes.push(ch); });
+            });
+            const hits = raycaster.intersectObjects(meshes, false);
+            if (hits.length > 0) {
+                let obj = hits[0].object;
+                while (obj && !obj.userData.clickable) obj = obj.parent;
+                if (obj && obj.userData.clickable) {
+                    canvas.style.cursor = 'pointer';
+                    this.hoveredBalloon = obj;
+                    return;
+                }
+            }
+            canvas.style.cursor = '';
+            this.hoveredBalloon = null;
+        });
+    },
+
+    _setupKeyboard() {
+        const moveSpeed = 15;
+        document.addEventListener('keydown', (e) => {
+            this.keysPressed[e.key.toLowerCase()] = true;
+            
+            // R키로 날씨 변경
+            if (e.key.toLowerCase() === 'r') {
+                this.cycleWeather();
+            }
+            // H키로 홈 복귀
+            if (e.key.toLowerCase() === 'h') {
+                this.focusHome();
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            this.keysPressed[e.key.toLowerCase()] = false;
+        });
+        
+        setInterval(() => {
+            if (this.keysPressed['w'] || this.keysPressed['arrowup']) {
+                this.velY += moveSpeed;
+            }
+            if (this.keysPressed['s'] || this.keysPressed['arrowdown']) {
+                this.velY -= moveSpeed;
+            }
+            if (this.keysPressed['a'] || this.keysPressed['arrowleft']) {
+                this.velX += moveSpeed;
+            }
+            if (this.keysPressed['d'] || this.keysPressed['arrowright']) {
+                this.velX -= moveSpeed;
+            }
+        }, 50);
     },
 
     _showTravelHint(visible) {
@@ -908,6 +1037,71 @@ const WorldScene = {
         }
 
         if (this.frameCount % 10 === 0) this._updateOffscreenIndicators();
+
+        // 좌표 UI 업데이트 (5프레임마다)
+        if (this.frameCount % 5 === 0 && window.updateCoordinatesUI) {
+            const pos = this.getMyPosition();
+            window.updateCoordinatesUI(pos.x, pos.y, pos.z);
+        }
+
+        // 거리 기반 LOD 업데이트 (10프레임마다)
+        if (this.frameCount % 10 === 0 && this.myBalloon) {
+            const myPos = this.myBalloon.group.position;
+            this.balloons.forEach((b) => {
+                if (b.isMe) return;
+                const dist = myPos.distanceTo(b.group.position);
+                if (dist > 3000) {
+                    b.group.visible = false;
+                } else {
+                    b.group.visible = true;
+                    if (b.group.userData.label) b.group.userData.label.visible = dist < 1500;
+                    if (b.group.userData.bubbleMesh) b.group.userData.bubbleMesh.visible = dist < 1000;
+                }
+            });
+        }
+
+        // 날씨 업데이트
+        this.raindrops.forEach(d => {
+            d.position.y -= d.userData.speed;
+            if (d.position.y < -200) d.position.y = d.userData.resetY;
+        });
+        this.snowflakes.forEach(f => {
+            f.position.y -= f.userData.speed;
+            f.position.x += f.userData.drift * Math.sin(t * 0.5);
+            if (f.position.y < -200) f.position.y = f.userData.resetY;
+        });
+
+        // 반딧불이 업데이트
+        this.fireflies.forEach((f, i) => {
+            const t2 = t + f.userData.phase;
+            f.position.y = f.userData.baseY + Math.sin(t2 * 0.8) * 30;
+            f.position.x += Math.cos(t2 * 0.3) * 0.5;
+            f.position.z += Math.sin(t2 * 0.4) * 0.5;
+            f.material.opacity = 0.3 + Math.sin(t2 * 2) * 0.4;
+        });
+
+        // 클릭 파티클 업데이트
+        for (let i = this.clickParticles.length - 1; i >= 0; i--) {
+            const p = this.clickParticles[i];
+            p.position.x += p.userData.vx;
+            p.position.y += p.userData.vy;
+            p.position.z += p.userData.vz;
+            p.userData.vy -= 1; // 중력
+            p.userData.life -= 0.02;
+            p.material.opacity = p.userData.life;
+            if (p.userData.life <= 0) {
+                this.scene.remove(p);
+                p.geometry.dispose();
+                p.material.dispose();
+                this.clickParticles.splice(i, 1);
+            }
+        }
+
+        // 호버 효과
+        if (this.hoveredBalloon) {
+            const scale = 1 + Math.sin(t * 4) * 0.05;
+            this.hoveredBalloon.scale.set(scale, scale, scale);
+        }
 
         this.composer.render();
     }

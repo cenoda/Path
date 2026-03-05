@@ -48,7 +48,8 @@ router.get('/conversation/:targetId', requireAuth, async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT m.id, m.sender_id, m.receiver_id, m.content, m.is_read, m.created_at,
-                   u.nickname as sender_nickname
+                   u.nickname as sender_nickname,
+                   (m.sender_id = $1) as is_mine
             FROM messages m
             JOIN users u ON u.id = m.sender_id
             WHERE (m.sender_id = $1 AND m.receiver_id = $2)

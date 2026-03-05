@@ -1447,13 +1447,17 @@ async function loadConversations() {
     const convList = document.getElementById('messenger-conv-list');
     convList.innerHTML = '<div style="text-align:center;padding:20px;font-size:11px;color:#666">로딩 중...</div>';
     try {
-        const r = await fetch('/api/messages/conversations', { credentials: 'include' });
-        const convs = r.ok ? await r.json() : [];
-        if (convs.length === 0) {
-            convList.innerHTML = '<div style="text-align:center;padding:30px;font-size:11px;color:#555">대화 내역이 없습니다.<br>동맹 목록에서 친구에게 메시지를 보내세요.</div>';
-            return;
-        }
-        convList.innerHTML = convs.map(c => `
+        const [convRes, friendRes] = await Promise.all([
+            fetch('/api/messages/conversations', { credentials: 'include' }),
+            fetch('/api/friends/list', { credentials: 'include' })
+        ]);
+        const convs = convRes.ok ? await convRes.json() : [];
+        const friends = friendRes.ok ? await friendRes.json() : [];
+
+        const convIds = new Set(convs.map(c => c.other_user));
+        const newFriends = friends.filter(f => !convIds.has(f.id));
+
+        const convHtml = convs.map(c => `
             <div class="conv-item" onclick="openChat(${c.other_user},'${esc(c.nickname)}')">
                 <div class="conv-avatar">${esc(c.nickname)[0]}</div>
                 <div class="conv-info">
@@ -1463,6 +1467,27 @@ async function loadConversations() {
                 <div class="conv-studying ${c.is_studying ? 'active' : ''}"></div>
             </div>
         `).join('');
+
+        const newHtml = newFriends.length > 0 ? `
+            <div style="padding:8px 14px 4px;font-size:9px;color:#666;letter-spacing:.08em;text-transform:uppercase;">동맹 — 새 대화 시작</div>
+            ${newFriends.map(f => `
+                <div class="conv-item" onclick="openChat(${f.id},'${esc(f.nickname)}')">
+                    <div class="conv-avatar" style="opacity:0.7">${esc(f.nickname)[0]}</div>
+                    <div class="conv-info">
+                        <div class="conv-nick" style="color:var(--text-secondary)">${esc(f.nickname)}</div>
+                        <div class="conv-last" style="color:#555">첫 메시지를 보내보세요</div>
+                    </div>
+                    <div class="conv-studying ${f.is_studying ? 'active' : ''}"></div>
+                </div>
+            `).join('')}
+        ` : '';
+
+        if (!convHtml && !newHtml) {
+            convList.innerHTML = '<div style="text-align:center;padding:30px;font-size:11px;color:#555">동맹을 추가하면<br>여기서 대화할 수 있어요.</div>';
+            return;
+        }
+
+        convList.innerHTML = (convHtml ? `<div style="padding:8px 14px 4px;font-size:9px;color:#666;letter-spacing:.08em;text-transform:uppercase;">${convs.length > 0 ? '최근 대화' : ''}</div>` + convHtml : '') + newHtml;
     } catch (e) {
         convList.innerHTML = '<div style="color:#e55;padding:16px;font-size:11px">로드 실패</div>';
     }

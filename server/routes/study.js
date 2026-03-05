@@ -23,13 +23,6 @@ function getWeekRange(offsetWeek = 0, anchorDateText = null) {
     return { start, end };
 }
 
-function dateToYmd(dateObj) {
-    const y = dateObj.getFullYear();
-    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const d = String(dateObj.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-
 router.get('/subjects', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     try {
@@ -73,11 +66,6 @@ router.get('/calendar/week', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     const offset = Math.max(-52, Math.min(parseInt(req.query.offset, 10) || 0, 52));
     const { start, end } = getWeekRange(offset, req.query.anchor || null);
-    const endDisplay = new Date(end);
-    endDisplay.setDate(endDisplay.getDate() - 1);
-    const startDateText = dateToYmd(start);
-    const endDateText = dateToYmd(end);
-    const endDisplayText = dateToYmd(endDisplay);
 
     try {
         const [subjects, plans, records] = await Promise.all([
@@ -103,7 +91,7 @@ router.get('/calendar/week', async (req, res) => {
                    AND p.plan_date >= $2::date
                    AND p.plan_date <  $3::date
                  ORDER BY p.plan_date, p.start_minute`,
-                                [req.session.userId, startDateText, endDateText]
+                [req.session.userId, start.toISOString(), end.toISOString()]
             ),
             pool.query(
                 `SELECT r.id,
@@ -126,8 +114,8 @@ router.get('/calendar/week', async (req, res) => {
         res.json({
             week: {
                 offset,
-                start_date: startDateText,
-                end_date: endDisplayText
+                start_date: start.toISOString().slice(0, 10),
+                end_date: end.toISOString().slice(0, 10)
             },
             subjects: subjects.rows,
             plans: plans.rows,

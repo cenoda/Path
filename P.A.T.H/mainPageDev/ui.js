@@ -41,7 +41,7 @@ const UI = {
         overlay:     document.getElementById('overlay'),
         resTitle:    document.getElementById('res-title'),
         resLoot:     document.getElementById('res-loot'),
-        bottomInfo:  document.querySelector('.footer-info .system-msg')
+        bottomInfo:  document.querySelector('.bottom-info')
     },
 
     async init() {
@@ -226,10 +226,7 @@ const UI = {
         if (!this.weekData?.week || !this.elements.weekLabel) return;
         const start = this.weekData.week.start_date;
         const end = this.weekData.week.end_date;
-        const offsetText = this.weekOffset === 0
-            ? '이번 주'
-            : `${this.weekOffset > 0 ? '+' : ''}${this.weekOffset}주`;
-        this.elements.weekLabel.textContent = `${start} ~ ${end} (${offsetText})`;
+        this.elements.weekLabel.textContent = `${start} ~ ${end} (${this.weekOffset > 0 ? '+' : ''}${this.weekOffset}주)`;
     },
 
     renderCalendarTimeline() {

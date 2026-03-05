@@ -500,6 +500,13 @@ body.light .toggle-slider { background-color: #ccc; }
     display: flex; gap: 8px; padding: 12px 14px;
     border-top: 1px solid var(--border-color);
 }
+.chat-file-btn {
+    background: var(--surface-hover); color: var(--text-primary); 
+    border: 1px solid var(--border-color); padding: 8px 12px;
+    border-radius: var(--radius-pill); font-size: 14px;
+    cursor: pointer; transition: 0.15s; white-space: nowrap;
+}
+.chat-file-btn:hover { background: var(--accent-gold); color: #1C1C1E; }
 .chat-input {
     flex: 1; background: var(--surface-color); border: 1px solid var(--border-color);
     color: var(--text-primary); font-size: 12px; padding: 8px 14px;
@@ -514,6 +521,28 @@ body.light .toggle-slider { background-color: #ccc; }
     font-family: var(--font-ui);
 }
 .chat-send-btn:hover { opacity: 0.85; }
+.file-attachment {
+    background: var(--surface-color); border: 1px solid var(--border-color);
+    border-radius: 12px; padding: 12px; margin-top: 6px;
+    display: inline-block; max-width: 100%;
+}
+.file-attachment img {
+    max-width: 200px; max-height: 200px; border-radius: 8px;
+    display: block; cursor: pointer;
+}
+.file-attachment .file-info {
+    display: flex; align-items: center; gap: 8px; font-size: 11px;
+}
+.file-attachment .file-icon {
+    font-size: 20px;
+}
+.file-attachment .file-download {
+    color: var(--accent-gold); text-decoration: none; font-size: 10px;
+    margin-top: 4px; display: inline-block;
+}
+.file-attachment .file-download:hover {
+    text-decoration: underline;
+}
 
 #panel-messenger:not(.hidden) {
     display: flex;

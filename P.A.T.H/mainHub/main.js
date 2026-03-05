@@ -1644,9 +1644,45 @@ async function loadChatMessages() {
         container.innerHTML = msgs.map(m => {
             const isMine = m.is_mine === true || m.is_mine === 1;
             const time = new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            
+            let contentHtml = '';
+            if (m.file_path) {
+                // 파일 메시지
+                const isImage = m.file_type?.startsWith('image/');
+                if (isImage) {
+                    contentHtml = `
+                        <div class="file-attachment">
+                            <img src="${m.file_path}" alt="${esc(m.file_name || 'image')}" onclick="window.open('${m.file_path}', '_blank')">
+                            ${m.content !== m.file_name ? `<div style="margin-top:4px;font-size:10px;">${esc(m.content)}</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    const fileIcon = m.file_type?.includes('pdf') ? '📄' : 
+                                    m.file_type?.includes('zip') ? '📦' :
+                                    m.file_type?.includes('video') ? '🎥' : '📎';
+                    const fileSize = m.file_size ? `(${(m.file_size / 1024).toFixed(1)}KB)` : '';
+                    contentHtml = `
+                        <div class="file-attachment">
+                            <div class="file-info">
+                                <span class="file-icon">${fileIcon}</span>
+                                <div>
+                                    <div>${esc(m.file_name || 'file')}</div>
+                                    <div style="font-size:9px;color:#888;">${fileSize}</div>
+                                </div>
+                            </div>
+                            <a href="${m.file_path}" download="${m.file_name}" class="file-download">다운로드</a>
+                            ${m.content !== m.file_name ? `<div style="margin-top:6px;font-size:10px;">${esc(m.content)}</div>` : ''}
+                        </div>
+                    `;
+                }
+            } else {
+                // 텍스트 메시지
+                contentHtml = esc(m.content);
+            }
+            
             return `
                 <div class="msg-row ${isMine ? 'mine' : 'theirs'}">
-                    <div class="msg-bubble">${esc(m.content)}</div>
+                    <div class="msg-bubble">${contentHtml}</div>
                     <div class="msg-time">${time}</div>
                 </div>
             `;
@@ -1656,9 +1692,68 @@ async function loadChatMessages() {
     } catch (e) {}
 }
 
+let selectedFile = null;
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 10 * 1024 * 1024) {
+        alert('파일 크기는 10MB 이하여야 합니다.');
+        event.target.value = '';
+        return;
+    }
+    
+    selectedFile = file;
+    const preview = document.getElementById('file-preview');
+    const previewName = document.getElementById('file-preview-name');
+    previewName.textContent = `📎 ${file.name} (${(file.size / 1024).toFixed(1)}KB)`;
+    preview.style.display = 'block';
+}
+
+function cancelFileUpload() {
+    selectedFile = null;
+    document.getElementById('chat-file-input').value = '';
+    document.getElementById('file-preview').style.display = 'none';
+}
+
 async function sendMessage() {
     const input = document.getElementById('chat-input');
     const content = input.value.trim();
+    
+    // 파일이 선택된 경우
+    if (selectedFile) {
+        if (!currentChatUserId) return;
+        
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('receiver_id', currentChatUserId);
+        if (content) formData.append('content', content);
+        
+        input.value = '';
+        cancelFileUpload();
+        
+        try {
+            const r = await fetch('/api/messages/send-file', {
+                method: 'POST',
+                credentials: 'include',
+                body: formData
+            });
+            
+            if (!r.ok) {
+                const d = await r.json();
+                alert(d.error || '전송 실패');
+                return;
+            }
+            
+            await loadChatMessages();
+        } catch (e) {
+            alert('파일 전송 실패');
+        }
+        return;
+    }
+    
+    // 텍스트 메시지
     if (!content || !currentChatUserId) return;
     input.value = '';
     try {

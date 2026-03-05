@@ -19,6 +19,7 @@ const WorldScene = {
     weatherMode: 'none',
     hoveredBalloon: null,
     keysPressed: {},
+    skyIslands: [],
 
     camPos: { x: 0, y: 0 },
     camTarget: { x: 0, y: 0 },
@@ -85,6 +86,7 @@ const WorldScene = {
         this._buildMoon();
         this._buildClouds();
         this._buildFireflies();
+        this._buildSkyIslands();
 
         this._setupComposer(W, H);
         this._setupInput();
@@ -109,6 +111,15 @@ const WorldScene = {
         if (this.sun) this.sun.visible = this.isLight;
         this.clouds.forEach(c => { c.visible = this.isLight; });
         if (this.fireflies) this.fireflies.forEach(f => f.visible = !this.isLight);
+        
+        // 하늘섬 잔디 색상 업데이트
+        this.skyIslands.forEach(island => {
+            island.children.forEach(child => {
+                if (child.material && child.geometry && child.geometry.type === 'CylinderGeometry' && child.position.y > 0) {
+                    child.material.color.set(this.isLight ? 0x6fbf73 : 0x2d5a3d);
+                }
+            });
+        });
 
         if (this.isLight) {
             if (this.dirLight) {
@@ -1102,6 +1113,27 @@ const WorldScene = {
             const scale = 1 + Math.sin(t * 4) * 0.05;
             this.hoveredBalloon.scale.set(scale, scale, scale);
         }
+
+        // 하늘섬 애니메이션
+        this.skyIslands.forEach((island) => {
+            const floatHeight = Math.sin(t * island.userData.floatSpeed + island.userData.floatPhase) * 15;
+            island.position.y = island.userData.baseY + floatHeight;
+            
+            // 라벨 회전 (항상 카메라 방향)
+            island.children.forEach(child => {
+                if (child.geometry && child.geometry.type === 'PlaneGeometry') {
+                    child.quaternion.copy(this.camera.quaternion);
+                }
+            });
+            
+            // 파티클 회전
+            if (island.userData.particles) {
+                island.userData.particles.rotation.y += 0.005;
+            }
+            
+            // 천천히 회전
+            island.rotation.y += 0.001;
+        });
 
         this.composer.render();
     }

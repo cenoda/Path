@@ -271,7 +271,13 @@
         <div id="messenger-conv-list" class="panel-content">로딩 중...</div>
         <div id="messenger-chat" style="display:none; flex-direction:column; flex:1; min-height:0;">
             <div id="chat-messages" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px;"></div>
+            <div id="file-preview" style="display:none; padding:8px 12px; background:var(--surface-hover); border-top:1px solid var(--border-color); font-size:11px;">
+                <span id="file-preview-name"></span>
+                <button onclick="cancelFileUpload()" style="margin-left:8px; padding:2px 8px; font-size:10px; cursor:pointer;">취소</button>
+            </div>
             <div class="chat-input-row">
+                <input type="file" id="chat-file-input" style="display:none;" accept="image/*,.pdf,.doc,.docx,.txt,.zip" onchange="handleFileSelect(event)">
+                <button class="chat-file-btn" onclick="document.getElementById('chat-file-input').click()" title="파일 첨부">📎</button>
                 <input type="text" id="chat-input" class="chat-input" placeholder="메시지 입력..." maxlength="500"
                     onkeydown="if(event.key==='Enter')sendMessage()">
                 <button class="chat-send-btn" onclick="sendMessage()">전송</button>

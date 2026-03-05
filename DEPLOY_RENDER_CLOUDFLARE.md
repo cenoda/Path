@@ -47,8 +47,8 @@
 - `GOOGLE_REDIRECT_URI=https://api.sdij.cloud/api/auth/google/callback`
 
 **선택 환경변수:**
-- `GOOGLE_AUTH_SUCCESS_REDIRECT=https://sdij.cloud/mainHub/`
-- `GOOGLE_AUTH_ERROR_REDIRECT=https://sdij.cloud/login/?error=google_auth`
+- `GOOGLE_AUTH_SUCCESS_REDIRECT=https://sdij.cloud/P.A.T.H/mainHub/`
+- `GOOGLE_AUTH_ERROR_REDIRECT=https://sdij.cloud/P.A.T.H/login/?error=google_auth`
 
 > 💡 **중요**: 알리고 설정이 없으면 회원가입이 불가능합니다. 
 > 테스트 시에는 `ALIGO_TEST_MODE=true` 또는 `NODE_ENV=development` 설정

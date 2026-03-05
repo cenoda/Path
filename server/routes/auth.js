@@ -322,8 +322,8 @@ router.get('/google/callback', async (req, res) => {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI;
-    const successRedirect = process.env.GOOGLE_AUTH_SUCCESS_REDIRECT || '/mainHub/';
-    const errorRedirect = process.env.GOOGLE_AUTH_ERROR_REDIRECT || '/P.A.T.H/login/index.html?error=google_auth';
+    const successRedirect = process.env.GOOGLE_AUTH_SUCCESS_REDIRECT || '/P.A.T.H/mainHub/';
+    const errorRedirect = process.env.GOOGLE_AUTH_ERROR_REDIRECT || '/P.A.T.H/login/?error=google_auth';
 
     if (!code || !state || !expectedState || state !== expectedState) {
         req.session.googleOAuthState = null;

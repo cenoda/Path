@@ -75,6 +75,14 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'P.A.T.H', 'login', 'index.html'));
 });
 
+app.get('/mainHub', (req, res) => {
+    res.redirect('/P.A.T.H/mainHub/');
+});
+
+app.get('/login', (req, res) => {
+    res.redirect('/P.A.T.H/login/');
+});
+
 initSchema()
     .then(() => {
         app.listen(PORT, '0.0.0.0', () => {

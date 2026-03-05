@@ -16,6 +16,7 @@ const WorldScene = {
 
     camPos: { x: 0, y: 0 },
     camTarget: { x: 0, y: 0 },
+    springActive: false,
     camZ: 820,
     camZTarget: 820,
     velX: 0, velY: 0,
@@ -382,7 +383,7 @@ const WorldScene = {
                 transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
             });
             const glowMesh = new THREE.Mesh(glowGeo, glowMat);
-            glowMesh.position.y = 80;
+            glowMesh.position.y = 100;
             glowMesh.position.z = -5; // 배치: 열기구 뒤쪽 (후광)
             group.userData.glowMat = glowMat;
             group.add(glowMesh);
@@ -470,6 +471,7 @@ const WorldScene = {
     },
 
     focusUserById(userId) {
+        this.springActive = true;
         const b = this.balloons.get(userId);
         if (!b) return;
         this.camTarget.x = -b.group.position.x;
@@ -477,6 +479,7 @@ const WorldScene = {
     },
 
     focusHome() {
+        this.springActive = true;
         this.camTarget.x = 0;
         this.camTarget.y = 0;
         this.camZTarget = 820;
@@ -492,6 +495,7 @@ const WorldScene = {
         this.balloons.forEach((b) => {
             const u = b.user;
             if (u.nickname.toLowerCase().includes(q) || (u.university || '').toLowerCase().includes(q)) {
+                this.springActive = true;
                 this.camTarget.x = -b.group.position.x;
                 this.camTarget.y = -b.group.position.y;
             }
@@ -519,6 +523,7 @@ const WorldScene = {
         canvas.addEventListener('pointerdown', (e) => {
             if (e.target.closest?.('.glass-panel,.hud-header,.fab-rail,.pill-action-wrap')) return;
             this.isDragging = true;
+            this.springActive = false;
             this.lastPointer = { x: e.clientX, y: e.clientY };
             canvas.setPointerCapture(e.pointerId);
         });
@@ -637,8 +642,15 @@ const WorldScene = {
         this.frameCount++;
         const t = this.frameCount * 0.016;
 
-        this.velX += (this.camTarget.x - this.camPos.x) * this.SPRING;
-        this.velY += (this.camTarget.y - this.camPos.y) * this.SPRING;
+        if (this.springActive) {
+            const dx = this.camTarget.x - this.camPos.x;
+            const dy = this.camTarget.y - this.camPos.y;
+            this.velX += dx * this.SPRING;
+            this.velY += dy * this.SPRING;
+            if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(this.velX) < 0.2 && Math.abs(this.velY) < 0.2) {
+                this.springActive = false;
+            }
+        }
         this.velX *= this.FRICTION;
         this.velY *= this.FRICTION;
         this.camPos.x += this.velX;

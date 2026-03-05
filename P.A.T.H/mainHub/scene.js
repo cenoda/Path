@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 const WorldScene = {
@@ -484,8 +483,8 @@ const WorldScene = {
         this.springActive = true;
         if (this.myBalloon) {
             const grp = this.myBalloon.group;
-            this.camTarget.x = -grp.position.x;
-            this.camTarget.y = -(grp.userData.baseY || 0);
+            this.camTarget.x = grp.position.x;
+            this.camTarget.y = grp.userData.baseY || 0;
         } else {
             this.camTarget.x = 0;
             this.camTarget.y = 0;
@@ -513,13 +512,6 @@ const WorldScene = {
     _setupComposer(W, H) {
         this.composer = new EffectComposer(this.renderer);
         this.composer.addPass(new RenderPass(this.scene, this.camera));
-
-        this.bokehPass = new BokehPass(this.scene, this.camera, {
-            focus: this.camZ,
-            aperture: 0.0003,
-            maxblur: 0.006
-        });
-        this.composer.addPass(this.bokehPass);
 
         const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.25, 0.4, 0.88);
         this.composer.addPass(bloom);
@@ -750,10 +742,6 @@ const WorldScene = {
         this.tiltY *= (1 - this.TILT_RETURN);
         this.tiltX = Math.max(-0.18, Math.min(0.18, this.tiltX));
         this.tiltY = Math.max(-0.18, Math.min(0.18, this.tiltY));
-
-        if (this.bokehPass) {
-            this.bokehPass.uniforms.focus.value = this.camZ;
-        }
 
         const speed = Math.sqrt(this.velX * this.velX + this.velY * this.velY);
 

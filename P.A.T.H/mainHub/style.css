@@ -483,17 +483,31 @@ body.light .toggle-slider { background-color: #ccc; }
 
 /* ── Chat View ── */
 #messenger-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.msg-row { display: flex; flex-direction: column; max-width: 80%; }
-.msg-row.mine { align-items: flex-end; align-self: flex-end; }
-.msg-row.theirs { align-items: flex-start; align-self: flex-start; }
+.msg-row { 
+    display: flex; 
+    flex-direction: column; 
+    max-width: 80%; 
+    margin-bottom: 4px;
+}
+.msg-row.mine { 
+    align-items: flex-end; 
+    align-self: flex-end !important; 
+    margin-left: auto !important;
+}
+.msg-row.theirs { 
+    align-items: flex-start; 
+    align-self: flex-start !important;
+    margin-right: auto !important;
+}
 .msg-bubble {
     background: var(--surface-hover); border-radius: 16px;
     padding: 8px 14px; font-size: 12px; line-height: 1.5;
     color: var(--text-primary); word-break: break-word;
 }
 .msg-row.mine .msg-bubble {
-    background: rgba(212, 175, 55, 0.12);
-    color: #F0E0A0;
+    background: rgba(212, 175, 55, 0.15) !important;
+    color: #F0E0A0 !important;
+    border: 1px solid rgba(212, 175, 55, 0.3);
 }
 .msg-time { font-size: 9px; color: var(--text-secondary); margin-top: 3px; padding: 0 4px; }
 .chat-input-row {

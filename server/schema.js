@@ -100,6 +100,27 @@ async function initSchema() {
         `);
 
         await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_hash VARCHAR(64) DEFAULT NULL;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP DEFAULT NULL;
+            CREATE INDEX IF NOT EXISTS idx_users_phone_hash ON users(phone_hash);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS phone_verifications (
+                id              SERIAL PRIMARY KEY,
+                phone_hash      VARCHAR(64) NOT NULL,
+                code            VARCHAR(6) NOT NULL,
+                expires_at      TIMESTAMP NOT NULL,
+                verified        BOOLEAN DEFAULT FALSE,
+                ip_address      VARCHAR(45),
+                created_at      TIMESTAMP DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_phone_verifications_hash ON phone_verifications(phone_hash);
+            CREATE INDEX IF NOT EXISTS idx_phone_verifications_expires ON phone_verifications(expires_at);
+        `);
+
+        await client.query(`
             CREATE TABLE IF NOT EXISTS cam_captures (
                 id          SERIAL PRIMARY KEY,
                 user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

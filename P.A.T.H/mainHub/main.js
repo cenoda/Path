@@ -1641,8 +1641,16 @@ async function loadChatMessages() {
         const r = await fetch(`/api/messages/conversation/${currentChatUserId}`, { credentials: 'include' });
         const msgs = r.ok ? await r.json() : [];
         const container = document.getElementById('chat-messages');
+        
+        // 디버깅: 첫 번째 메시지 확인
+        if (msgs.length > 0) {
+            console.log('Sample message:', msgs[0]);
+            console.log('is_mine value:', msgs[0].is_mine, 'type:', typeof msgs[0].is_mine);
+        }
+        
         container.innerHTML = msgs.map(m => {
             const isMine = m.is_mine === true || m.is_mine === 1;
+            console.log(`Message ${m.id}: is_mine=${m.is_mine}, isMine=${isMine}, sender=${m.sender_id}`);
             const time = new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
             
             let contentHtml = '';

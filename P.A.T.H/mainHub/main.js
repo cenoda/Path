@@ -17,6 +17,10 @@ function toggleTheme() {
     localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
     const btn = document.getElementById('theme-btn');
     if (btn) btn.textContent = isLight ? '🌙' : '☀';
+
+    if (window.WorldScene && window.WorldScene.isReady) {
+        window.WorldScene.setDayNightMode(isLight, true);
+    }
     
     const user = currentUser || { university: '' };
     updateMyBuilding(user);

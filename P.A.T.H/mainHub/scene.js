@@ -383,6 +383,7 @@ const WorldScene = {
             });
             const glowMesh = new THREE.Mesh(glowGeo, glowMat);
             glowMesh.position.y = 80;
+            glowMesh.position.z = -5; // 배치: 열기구 뒤쪽 (후광)
             group.userData.glowMat = glowMat;
             group.add(glowMesh);
         }

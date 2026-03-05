@@ -374,16 +374,15 @@ const WorldScene = {
         group.userData = { userId: user.id, user, balloon, label, isMe, baseY: 0 };
 
         if (isMe) {
-            const glowGeo = new THREE.CircleGeometry(120, 32);
+            const glowGeo = new THREE.CircleGeometry(110, 48);
             const glowMat = new THREE.ShaderMaterial({
                 uniforms: { uTime: { value: 0 } },
                 vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-                fragmentShader: `uniform float uTime; varying vec2 vUv; void main() { float d = length(vUv - vec2(0.5)); float pulse = 0.5 + 0.5 * sin(uTime * 2.5); float a = (1.0 - smoothstep(0.3, 0.5, d)) * 0.22 * pulse; gl_FragColor = vec4(0.83, 0.69, 0.21, a); }`,
+                fragmentShader: `uniform float uTime; varying vec2 vUv; void main() { float d = length(vUv - vec2(0.5)); float pulse = 0.55 + 0.45 * sin(uTime * 2.2); float a = (1.0 - smoothstep(0.2, 0.5, d)) * 0.35 * pulse; gl_FragColor = vec4(0.83, 0.69, 0.21, a); }`,
                 transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
             });
             const glowMesh = new THREE.Mesh(glowGeo, glowMat);
-            glowMesh.position.y = -60;
-            glowMesh.rotation.x = -Math.PI / 4;
+            glowMesh.position.y = 80;
             group.userData.glowMat = glowMat;
             group.add(glowMesh);
         }

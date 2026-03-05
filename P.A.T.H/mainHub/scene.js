@@ -477,13 +477,19 @@ const WorldScene = {
         const b = this.balloons.get(userId);
         if (!b) return;
         this.camTarget.x = -b.group.position.x;
-        this.camTarget.y = -b.group.position.y;
+        this.camTarget.y = -(b.group.userData.baseY || 0);
     },
 
     focusHome() {
         this.springActive = true;
-        this.camTarget.x = 0;
-        this.camTarget.y = 0;
+        if (this.myBalloon) {
+            const grp = this.myBalloon.group;
+            this.camTarget.x = -grp.position.x;
+            this.camTarget.y = -(grp.userData.baseY || 0);
+        } else {
+            this.camTarget.x = 0;
+            this.camTarget.y = 0;
+        }
         this.camZTarget = 820;
     },
 
@@ -561,8 +567,9 @@ const WorldScene = {
             if (this.isDraggingBalloon && this.myBalloon) {
                 const worldScale = this.camZ / 900;
                 this.balloonDragDist += Math.hypot(dx, dy);
-                this.myBalloon.group.position.x += dx * worldScale;
-                this.myBalloon.group.position.y -= dy * worldScale;
+                const grp = this.myBalloon.group;
+                grp.position.x += dx * worldScale;
+                grp.userData.baseY = (grp.userData.baseY || 0) - dy * worldScale;
                 this.camPos.x += dx * worldScale;
                 this.camPos.y -= dy * worldScale;
                 this.velX = 0; this.velY = 0;

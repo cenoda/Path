@@ -374,11 +374,11 @@ const WorldScene = {
         group.userData = { userId: user.id, user, balloon, label, isMe, baseY: 0 };
 
         if (isMe) {
-            // 2.5× 큰 plane — 넉넉한 여백으로 자연스럽게 번지도록
-            const GS = 2.5;
+            // max() dilation 방식: 평균 대신 max를 쓰면 고스트 복사본 없이 실루엣만 확장됨
+            const GS = 2.0;
             const glowGeo = new THREE.PlaneGeometry(160 * GS, 200 * GS);
-            const uvOffset = (1.0 - 1.0 / GS) / 2.0;  // 0.3
-            const uvScale  = 1.0 / GS;                  // 0.4
+            const uvOffset = (1.0 - 1.0 / GS) / 2.0;  // 0.25
+            const uvScale  = 1.0 / GS;                  // 0.5
             const glowMat = new THREE.ShaderMaterial({
                 uniforms: {
                     uTime:  { value: 0 },
@@ -402,42 +402,40 @@ const WorldScene = {
                     }
 
                     void main() {
-                        float sp = 0.07;
+                        // max() dilation: 인접 샘플 중 가장 큰 알파값만 취함
+                        // → 고스트 없이 열기구 실루엣이 sp만큼 바깥쪽으로 팽창
+                        float sp  = 0.045;
+                        float sp2 = sp * 1.8;
 
-                        // Ring1 — 거리 1×sp (가중치 0.50)
-                        float r1 = (sampleA(vUv + vec2( sp,   0.0 ))
-                                  + sampleA(vUv + vec2(-sp,   0.0 ))
-                                  + sampleA(vUv + vec2( 0.0,  sp  ))
-                                  + sampleA(vUv + vec2( 0.0, -sp  ))) / 4.0;
+                        float d = sampleA(vUv);
+                        d = max(d, sampleA(vUv + vec2( sp,  0.0)));
+                        d = max(d, sampleA(vUv + vec2(-sp,  0.0)));
+                        d = max(d, sampleA(vUv + vec2( 0.0,  sp)));
+                        d = max(d, sampleA(vUv + vec2( 0.0, -sp)));
+                        d = max(d, sampleA(vUv + vec2( sp*0.7,  sp*0.7)));
+                        d = max(d, sampleA(vUv + vec2(-sp*0.7,  sp*0.7)));
+                        d = max(d, sampleA(vUv + vec2( sp*0.7, -sp*0.7)));
+                        d = max(d, sampleA(vUv + vec2(-sp*0.7, -sp*0.7)));
+                        // 두 번째 링 — 더 멀리 번짐
+                        d = max(d, sampleA(vUv + vec2( sp2,  0.0)));
+                        d = max(d, sampleA(vUv + vec2(-sp2,  0.0)));
+                        d = max(d, sampleA(vUv + vec2( 0.0,  sp2)));
+                        d = max(d, sampleA(vUv + vec2( 0.0, -sp2)));
+                        d = max(d, sampleA(vUv + vec2( sp2*0.7,  sp2*0.7)));
+                        d = max(d, sampleA(vUv + vec2(-sp2*0.7,  sp2*0.7)));
+                        d = max(d, sampleA(vUv + vec2( sp2*0.7, -sp2*0.7)));
+                        d = max(d, sampleA(vUv + vec2(-sp2*0.7, -sp2*0.7)));
 
-                        // Ring2 — 거리 2×sp (가중치 0.33)
-                        float sp2 = sp * 2.0;
-                        float r2 = (sampleA(vUv + vec2( sp2,  0.0 ))
-                                  + sampleA(vUv + vec2(-sp2,  0.0 ))
-                                  + sampleA(vUv + vec2( 0.0,  sp2 ))
-                                  + sampleA(vUv + vec2( 0.0, -sp2 ))
-                                  + sampleA(vUv + vec2( sp*1.4,  sp*1.4))
-                                  + sampleA(vUv + vec2(-sp*1.4,  sp*1.4))
-                                  + sampleA(vUv + vec2( sp*1.4, -sp*1.4))
-                                  + sampleA(vUv + vec2(-sp*1.4, -sp*1.4))) / 8.0;
+                        // 안쪽은 원래 알파, 바깥으로 갈수록 부드럽게 감쇠
+                        float center = sampleA(vUv);
+                        float rim = d - center;  // 확장된 외곽 영역만 추출
+                        float glow = center * 0.4 + rim * 2.5;
+                        glow = clamp(glow, 0.0, 1.0);
+                        // 부드러운 감쇠 커브
+                        glow = glow * glow * (3.0 - 2.0 * glow);  // smoothstep 느낌
 
-                        // Ring3 — 거리 3×sp (가중치 0.17)
-                        float sp3 = sp * 3.0;
-                        float r3 = (sampleA(vUv + vec2( sp3,  0.0 ))
-                                  + sampleA(vUv + vec2(-sp3,  0.0 ))
-                                  + sampleA(vUv + vec2( 0.0,  sp3 ))
-                                  + sampleA(vUv + vec2( 0.0, -sp3 ))
-                                  + sampleA(vUv + vec2( sp*2.1,  sp*2.1))
-                                  + sampleA(vUv + vec2(-sp*2.1,  sp*2.1))
-                                  + sampleA(vUv + vec2( sp*2.1, -sp*2.1))
-                                  + sampleA(vUv + vec2(-sp*2.1, -sp*2.1))) / 8.0;
-
-                        // 가우시안 가중 합산 + pow로 부드러운 감쇠
-                        float a = r1 * 0.50 + r2 * 0.33 + r3 * 0.17;
-                        a = pow(a, 0.55);
-
-                        float pulse = 0.6 + 0.4 * sin(uTime * 2.0);
-                        gl_FragColor = vec4(0.98, 0.85, 0.28, a * pulse * 0.65);
+                        float pulse = 0.65 + 0.35 * sin(uTime * 2.0);
+                        gl_FragColor = vec4(0.98, 0.85, 0.28, glow * pulse * 0.7);
                     }
                 `,
                 transparent: true, depthWrite: false, blending: THREE.AdditiveBlending

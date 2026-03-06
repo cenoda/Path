@@ -410,6 +410,7 @@ const WorldScene = {
             cloud.position.set(d.x, d.y, d.z);
             cloud.userData.baseX = d.x;
             cloud.userData.speed = 0.03 + (idx % 5) * 0.008;
+            cloud.renderOrder = -10;
             cloud.visible = this.isLight;
             this.clouds.push(cloud);
             this.scene.add(cloud);
@@ -574,14 +575,15 @@ const WorldScene = {
         const rng = this._seededRng(seed);
 
         // ── Scattered background clouds (various types) ─────────────────
-        // 150 clouds distributed across the massive world, deterministic positions.
-        const CLOUD_SPREAD = WORLD_HALF * WORLD_SCALE * 0.85;
+        // 60 clouds distributed across the massive world, deterministic positions.
+        const CLOUD_SPREAD_X = WORLD_HALF * WORLD_SCALE * 0.85;
+        const CLOUD_SPREAD_Y = 8000;
         const cloudTypes = ['normal', 'wispy', 'large', 'storm'];
-        for (let i = 0; i < 150; i++) {
-            const cx = (rng() - 0.5) * 2 * CLOUD_SPREAD;
-            const cy = 250 + rng() * 500;
-            const cz = -400 - rng() * 1000;
-            const scale = 0.4 + rng() * 1.8;
+        for (let i = 0; i < 60; i++) {
+            const cx = (rng() - 0.5) * 2 * CLOUD_SPREAD_X;
+            const cy = (rng() - 0.5) * CLOUD_SPREAD_Y;
+            const cz = -400 - rng() * 600;
+            const scale = 0.3 + rng() * 1.2;
             const type = cloudTypes[Math.floor(rng() * cloudTypes.length)];
             const cloud = type === 'wispy'  ? this._makeWispyCloud(scale)
                         : type === 'large'  ? this._makeLargeCumulus(scale)
@@ -590,6 +592,7 @@ const WorldScene = {
             cloud.position.set(cx, cy, cz);
             cloud.userData.baseX  = cx;
             cloud.userData.speed  = 0.005 + rng() * 0.025;
+            cloud.renderOrder = -10;
             cloud.visible = this.isLight;
             this.clouds.push(cloud);
             this.scene.add(cloud);
@@ -621,7 +624,7 @@ const WorldScene = {
         const ROCK_SPREAD = WORLD_HALF * WORLD_SCALE * 0.7;
         for (let i = 0; i < 80; i++) {
             const rx = (rng() - 0.5) * 2 * ROCK_SPREAD;
-            const ry = -100 + rng() * 400;
+            const ry = (rng() - 0.5) * 4000;
             const rz = -300 - rng() * 900;
             const size = 10 + rng() * 40;
             const geo = new THREE.DodecahedronGeometry(size, 0);
@@ -646,7 +649,7 @@ const WorldScene = {
         for (let i = 0; i < 25; i++) {
             const group = new THREE.Group();
             const cx2 = (rng() - 0.5) * 2 * CRYSTAL_SPREAD;
-            const cy2 = -50 + rng() * 300;
+            const cy2 = (rng() - 0.5) * 3000;
             const cz2 = -500 - rng() * 700;
             const numCrystals = 3 + Math.floor(rng() * 4);
             const hue = rng();
@@ -707,7 +710,7 @@ const WorldScene = {
         ];
         for (let i = 0; i < 20; i++) {
             const wx = (rng() - 0.5) * 2 * ISLAND_SPREAD;
-            const wy = -60 - rng() * 60;
+            const wy = (rng() - 0.5) * 2500;
             const wz = -500 - rng() * 600;
             const rx = 1.0 + rng() * 1.5;
             const propId = `island_${seed}_${i}`;
@@ -749,7 +752,7 @@ const WorldScene = {
 
     _makeCloud(scale) {
         const group = new THREE.Group();
-        const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, transparent: true, opacity: 0.88 });
+        const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, transparent: true, opacity: 0.6 });
         const blobs = [
             { x: 0,    y: 0,    s: 60 * scale },
             { x: 80,   y: -15,  s: 50 * scale },
@@ -768,7 +771,7 @@ const WorldScene = {
 
     _makeWispyCloud(scale) {
         const group = new THREE.Group();
-        const mat = new THREE.MeshStandardMaterial({ color: 0xf0f4ff, roughness: 1, metalness: 0, transparent: true, opacity: 0.55 });
+        const mat = new THREE.MeshStandardMaterial({ color: 0xf0f4ff, roughness: 1, metalness: 0, transparent: true, opacity: 0.4 });
         const blobs = [
             { x: 0,     y: 0,   s: 35 * scale },
             { x: 100,   y: -5,  s: 25 * scale },
@@ -791,7 +794,7 @@ const WorldScene = {
 
     _makeLargeCumulus(scale) {
         const group = new THREE.Group();
-        const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, transparent: true, opacity: 0.92 });
+        const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, transparent: true, opacity: 0.7 });
         const blobs = [
             { x: 0,     y: 0,    s: 90 * scale },
             { x: 110,   y: -20,  s: 75 * scale },
@@ -813,7 +816,7 @@ const WorldScene = {
 
     _makeStormCloud(scale) {
         const group = new THREE.Group();
-        const mat = new THREE.MeshStandardMaterial({ color: 0x8090a0, roughness: 1, metalness: 0, transparent: true, opacity: 0.85 });
+        const mat = new THREE.MeshStandardMaterial({ color: 0x8090a0, roughness: 1, metalness: 0, transparent: true, opacity: 0.65 });
         const blobs = [
             { x: 0,     y: 0,    s: 80 * scale },
             { x: 120,   y: -25,  s: 70 * scale },
@@ -906,22 +909,188 @@ const WorldScene = {
         return c;
     },
 
+    _make3DBalloon(scale, colorScheme, isMe) {
+        const group = new THREE.Group();
+
+        // Get color based on scheme
+        const colors = this._getBalloonColors(colorScheme);
+
+        // Main balloon envelope (spherical shape)
+        const balloonGeo = new THREE.SphereGeometry(scale * 40, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.75);
+        const balloonMat = new THREE.MeshStandardMaterial({
+            color: colors.primary,
+            roughness: 0.7,
+            metalness: 0.1,
+            side: THREE.DoubleSide
+        });
+        const balloonMesh = new THREE.Mesh(balloonGeo, balloonMat);
+        balloonMesh.position.y = scale * 20;
+        group.add(balloonMesh);
+
+        // Vertical stripes on balloon for visual detail
+        const numStripes = 8;
+        for (let i = 0; i < numStripes; i++) {
+            const angle = (i / numStripes) * Math.PI * 2;
+            const stripeGeo = new THREE.PlaneGeometry(scale * 8, scale * 60);
+            const stripeMat = new THREE.MeshStandardMaterial({
+                color: colors.secondary,
+                roughness: 0.7,
+                metalness: 0.1,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.6
+            });
+            const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+            stripe.position.x = Math.cos(angle) * scale * 35;
+            stripe.position.z = Math.sin(angle) * scale * 35;
+            stripe.position.y = scale * 20;
+            stripe.lookAt(0, scale * 20, 0);
+            group.add(stripe);
+        }
+
+        // Top cap of balloon
+        const capGeo = new THREE.SphereGeometry(scale * 8, 12, 8);
+        const capMat = new THREE.MeshStandardMaterial({
+            color: colors.accent,
+            roughness: 0.6,
+            metalness: 0.2
+        });
+        const cap = new THREE.Mesh(capGeo, capMat);
+        cap.position.y = scale * 50;
+        group.add(cap);
+
+        // Basket (rectangular box)
+        const basketGeo = new THREE.BoxGeometry(scale * 20, scale * 15, scale * 20);
+        const basketMat = new THREE.MeshStandardMaterial({
+            color: 0x8b6914,
+            roughness: 0.9,
+            metalness: 0.0
+        });
+        const basket = new THREE.Mesh(basketGeo, basketMat);
+        basket.position.y = scale * -25;
+        group.add(basket);
+
+        // Basket ropes connecting to balloon
+        const ropeMat = new THREE.MeshStandardMaterial({
+            color: 0x654321,
+            roughness: 0.95,
+            metalness: 0.0
+        });
+
+        const ropePositions = [
+            { x: scale * 10, z: scale * 10 },
+            { x: -scale * 10, z: scale * 10 },
+            { x: scale * 10, z: -scale * 10 },
+            { x: -scale * 10, z: -scale * 10 }
+        ];
+
+        ropePositions.forEach(pos => {
+            const ropeGeo = new THREE.CylinderGeometry(scale * 0.5, scale * 0.5, scale * 35, 4);
+            const rope = new THREE.Mesh(ropeGeo, ropeMat);
+            rope.position.set(pos.x, scale * -5, pos.z);
+            group.add(rope);
+        });
+
+        // Burner flame effect (when player is active)
+        if (isMe) {
+            const flameGeo = new THREE.ConeGeometry(scale * 4, scale * 10, 6);
+            const flameMat = new THREE.MeshBasicMaterial({
+                color: 0xff6600,
+                transparent: true,
+                opacity: 0.7
+            });
+            const flame = new THREE.Mesh(flameGeo, flameMat);
+            flame.position.y = scale * -15;
+            flame.rotation.x = Math.PI;
+            group.add(flame);
+            group.userData.flame = flame;
+        }
+
+        return group;
+    },
+
+    _getBalloonColors(colorScheme) {
+        const schemes = {
+            default: {
+                primary: 0xff4444,
+                secondary: 0xffaa44,
+                accent: 0xffdd00
+            },
+            rainbow: {
+                primary: 0xff00ff,
+                secondary: 0x00ffff,
+                accent: 0xffff00
+            },
+            pastel: {
+                primary: 0xffb6c1,
+                secondary: 0xb0e0e6,
+                accent: 0xffd700
+            },
+            redstripes: {
+                primary: 0xcc0000,
+                secondary: 0xffffff,
+                accent: 0xcc0000
+            },
+            golden: {
+                primary: 0xffd700,
+                secondary: 0xdaa520,
+                accent: 0xffdf00
+            },
+            cosmic: {
+                primary: 0x0d1b2a,
+                secondary: 0x1b263b,
+                accent: 0x415a77
+            },
+            sunset: {
+                primary: 0xff6b35,
+                secondary: 0xff9a56,
+                accent: 0xffcc00
+            },
+            emerald: {
+                primary: 0x2ecc71,
+                secondary: 0x27ae60,
+                accent: 0x1abc9c
+            },
+            phoenix: {
+                primary: 0xff4500,
+                secondary: 0xff8c00,
+                accent: 0xffd700
+            },
+            galaxy: {
+                primary: 0x6a0dad,
+                secondary: 0x9932cc,
+                accent: 0x00ced1
+            },
+            diamond: {
+                primary: 0xe8f4f8,
+                secondary: 0xb0e0e6,
+                accent: 0xffffff
+            }
+        };
+        return schemes[colorScheme] || schemes.default;
+    },
+
     addBalloon(user, src, isMe) {
         const existing = this.balloons.get(user.id);
         if (existing) { this.scene.remove(existing.group); }
 
         const group = new THREE.Group();
+        group.renderOrder = 100;
 
-        const tex = this._loadTexture(src);
-        const balloonGeo = new THREE.PlaneGeometry(isMe ? 160 : 100, isMe ? 200 : 125);
-        const balloonMat = new THREE.MeshStandardMaterial({
-            map: tex, transparent: true, alphaTest: 0.05,
-            roughness: 0.85, metalness: 0.0,
-            side: THREE.DoubleSide
-        });
-        const balloon = new THREE.Mesh(balloonGeo, balloonMat);
-        balloon.position.y = isMe ? 80 : 50;
-        group.add(balloon);
+        // Get color scheme from skin
+        const skinId = user.balloon_skin || 'default';
+
+        // Create 3D balloon instead of 2D plane
+        const scale = isMe ? 2.0 : 1.25;
+        const balloon3D = this._make3DBalloon(scale, skinId, isMe);
+        balloon3D.position.y = isMe ? 80 : 50;
+        balloon3D.renderOrder = 100;
+
+        // Store reference to the main balloon mesh for animations
+        const balloonMesh = balloon3D.children[0]; // The main sphere
+        group.userData.balloon = balloonMesh;
+
+        group.add(balloon3D);
 
         const shadowGeo = new THREE.CircleGeometry(isMe ? 55 : 35, 24);
         const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18, depthWrite: false });
@@ -1079,13 +1248,10 @@ const WorldScene = {
 
         if (me) {
             const skinId = me.balloon_skin || 'default';
-            const src = this._getSrc(skinId, isLightMode);
             if (this.myBalloon) {
-                const mat = this.myBalloon.group.userData.balloon.material;
-                mat.map = this._loadTexture(src);
-                mat.needsUpdate = true;
+                this._updateBalloonColor(this.myBalloon.group, skinId);
             } else {
-                const grp = this.addBalloon(me, src, true);
+                const grp = this.addBalloon(me, null, true);
                 grp.position.set(0, 0, 0);
             }
         }
@@ -1116,7 +1282,6 @@ const WorldScene = {
             }
 
             const skinId = user.balloon_skin || 'default';
-            const src = this._getSrc(skinId, isLightMode);
 
             // Chunk-based culling: distance from camera (= scene origin).
             const distFromCam = Math.hypot(sx - this.camPos.x, sy - this.camPos.y);
@@ -1126,9 +1291,7 @@ const WorldScene = {
                 const b = this.balloons.get(user.id);
                 b.group.position.set(sx, sy, sz);
                 b.group.userData.baseY = sy;
-                const mat = b.group.userData.balloon.material;
-                mat.map = this._loadTexture(src);
-                mat.needsUpdate = true;
+                this._updateBalloonColor(b.group, skinId);
 
                 b.group.visible = visible;
                 if (visible) {
@@ -1136,7 +1299,7 @@ const WorldScene = {
                     if (b.group.userData.bubbleMesh) b.group.userData.bubbleMesh.visible = distFromCam < CULL_SCENE * 0.35;
                 }
             } else {
-                const grp = this.addBalloon(user, src, false);
+                const grp = this.addBalloon(user, null, false);
                 grp.position.set(sx, sy, sz);
                 grp.userData.baseY = sy;
                 grp.visible = visible;
@@ -1172,22 +1335,19 @@ const WorldScene = {
             const visible = distFromCam <= CULL_SCENE;
 
             const skinId = user.balloon_skin || 'default';
-            const src = this._getSrc(skinId, isLightMode);
 
             if (this.balloons.has(user.id)) {
                 const b = this.balloons.get(user.id);
                 b.group.position.set(sx, sy, sz);
                 b.group.userData.baseY = sy;
-                const mat = b.group.userData.balloon.material;
-                mat.map = this._loadTexture(src);
-                mat.needsUpdate = true;
+                this._updateBalloonColor(b.group, skinId);
                 b.group.visible = visible;
                 if (b.user.status_message !== user.status_message) {
                     this.updateStatusMsg(user.id, user.status_message);
                 }
                 b.user = { ...b.user, ...user };
             } else {
-                const grp = this.addBalloon(user, src, false);
+                const grp = this.addBalloon(user, null, false);
                 grp.position.set(sx, sy, sz);
                 grp.userData.baseY = sy;
                 grp.visible = visible;
@@ -1227,11 +1387,33 @@ const WorldScene = {
         return isLight ? s.light : s.dark;
     },
 
-    updateMyBalloon(src) {
+    updateMyBalloon(skinId) {
         if (!this.myBalloon) return;
-        const mat = this.myBalloon.group.userData.balloon.material;
-        mat.map = this._loadTexture(src);
-        mat.needsUpdate = true;
+        this._updateBalloonColor(this.myBalloon.group, skinId);
+    },
+
+    _updateBalloonColor(group, skinId) {
+        const colors = this._getBalloonColors(skinId);
+        const balloon3D = group.children.find(child => child.isGroup || (child.children && child.children.length > 0));
+        if (!balloon3D) return;
+
+        // Update main balloon mesh color
+        if (balloon3D.children[0] && balloon3D.children[0].material) {
+            balloon3D.children[0].material.color.setHex(colors.primary);
+        }
+
+        // Update stripes color
+        for (let i = 1; i <= 8; i++) {
+            if (balloon3D.children[i] && balloon3D.children[i].material) {
+                balloon3D.children[i].material.color.setHex(colors.secondary);
+            }
+        }
+
+        // Update cap color
+        const capIndex = 9;
+        if (balloon3D.children[capIndex] && balloon3D.children[capIndex].material) {
+            balloon3D.children[capIndex].material.color.setHex(colors.accent);
+        }
     },
 
     focusUserById(userId) {
@@ -1968,6 +2150,9 @@ class InteractableProp {
         bot.userData.propId = id;
         this.group.add(bot);
 
+        // Castle structure
+        this._buildCastle(rx);
+
         // Activation glow ring
         const ringGeo = new THREE.TorusGeometry(rx * 85, 8, 8, 32);
         this._glowMat = new THREE.MeshBasicMaterial({
@@ -1989,6 +2174,127 @@ class InteractableProp {
 
         this.group.position.set(x, y, z);
         scene.add(this.group);
+    }
+
+    _buildCastle(rx) {
+        // Castle stone material
+        const stoneMat = new THREE.MeshStandardMaterial({
+            color: 0x8b8b8b,
+            roughness: 0.95,
+            metalness: 0.05
+        });
+
+        // Main castle tower
+        const towerGeo = new THREE.CylinderGeometry(rx * 25, rx * 28, 70, 8);
+        const tower = new THREE.Mesh(towerGeo, stoneMat);
+        tower.position.set(0, 55, 0);
+        this.group.add(tower);
+
+        // Tower top (cone roof)
+        const roofGeo = new THREE.ConeGeometry(rx * 32, 35, 8);
+        const roofMat = new THREE.MeshStandardMaterial({
+            color: 0x8b4513,
+            roughness: 0.9,
+            metalness: 0
+        });
+        const roof = new THREE.Mesh(roofGeo, roofMat);
+        roof.position.set(0, 107, 0);
+        this.group.add(roof);
+
+        // Battlements (crenellations) around tower top
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const bx = Math.cos(angle) * rx * 27;
+            const bz = Math.sin(angle) * rx * 27;
+            const battlementGeo = new THREE.BoxGeometry(rx * 8, 10, rx * 8);
+            const battlement = new THREE.Mesh(battlementGeo, stoneMat);
+            battlement.position.set(bx, 95, bz);
+            this.group.add(battlement);
+        }
+
+        // Side towers (4 smaller towers around main)
+        const towerPositions = [
+            { x: rx * 50, z: rx * 50 },
+            { x: -rx * 50, z: rx * 50 },
+            { x: rx * 50, z: -rx * 50 },
+            { x: -rx * 50, z: -rx * 50 }
+        ];
+
+        towerPositions.forEach(pos => {
+            const sideTowerGeo = new THREE.CylinderGeometry(rx * 15, rx * 17, 50, 6);
+            const sideTower = new THREE.Mesh(sideTowerGeo, stoneMat);
+            sideTower.position.set(pos.x, 40, pos.z);
+            this.group.add(sideTower);
+
+            // Small roof on side tower
+            const sideRoofGeo = new THREE.ConeGeometry(rx * 20, 25, 6);
+            const sideRoof = new THREE.Mesh(sideRoofGeo, roofMat);
+            sideRoof.position.set(pos.x, 77, pos.z);
+            this.group.add(sideRoof);
+        });
+
+        // Castle walls connecting the towers
+        const wallMat = new THREE.MeshStandardMaterial({
+            color: 0x7a7a7a,
+            roughness: 0.95,
+            metalness: 0.05
+        });
+
+        // Front and back walls
+        const wallGeoX = new THREE.BoxGeometry(rx * 100, 35, rx * 8);
+        const frontWall = new THREE.Mesh(wallGeoX, wallMat);
+        frontWall.position.set(0, 32.5, rx * 50);
+        this.group.add(frontWall);
+
+        const backWall = new THREE.Mesh(wallGeoX, wallMat);
+        backWall.position.set(0, 32.5, -rx * 50);
+        this.group.add(backWall);
+
+        // Left and right walls
+        const wallGeoZ = new THREE.BoxGeometry(rx * 8, 35, rx * 100);
+        const leftWall = new THREE.Mesh(wallGeoZ, wallMat);
+        leftWall.position.set(-rx * 50, 32.5, 0);
+        this.group.add(leftWall);
+
+        const rightWall = new THREE.Mesh(wallGeoZ, wallMat);
+        rightWall.position.set(rx * 50, 32.5, 0);
+        this.group.add(rightWall);
+
+        // Gate entrance
+        const gateGeo = new THREE.BoxGeometry(rx * 20, 25, rx * 10);
+        const gateMat = new THREE.MeshStandardMaterial({
+            color: 0x4a2f1a,
+            roughness: 0.9,
+            metalness: 0
+        });
+        const gate = new THREE.Mesh(gateGeo, gateMat);
+        gate.position.set(0, 27.5, rx * 50);
+        this.group.add(gate);
+
+        // Windows on main tower
+        const windowMat = new THREE.MeshBasicMaterial({ color: 0x4a4a1a });
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2;
+            const wx = Math.cos(angle) * rx * 26;
+            const wz = Math.sin(angle) * rx * 26;
+            const windowGeo = new THREE.BoxGeometry(rx * 6, 8, 2);
+            const window = new THREE.Mesh(windowGeo, windowMat);
+            window.position.set(wx, 60, wz);
+            window.lookAt(0, 60, 0);
+            this.group.add(window);
+        }
+
+        // Flags on towers
+        const flagMat = new THREE.MeshStandardMaterial({
+            color: 0xcc0000,
+            roughness: 0.8,
+            metalness: 0.1,
+            side: THREE.DoubleSide
+        });
+        const flagGeo = new THREE.PlaneGeometry(rx * 15, rx * 10);
+        const mainFlag = new THREE.Mesh(flagGeo, flagMat);
+        mainFlag.position.set(0, 125, 0);
+        this.group.add(mainFlag);
     }
 
     _makeLabel(text) {

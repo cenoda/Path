@@ -159,7 +159,14 @@ const BALLOON_SKINS = {
     'default': { id: 'default', name: '기본 열기구', price: 0, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '기본 제공 열기구' },
     'rainbow': { id: 'rainbow', name: '무지개 열기구', price: 2000, darkImg: 'balloon_rainbow.png', lightImg: 'balloon_rainbow.png', desc: '화려한 무지개 열기구' },
     'pastel': { id: 'pastel', name: '파스텔 열기구', price: 3000, darkImg: 'balloon_pastel.png', lightImg: 'balloon_pastel.png', desc: '차분한 파스텔톤 열기구' },
-    'redstripes': { id: 'redstripes', name: '레드 스트라이프', price: 4000, darkImg: 'balloon_redstripes.png', lightImg: 'balloon_redstripes.png', desc: '강렬한 레드 스트라이프 열기구' }
+    'redstripes': { id: 'redstripes', name: '레드 스트라이프', price: 4000, darkImg: 'balloon_redstripes.png', lightImg: 'balloon_redstripes.png', desc: '강렬한 레드 스트라이프 열기구' },
+    'golden': { id: 'golden', name: '황금 열기구', price: 5000, darkImg: 'balloon_golden.png', lightImg: 'balloon_golden.png', desc: '고급스러운 황금빛 열기구' },
+    'cosmic': { id: 'cosmic', name: '우주 열기구', price: 6500, darkImg: 'balloon_cosmic.png', lightImg: 'balloon_cosmic.png', desc: '신비로운 우주 테마 열기구' },
+    'sunset': { id: 'sunset', name: '석양 열기구', price: 8000, darkImg: 'balloon_sunset.png', lightImg: 'balloon_sunset.png', desc: '아름다운 석양 그라데이션 열기구' },
+    'emerald': { id: 'emerald', name: '에메랄드 열기구', price: 9500, darkImg: 'balloon_emerald.png', lightImg: 'balloon_emerald.png', desc: '고귀한 에메랄드빛 열기구' },
+    'phoenix': { id: 'phoenix', name: '불사조 열기구', price: 11000, darkImg: 'balloon_phoenix.png', lightImg: 'balloon_phoenix.png', desc: '화염 속 불사조 열기구' },
+    'galaxy': { id: 'galaxy', name: '은하수 열기구', price: 13000, darkImg: 'balloon_galaxy.png', lightImg: 'balloon_galaxy.png', desc: '찬란한 은하수 열기구' },
+    'diamond': { id: 'diamond', name: '다이아몬드 열기구', price: 15000, darkImg: 'balloon_diamond.png', lightImg: 'balloon_diamond.png', desc: '최고급 다이아몬드 열기구' }
 };
 
 router.get('/skins', async (req, res) => {

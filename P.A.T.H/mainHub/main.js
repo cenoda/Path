@@ -1144,6 +1144,8 @@ function returnToHome() {
 
 function goToTimer() { window.location.href = '/P.A.T.H/mainPageDev/index.html'; }
 
+function goToCommunity() { window.location.href = '/P.A.T.H/community/index.html'; }
+
 async function doLogout() {
     if (!confirm('로그아웃 하시겠습니까?')) return;
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });

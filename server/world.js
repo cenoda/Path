@@ -97,10 +97,13 @@ function setup(io) {
 
         // ── player:join ──────────────────────────────────────────────────
         socket.on('player:join', (data) => {
-            if (!data || typeof data.userId !== 'number') return;
+            if (!data) return;
+
+            const userId = Number(data.userId);
+            if (!Number.isFinite(userId)) return;
 
             const {
-                userId, nickname = '', university = '',
+                nickname = '', university = '',
                 balloon_skin = 'default', status_message = null,
                 worldX = 0, worldY = 0,
             } = data;

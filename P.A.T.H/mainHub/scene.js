@@ -14,6 +14,14 @@ const DRAG_SENSITIVITY  = 0.55;    // 0..1 – lower = less sensitive mouse/touc
 const WORLD_HALF        = WORLD_SIZE / 2;   // convenience: max |world coord|
 const REMOTE_POS_LERP   = 0.12;    // lerp factor for remote player position interpolation
 
+function worldToScene(value) {
+    return -value * WORLD_SCALE;
+}
+
+function sceneToWorld(value) {
+    return -value / WORLD_SCALE;
+}
+
 const WorldScene = {
     scene: null, camera: null, renderer: null, composer: null,
     balloons: new Map(),
@@ -1118,7 +1126,17 @@ const WorldScene = {
             group.add(bubbleMesh);
         }
 
-        group.userData = { userId: user.id, user, balloon, label, bubbleMesh, isMe, baseY: 0 };
+        // Keep explicit references used by click handlers/animations.
+        group.userData = {
+            userId: user.id,
+            user,
+            balloon: balloonMesh,
+            balloon3D,
+            label,
+            bubbleMesh,
+            isMe,
+            baseY: 0
+        };
 
         if (isMe) {
             const glowGeo = new THREE.CircleGeometry(70, 30);
@@ -1266,11 +1284,11 @@ const WorldScene = {
 
             if (typeof user.worldX === 'number' && typeof user.worldY === 'number') {
                 // World-coordinate placement: position is relative to camera origin.
-                // camPos = -(myWorldPos * WORLD_SCALE), so scene position of another player:
-                // scene_x = player.worldX * WORLD_SCALE  (absolute scene coords)
+                // camPos = -(myWorldPos * WORLD_SCALE), so scene coordinates use
+                // the same sign convention: scene_x = -(player.worldX * WORLD_SCALE).
                 // The camera then shows it at the right screen position.
-                sx = user.worldX * WORLD_SCALE;
-                sy = user.worldY * WORLD_SCALE;
+                sx = worldToScene(user.worldX);
+                sy = worldToScene(user.worldY);
                 sz = Math.sin(user.id * 3.7) * 40;
             } else {
                 // Legacy spiral layout for ranking-API users without world coords.
@@ -1328,8 +1346,8 @@ const WorldScene = {
         });
 
         players.forEach(user => {
-            const sx = user.worldX * WORLD_SCALE;
-            const sy = user.worldY * WORLD_SCALE;
+            const sx = worldToScene(user.worldX);
+            const sy = worldToScene(user.worldY);
             const sz = Math.sin(user.id * 3.7) * 40;
             const distFromCam = Math.hypot(sx - this.camPos.x, sy - this.camPos.y);
             const visible = distFromCam <= CULL_SCENE;
@@ -1359,8 +1377,8 @@ const WorldScene = {
     moveWorldPlayer(userId, worldX, worldY) {
         const b = this.balloons.get(userId);
         if (!b || b.isMe) return;
-        const sx = worldX * WORLD_SCALE;
-        const sy = worldY * WORLD_SCALE;
+        const sx = worldToScene(worldX);
+        const sy = worldToScene(worldY);
         b.group.userData.baseY = sy;
         // Smooth transition instead of snap.
         b.group.userData.targetX = sx;
@@ -1488,8 +1506,8 @@ const WorldScene = {
      */
     getWorldPosition() {
         return {
-            x: Math.round(-this.camPos.x / WORLD_SCALE),
-            y: Math.round(-this.camPos.y / WORLD_SCALE),
+            x: Math.round(sceneToWorld(this.camPos.x)),
+            y: Math.round(sceneToWorld(this.camPos.y)),
         };
     },
 
@@ -1509,8 +1527,8 @@ const WorldScene = {
             const pos = b.group.position;
             // Convert scene position back to world units for the caller.
             return {
-                x: Math.round(pos.x / WORLD_SCALE),
-                y: Math.round(pos.y / WORLD_SCALE),
+                x: Math.round(sceneToWorld(pos.x)),
+                y: Math.round(sceneToWorld(pos.y)),
                 z: Math.round(pos.z)
             };
         }

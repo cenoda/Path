@@ -11,7 +11,7 @@ const aligoService = require('../utils/aligo');
 
 const router = express.Router();
 
-const USER_FIELDS = 'id, nickname, university, gold, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, balloon_skin, owned_skins, status_emoji, status_message, phone_verified, phone_verified_at, auth_provider, google_email';
+const USER_FIELDS = 'id, nickname, university, gold, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, balloon_skin, owned_skins, status_emoji, status_message, phone_verified, phone_verified_at, auth_provider, google_email, is_admin, admin_role';
 
 function escapeHtml(str) {
     if (!str) return str;

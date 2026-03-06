@@ -14,10 +14,47 @@
 const router = require('express').Router();
 const pool   = require('../db');
 
+const BEST_MIN_LIKES = 15;
+
 /* ── auth guard ─────────────────────────────────────────────── */
 function requireAuth(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     next();
+}
+
+async function getAdminRole(userId) {
+    const result = await pool.query(
+        'SELECT is_admin, admin_role FROM users WHERE id = $1',
+        [userId]
+    );
+
+    const row = result.rows[0];
+    if (!row) return null;
+    if (row.admin_role === 'main' || row.admin_role === 'sub') return row.admin_role;
+    return row.is_admin ? 'sub' : null;
+}
+
+async function requireAdmin(req, res, next) {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    try {
+        const role = await getAdminRole(req.session.userId);
+        if (!role) return res.status(403).json({ error: '관리자 권한이 없습니다.' });
+        req.adminRole = role;
+        next();
+    } catch (err) {
+        console.error('[community] requireAdmin', err.message);
+        res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+}
+
+function normalizeCommunityNickname(raw) {
+    const fallback = '익명';
+    if (typeof raw !== 'string') return fallback;
+    const trimmed = raw.trim();
+    if (!trimmed) return fallback;
+    if (trimmed.length < 2 || trimmed.length > 20) return null;
+    return trimmed;
 }
 
 /* ── IP prefix helper ───────────────────────────────────────── */
@@ -34,6 +71,7 @@ function getIpPrefix(req) {
 
 /* ── 유효 카테고리 ──────────────────────────────────────────── */
 const VALID_CATS = new Set(['념글', '정보', '질문', '잡담']);
+const WRITABLE_CATS = new Set(['정보', '질문', '잡담']);
 
 /* ════════════════════════════════════════════════════════════ */
 /* GET /posts — 목록 조회                                        */
@@ -48,7 +86,10 @@ router.get('/posts', async (req, res) => {
     const params = [];
     const conds  = [];
 
-    if (cat !== '전체' && VALID_CATS.has(cat)) {
+    if (cat === '념글') {
+        params.push(BEST_MIN_LIKES);
+        conds.push(`likes >= $${params.length}`);
+    } else if (cat !== '전체' && VALID_CATS.has(cat)) {
         params.push(cat);
         conds.push(`category = $${params.length}`);
     }
@@ -84,9 +125,9 @@ router.get('/posts', async (req, res) => {
 router.get('/posts/hot', async (req, res) => {
     const cat = req.query.category || '전체';
     const params = [];
-    const conds  = ['likes > 0'];
+    const conds  = [`likes >= ${BEST_MIN_LIKES}`];
 
-    if (cat !== '전체' && VALID_CATS.has(cat)) {
+    if (cat !== '전체' && cat !== '념글' && VALID_CATS.has(cat)) {
         params.push(cat);
         conds.push(`category = $${params.length}`);
     }
@@ -134,7 +175,7 @@ router.get('/posts/:id', async (req, res) => {
 /* POST /posts — 글 작성                                        */
 /* ════════════════════════════════════════════════════════════ */
 router.post('/posts', requireAuth, async (req, res) => {
-    const { category, title, body = '' } = req.body;
+    const { category, title, body = '', anonymous_nickname } = req.body;
 
     if (!title || !title.trim()) {
         return res.status(400).json({ error: '제목을 입력해 주세요.' });
@@ -142,22 +183,23 @@ router.post('/posts', requireAuth, async (req, res) => {
     if (title.trim().length > 200) {
         return res.status(400).json({ error: '제목은 200자 이내로 입력해 주세요.' });
     }
-    if (!VALID_CATS.has(category)) {
+    if (!WRITABLE_CATS.has(category)) {
         return res.status(400).json({ error: '카테고리가 올바르지 않습니다.' });
     }
     if (body.length > 5000) {
         return res.status(400).json({ error: '내용은 5,000자 이내로 입력해 주세요.' });
     }
 
+    const nickname = normalizeCommunityNickname(anonymous_nickname);
+    if (nickname === null) {
+        return res.status(400).json({ error: '익명 닉네임은 2~20자로 입력해 주세요.' });
+    }
+
     const ipPrefix = getIpPrefix(req);
 
     try {
-        const userRes = await pool.query(
-            'SELECT nickname FROM users WHERE id = $1',
-            [req.session.userId]
-        );
+        const userRes = await pool.query('SELECT id FROM users WHERE id = $1', [req.session.userId]);
         if (!userRes.rows.length) return res.status(401).json({ error: '유효하지 않은 사용자입니다.' });
-        const nickname = userRes.rows[0].nickname;
 
         const result = await pool.query(
             `INSERT INTO community_posts (user_id, category, title, body, ip_prefix, nickname)
@@ -312,6 +354,68 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('[community] POST /posts/:id/comments', err.message);
+        res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    } finally {
+        client.release();
+    }
+});
+
+/* ════════════════════════════════════════════════════════════ */
+/* DELETE /posts/:id — 관리자 글 삭제                           */
+/* ════════════════════════════════════════════════════════════ */
+router.delete('/posts/:id', requireAdmin, async (req, res) => {
+    const postId = parseInt(req.params.id, 10);
+    if (!postId) return res.status(400).json({ error: '잘못된 요청입니다.' });
+
+    try {
+        const result = await pool.query(
+            'DELETE FROM community_posts WHERE id = $1 RETURNING id',
+            [postId]
+        );
+
+        if (!result.rows.length) {
+            return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+        }
+
+        res.json({ ok: true, deleted_post_id: postId });
+    } catch (err) {
+        console.error('[community] DELETE /posts/:id', err.message);
+        res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+/* ════════════════════════════════════════════════════════════ */
+/* DELETE /posts/:postId/comments/:commentId — 관리자 댓글 삭제 */
+/* ════════════════════════════════════════════════════════════ */
+router.delete('/posts/:postId/comments/:commentId', requireAdmin, async (req, res) => {
+    const postId = parseInt(req.params.postId, 10);
+    const commentId = parseInt(req.params.commentId, 10);
+    if (!postId || !commentId) return res.status(400).json({ error: '잘못된 요청입니다.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const deleted = await client.query(
+            'DELETE FROM community_comments WHERE id = $1 AND post_id = $2 RETURNING id',
+            [commentId, postId]
+        );
+
+        if (!deleted.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+        }
+
+        await client.query(
+            'UPDATE community_posts SET comments_count = GREATEST(0, comments_count - 1) WHERE id = $1',
+            [postId]
+        );
+
+        await client.query('COMMIT');
+        res.json({ ok: true, deleted_comment_id: commentId });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[community] DELETE /posts/:postId/comments/:commentId', err.message);
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     } finally {
         client.release();

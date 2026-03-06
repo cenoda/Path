@@ -16,7 +16,8 @@ import { useInfiniteScroll }                          from './useInfiniteScroll.
 
 /* ─── 상수 ─────────────────────────────────────────────────── */
 const PAGE_SIZE     = 25;
-const HOT_THRESHOLD = 10;  // 프론트 베스트 배지 표시 기준
+const HOT_THRESHOLD = 15;  // 베스트 승격 기준(추천 15+)
+const WRITABLE_CATS = ['정보', '질문', '잡담'];
 
 /* ─── 카테고리 탭 ───────────────────────────────────────────── */
 const CATEGORIES = [
@@ -34,7 +35,7 @@ let totalPosts   = 0;
 let searchQuery  = '';
 let scrollHook   = null;
 let isLoading    = false;
-let currentUser  = null;  // { id, nickname } | null
+let currentUser  = null;  // { id, nickname, is_admin, admin_role } | null
 
 /* ─── DOM ───────────────────────────────────────────────────── */
 const categoryBar    = document.getElementById('category-bar');
@@ -58,8 +59,13 @@ async function init() {
     // 로그인 상태 확인 (실패해도 게시판은 열람 가능)
     try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (res.ok) currentUser = await res.json();
+      if (res.ok) {
+        const me = await res.json();
+        currentUser = me.user || me;
+      }
     } catch (_) { /* 무시 */ }
+
+    updateWriteControls();
 
     await Promise.all([renderHotPosts(), resetAndLoad()]);
 }
@@ -85,9 +91,22 @@ function onCatChange(key) {
         const active = CATEGORIES[i].key === key;
         btn.setAttribute('aria-selected', active ? 'true' : 'false');
     });
+    updateWriteControls();
     renderHotPosts();
     resetAndLoad();
 }
+
+  function updateWriteControls() {
+    const blocked = currentCat === '념글';
+    const title = blocked ? '베스트 게시판에는 직접 글을 작성할 수 없어요' : '글쓰기';
+
+    [writeFab, writeHeaderBtn].forEach((btn) => {
+      btn.disabled = blocked;
+      btn.title = title;
+      btn.style.opacity = blocked ? '0.45' : '';
+      btn.style.cursor = blocked ? 'not-allowed' : '';
+    });
+  }
 
 /* ─── 베스트 게시글 ─────────────────────────────────────── */
 async function renderHotPosts() {
@@ -305,12 +324,14 @@ async function openPostDetail(postId) {
 
 function renderDetailBody(container, { post, postId, comments }) {
     const cat     = CATEGORY_META[post.category] ?? CATEGORY_META['전체'];
+    const canModerate = currentUserIsAdmin();
     const cmtHtml = comments.map(c => `
-      <li class="cmt-item">
+      <li class="cmt-item" data-comment-id="${c.id}">
         <div class="cmt-meta">
           <span class="cmt-nick">${escHtml(c.nickname ?? '익명')}</span>
           <span class="cmt-ip">(${escHtml(c.ip_prefix ?? '?.?')})</span>
           <span class="cmt-date">${fmtRelative(c.created_at)}</span>
+          ${canModerate ? '<button class="cmt-admin-del" type="button">삭제</button>' : ''}
         </div>
         <p class="cmt-body">${escHtml(c.body)}</p>
       </li>`).join('');
@@ -335,6 +356,7 @@ function renderDetailBody(container, { post, postId, comments }) {
           </svg>
           추천 <span id="like-count">${post.likes}</span>
         </button>
+        ${canModerate ? '<button class="detail-admin-del-btn" id="detail-admin-del-btn">게시글 삭제</button>' : ''}
       </div>
       <div class="detail-comments">
         <p class="detail-cmt-head">댓글 <strong>${comments.length}</strong></p>
@@ -412,6 +434,77 @@ function renderDetailBody(container, { post, postId, comments }) {
             if (cmtBadge) cmtBadge.textContent = parseInt(cmtBadge.textContent || '0') + 1;
         } catch (_) { showToast('오류가 발생했어요'); }
     });
+
+      if (canModerate) {
+        const postDeleteBtn = container.querySelector('#detail-admin-del-btn');
+        if (postDeleteBtn) {
+          postDeleteBtn.addEventListener('click', async () => {
+            const ok = window.confirm('이 게시글을 삭제할까요?');
+            if (!ok) return;
+            try {
+              const r = await fetch(`/api/community/posts/${postId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+              });
+              if (!r.ok) {
+                const data = await r.json().catch(() => ({}));
+                showToast(data.error || '삭제에 실패했어요');
+                return;
+              }
+
+              document.querySelector('.modal-backdrop.visible')?.remove();
+              showToast('게시글을 삭제했어요');
+              await Promise.all([renderHotPosts(), resetAndLoad()]);
+            } catch (_) {
+              showToast('오류가 발생했어요');
+            }
+          });
+        }
+
+        container.querySelectorAll('.cmt-admin-del').forEach((btn) => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const item = btn.closest('.cmt-item');
+            const commentId = parseInt(item?.dataset.commentId || '', 10);
+            if (!commentId) return;
+
+            const ok = window.confirm('이 댓글을 삭제할까요?');
+            if (!ok) return;
+
+            try {
+              const r = await fetch(`/api/community/posts/${postId}/comments/${commentId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+              });
+
+              if (!r.ok) {
+                const data = await r.json().catch(() => ({}));
+                showToast(data.error || '댓글 삭제에 실패했어요');
+                return;
+              }
+
+              item?.remove();
+              const listEl = container.querySelector('#cmt-list');
+              if (listEl && listEl.children.length === 0) {
+                listEl.innerHTML = '<li class="cmt-empty">아직 댓글이 없어요.</li>';
+              }
+
+              const headEl = container.querySelector('.detail-cmt-head strong');
+              if (headEl) headEl.textContent = Math.max(0, parseInt(headEl.textContent || '0', 10) - 1);
+              const cmtBadge = postList.querySelector(`[data-id="${postId}"] .post-row__cmts`);
+              if (cmtBadge) {
+                const nextCount = Math.max(0, parseInt(cmtBadge.textContent || '0', 10) - 1);
+                if (nextCount === 0) cmtBadge.remove();
+                else cmtBadge.textContent = nextCount;
+              }
+
+              showToast('댓글을 삭제했어요');
+            } catch (_) {
+              showToast('오류가 발생했어요');
+            }
+          });
+        });
+      }
 }
 
 /* ─── 이벤트 바인딩 ─────────────────────────────────────── */
@@ -460,6 +553,11 @@ function bindEvents() {
 }
 
 function handleWriteClick() {
+  if (currentCat === '념글') {
+    showToast('베스트 게시판에는 글을 작성할 수 없어요');
+    return;
+  }
+
     if (!currentUser) {
         showToast('로그인 후 글을 작성할 수 있어요');
         setTimeout(() => { window.location.href = '/login/'; }, 1200);
@@ -472,8 +570,8 @@ function handleWriteClick() {
 function showWriteModal() {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
-    const cats = CATEGORIES.filter(c => c.key !== '전체');
-    let selectedCat = currentCat !== '전체' ? currentCat : '정보';
+  const cats = CATEGORIES.filter(c => WRITABLE_CATS.includes(c.key));
+  let selectedCat = WRITABLE_CATS.includes(currentCat) ? currentCat : '정보';
 
     backdrop.innerHTML = `
       <div class="write-modal" role="dialog" aria-modal="true" aria-label="게시글 작성">
@@ -492,6 +590,10 @@ function showWriteModal() {
             <div class="write-cat-chips">
               ${cats.map(c => `<button class="write-cat-chip${c.key === selectedCat ? ' active' : ''}" data-cat="${c.key}">${c.label}</button>`).join('')}
             </div>
+          </div>
+          <div class="write-field">
+            <label class="write-label" for="wt-anon-nick">익명 닉네임</label>
+            <input id="wt-anon-nick" class="write-input" type="text" placeholder="익명 닉네임 (2~20자, 기본: 익명)" maxlength="20" autocomplete="off">
           </div>
           <div class="write-field">
             <label class="write-label" for="wt-title">제목</label>
@@ -542,6 +644,7 @@ function showWriteModal() {
     // 제출
     const submitBtn = backdrop.querySelector('#wt-submit-btn');
     submitBtn.addEventListener('click', async () => {
+      const anonymousNickname = backdrop.querySelector('#wt-anon-nick').value.trim();
         const title = backdrop.querySelector('#wt-title').value.trim();
         const body  = textarea.value.trim();
         if (!title) { backdrop.querySelector('#wt-title').focus(); return; }
@@ -554,7 +657,12 @@ function showWriteModal() {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ category: selectedCat, title, body }),
+                body: JSON.stringify({
+                  category: selectedCat,
+                  title,
+                  body,
+                  anonymous_nickname: anonymousNickname,
+                }),
             });
             if (r.status === 401) {
                 showToast('로그인이 필요해요');
@@ -647,6 +755,13 @@ function escHtml(s) {
         .replace(/"/g, '&quot;');
 }
 
+function currentUserIsAdmin() {
+  if (!currentUser) return false;
+  return currentUser.admin_role === 'main'
+    || currentUser.admin_role === 'sub'
+    || currentUser.is_admin === true;
+}
+
 /* ─── 상세 모달 추가 스타일 (동적 주입 — style.css 의존 최소화) */
 const detailStyle = document.createElement('style');
 detailStyle.textContent = `
@@ -677,6 +792,15 @@ detailStyle.textContent = `
 .cmt-date { font-size:11px; color:var(--text-3); margin-left:auto; }
 .cmt-body { font-size:13.5px; color:var(--text-1); line-height:1.55; white-space:pre-wrap; word-break:break-word; }
 .cmt-write { display:flex; flex-direction:column; padding-top:10px; border-top:1px solid var(--border); }
+.detail-admin-del-btn {
+  display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 14px;
+  background:rgba(255,69,58,0.14); border-radius:var(--radius-pill); font-size:12px; font-weight:700;
+  color:var(--accent-red); border:1px solid rgba(255,69,58,0.35);
+}
+.cmt-admin-del {
+  margin-left:8px; font-size:11px; color:var(--accent-red); font-weight:700;
+  border:1px solid rgba(255,69,58,0.3); border-radius:999px; padding:2px 8px;
+}
 `;
 document.head.appendChild(detailStyle);
 

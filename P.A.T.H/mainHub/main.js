@@ -15,7 +15,9 @@ const BALLOON_SKINS = {
 };
 
 function getBalloonSrc(skinId, isLight) {
-    const skin = BALLOON_SKINS[skinId] || BALLOON_SKINS['default'];
+    const imageBackedSkins = new Set(['default', 'rainbow', 'pastel', 'redstripes']);
+    const safeSkinId = imageBackedSkins.has(skinId) ? skinId : 'default';
+    const skin = BALLOON_SKINS[safeSkinId] || BALLOON_SKINS['default'];
     return isLight ? skin.lightImg : skin.darkImg;
 }
 
@@ -1384,6 +1386,21 @@ function make3DBalloonPreview(scale, colorScheme) {
 
 // Create a mini 3D scene for a balloon preview
 function createBalloonPreviewCanvas(skinId, size = 80) {
+    const isLight = document.body.classList.contains('light');
+
+    // Fallback: if THREE is unavailable, render a simple image preview.
+    if (typeof THREE === 'undefined') {
+        const img = document.createElement('img');
+        img.src = getBalloonSrc(skinId, isLight);
+        img.alt = `${skinId} balloon preview`;
+        img.style.width = `${size}px`;
+        img.style.height = `${size}px`;
+        img.style.objectFit = 'contain';
+        img.style.display = 'block';
+        img.style.margin = '0 auto 6px';
+        return img;
+    }
+
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -1392,9 +1409,23 @@ function createBalloonPreviewCanvas(skinId, size = 80) {
     canvas.style.display = 'block';
     canvas.style.margin = '0 auto 6px';
 
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-    renderer.setSize(size, size);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    let renderer;
+    try {
+        renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setSize(size, size);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    } catch (e) {
+        // WebGL is not available: fallback to static image.
+        const img = document.createElement('img');
+        img.src = getBalloonSrc(skinId, isLight);
+        img.alt = `${skinId} balloon preview`;
+        img.style.width = `${size}px`;
+        img.style.height = `${size}px`;
+        img.style.objectFit = 'contain';
+        img.style.display = 'block';
+        img.style.margin = '0 auto 6px';
+        return img;
+    }
 
     const scene = new THREE.Scene();
 

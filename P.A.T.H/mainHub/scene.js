@@ -86,6 +86,8 @@ const WorldScene = {
         }
 
         bgCanvas.style.display = 'block';
+        bgCanvas.style.pointerEvents = 'auto';
+        bgCanvas.style.touchAction = 'none';
 
         const W = window.innerWidth;
         const H = window.innerHeight;

@@ -39,8 +39,23 @@ async function initSchema() {
                 last_tax_collected_at   TIMESTAMP DEFAULT NOW(),
                 privacy_agreed          BOOLEAN DEFAULT FALSE,
                 is_admin                BOOLEAN DEFAULT FALSE,
+                admin_role              VARCHAR(10) DEFAULT 'none',
                 created_at              TIMESTAMP DEFAULT NOW()
             );
+        `);
+
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_role VARCHAR(10) DEFAULT 'none';
+            ALTER TABLE users DROP CONSTRAINT IF EXISTS users_admin_role_check;
+            ALTER TABLE users
+                ADD CONSTRAINT users_admin_role_check
+                CHECK (admin_role IN ('none', 'sub', 'main'));
+            UPDATE users
+            SET admin_role = CASE
+                WHEN is_admin = TRUE AND (admin_role IS NULL OR admin_role = 'none') THEN 'sub'
+                WHEN is_admin = FALSE AND admin_role IN ('sub', 'main') THEN 'none'
+                ELSE admin_role
+            END;
         `);
 
         await client.query(`

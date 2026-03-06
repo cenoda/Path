@@ -322,8 +322,8 @@ router.get('/google/callback', async (req, res) => {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI;
-    const successRedirect = process.env.GOOGLE_AUTH_SUCCESS_REDIRECT || '/P.A.T.H/mainHub/';
-    const errorRedirect = process.env.GOOGLE_AUTH_ERROR_REDIRECT || '/P.A.T.H/login/?error=google_auth';
+    const successRedirect = process.env.GOOGLE_AUTH_SUCCESS_REDIRECT || '/mainHub/';
+    const errorRedirect = process.env.GOOGLE_AUTH_ERROR_REDIRECT || '/login/?error=google_auth';
 
     if (!code || !state || !expectedState || state !== expectedState) {
         req.session.googleOAuthState = null;
@@ -406,7 +406,7 @@ router.get('/google/callback', async (req, res) => {
             req.session.googleOAuthState = null;
             req.session.userId = user.id;
             // 프로필 설정 페이지로 리다이렉트
-            return res.redirect('/P.A.T.H/setup-profile/');
+            return res.redirect('/setup-profile/');
         }
     } catch (err) {
         console.error('google callback error:', err);

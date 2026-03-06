@@ -1029,6 +1029,76 @@ body.active .tab-panel {
     line-height: 1.5;
 }
 
+.study-proof-section {
+    width: 100%;
+    border: 1px solid rgba(122, 169, 255, 0.45);
+    border-radius: 14px;
+    background: rgba(17, 45, 82, 0.5);
+    padding: 12px;
+    margin-bottom: 14px;
+}
+
+.study-proof-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #d8e6ff;
+    margin-bottom: 8px;
+}
+
+.study-proof-picker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(180, 208, 255, 0.56);
+    border-radius: 10px;
+    min-height: 34px;
+    padding: 0 12px;
+    font-size: 12px;
+    color: #dbe8ff;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.study-proof-file {
+    display: block;
+    width: 100%;
+    font-size: 12px;
+    color: #b8cce8;
+    margin-bottom: 10px;
+}
+
+.study-proof-upload-btn {
+    width: 100%;
+    min-height: 38px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(120deg, #2d8cff, #57b2ff);
+    color: #f5fbff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.study-proof-upload-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.study-proof-status {
+    min-height: 16px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #b8cce8;
+}
+
+.study-proof-status.done {
+    color: #7fe79c;
+}
+
+.study-proof-status.error {
+    color: #ff8f8f;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;

@@ -5,7 +5,7 @@ const StorageManager = {
         try {
             const r = await fetch('/api/auth/me', { credentials: 'include' });
             if (!r.ok) {
-                window.location.href = '/P.A.T.H/login/index.html';
+                window.location.href = '/login/';
                 return null;
             }
             const data = await r.json();
@@ -32,11 +32,35 @@ const StorageManager = {
             }
             const data = await r.json();
             this._cache = data.user;
-            return { user: data.user, earnedGold: data.earnedGold || 0 };
+            return {
+                user: data.user,
+                earnedGold: data.earnedGold || 0,
+                studyRecordId: data.studyRecordId || null
+            };
         } catch (e) {
             console.error('StorageManager.completeStudy 오류:', e);
             return { user: this._cache, earnedGold: 0 };
         }
+    },
+
+    async uploadStudyProof(recordId, files) {
+        const formData = new FormData();
+        formData.append('record_id', String(recordId));
+        for (const file of files) {
+            formData.append('studyProof', file);
+        }
+
+        const r = await fetch('/api/study/upload-proof', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || '인증샷 업로드 실패');
+
+        if (data.user) this._cache = data.user;
+        return data;
     },
 
     async fetchSubjects() {

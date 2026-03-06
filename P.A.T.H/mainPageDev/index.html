@@ -29,7 +29,7 @@ function toggleTheme() {
     <!-- Top Status Line -->
     <header class="status-bar">
         <div class="status-left">
-            <button class="exit-timer-btn" onclick="location.href='/P.A.T.H/mainHub/index.html'">←</button>
+            <button class="exit-timer-btn" onclick="location.href='/mainHub/'">←</button>
             <span class="status-label">학습자</span>
             <span class="status-val tier-text">CHALLENGER</span>
             <span class="status-val sub" id="rank-pct">0.08%</span>
@@ -192,12 +192,19 @@ function toggleTheme() {
         <div class="result-card">
             <h1 id="res-title" class="result-header">학습 완료!</h1>
             <div id="res-loot" class="result-details"></div>
+            <div id="study-proof-section" class="study-proof-section hidden">
+                <div class="study-proof-title">공부 인증샷 업로드</div>
+                <label for="study-proof-file" class="study-proof-picker">사진 선택</label>
+                <input id="study-proof-file" type="file" accept="image/*" class="study-proof-file" multiple>
+                <button id="study-proof-upload-btn" type="button" class="study-proof-upload-btn" disabled>인증샷들 업로드하고 추가 골드 받기</button>
+                <div id="study-proof-status" class="study-proof-status"></div>
+            </div>
             <button id="reset-btn" class="btn-primary cmd-btn">돌아가기</button>
         </div>
     </div>
 
     <script src="wakelock.js?v=3"></script>
-    <script src="storage.js?v=3"></script> 
+    <script src="storage.js?v=3"></script>
     <script src="core.js?v=3"></script>
     <script src="cam.js?v=3"></script>
     <script src="ui.js?v=3"></script>

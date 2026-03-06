@@ -4,7 +4,9 @@
   "description": "P.A.T.H - 공부 타이머 게임",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "set-admin": "node set-admin.js",
+    "list-admins": "node -e \"const pool=require('./server/db'); pool.query('SELECT id,nickname,real_name,is_admin FROM users WHERE is_admin=TRUE ORDER BY id').then(r=>{console.log(JSON.stringify(r.rows,null,2));}).catch(e=>{console.error(e.message); process.exitCode=1;}).finally(()=>pool.end());\""
   },
   "keywords": [],
   "author": "",

@@ -74,7 +74,8 @@ const UI = {
 
         this.updateAssets(userData);
         if (this.elements.bottomInfo) {
-            this.elements.bottomInfo.textContent = `DOMAIN: ${userData.university || '-'}`;
+            this.elements.bottomInfo.textContent = '';
+            this.elements.bottomInfo.style.display = 'none';
         }
 
         this.ensureUndoSnackbar();

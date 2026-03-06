@@ -461,7 +461,7 @@ const WorldScene = {
             const topColor = d.type === 'crystal' ? 0x6ba3c7 : d.type === 'flower' ? 0x7dba6f
                            : d.type === 'star' ? 0x4a5a8a : d.type === 'dragon' ? 0x8a5a4a
                            : 0x3a7d44;
-            const topGeo = new THREE.CylinderGeometry(d.rx * 90, d.rx * 80, 30, 14);
+            const topGeo = new THREE.CylinderGeometry(d.rx * 90, d.rx * 80, 30, 12);
             const topMat = new THREE.MeshStandardMaterial({ color: topColor, roughness: 0.9, metalness: 0 });
             const top = new THREE.Mesh(topGeo, topMat);
             top.position.y = 15;
@@ -711,7 +711,7 @@ const WorldScene = {
             const wz = -500 - rng() * 600;
             const rx = 1.0 + rng() * 1.5;
             const propId = `island_${seed}_${i}`;
-            const name = islandNames[i];
+            const name = islandNames[i % islandNames.length];
             const prop = new InteractableProp(propId, name, wx, wy, wz, rx, this.scene, (id, activated) => {
                 if (this.onInteraction) this.onInteraction(id, activated);
             });
@@ -779,6 +779,7 @@ const WorldScene = {
             { x: -40,   y: -8,  s: 20 * scale },
         ];
         blobs.forEach(b => {
+            // Stretched horizontally + flattened vertically for a wispy look.
             const geo = new THREE.SphereGeometry(b.s, 8, 6);
             geo.scale(1.8, 0.5, 1.0);
             const m = new THREE.Mesh(geo, mat);

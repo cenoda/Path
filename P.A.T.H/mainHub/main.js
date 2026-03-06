@@ -86,6 +86,10 @@ function saveUiSettings() {
     toggleTheme(isLight);
 }
 
+// Keep inline onclick/onchange handlers stable even with strict caching/module transitions.
+window.saveUiSettings = saveUiSettings;
+window.toggleTheme = toggleTheme;
+
 document.addEventListener('DOMContentLoaded', () => {
     loadUiSettings();
 });
@@ -1326,6 +1330,8 @@ function loadSettingsPanel() {
     loadUiSettings();
     loadCamSettings();
 }
+
+window.loadSettingsPanel = loadSettingsPanel;
 
 // ── 친구(ALLY) 시스템 ─────────────────────────────────────────────────
 let currentAllyTab = 'list';

@@ -4,6 +4,13 @@ const UI = {
     subjects: [],
     weekOffset: 0,
     weekData: null,
+    dragState: null,
+    timetableConfig: {
+        dayStartMinute: 6 * 60,
+        dayEndMinute: 24 * 60,
+        hourHeight: 56,
+        snapMinute: 5
+    },
 
     elements: {
         body:        document.body,
@@ -109,6 +116,9 @@ const UI = {
         this.elements.weekNextBtn.onclick = () => this.loadWeekCalendar(this.weekOffset + 1);
         this.elements.planForm.onsubmit = (e) => this.handlePlanSubmit(e);
         this.elements.calendarTimeline.addEventListener('click', (e) => this.handlePlanDelete(e));
+        this.elements.calendarTimeline.addEventListener('pointerdown', (e) => this.handlePlanPointerDown(e));
+        window.addEventListener('pointermove', (e) => this.handlePlanPointerMove(e));
+        window.addEventListener('pointerup', () => this.handlePlanPointerUp());
 
         this.elements.enterBtn.onclick = async () => {
             const hr  = parseInt(this.elements.inputHr.value)  || 0;
@@ -235,9 +245,9 @@ const UI = {
     renderCalendarTimeline() {
         if (!this.elements.calendarTimeline || !this.weekData?.week) return;
 
-        const dayStartMinute = 6 * 60;
-        const dayEndMinute = 24 * 60;
-        const hourHeight = 56;
+        const dayStartMinute = this.timetableConfig.dayStartMinute;
+        const dayEndMinute = this.timetableConfig.dayEndMinute;
+        const hourHeight = this.timetableConfig.hourHeight;
         const totalMinutes = dayEndMinute - dayStartMinute;
         const timelineHeight = Math.floor((totalMinutes / 60) * hourHeight);
 
@@ -269,6 +279,7 @@ const UI = {
 
         const headCols = [];
         const dayCols = [];
+        const usedSubjects = new Map();
 
         for (let i = 0; i < 7; i++) {
             const d = new Date(start);
@@ -278,6 +289,14 @@ const UI = {
             const records = recordsByDate.get(key) || [];
             const totalRecordSec = records.reduce((acc, r) => acc + (parseInt(r.duration_sec, 10) || 0), 0);
             const recordDuration = this.formatDuration(totalRecordSec);
+
+            for (const p of plans) {
+                const color = this.getSubjectColor(p.subject_id, p.subject_name);
+                const legendKey = `${p.subject_id || 0}:${p.subject_name || '미지정'}`;
+                if (!usedSubjects.has(legendKey)) {
+                    usedSubjects.set(legendKey, { name: p.subject_name || '미지정', color });
+                }
+            }
 
             headCols.push(
                 `<div class="tt-day-head">
@@ -300,7 +319,7 @@ const UI = {
                 const subjectColor = this.getSubjectColor(p.subject_id, p.subject_name);
                 const bg = this.hexToRgba(subjectColor, p.is_completed ? 0.18 : 0.24);
                 const border = this.hexToRgba(subjectColor, 0.55);
-                return `<div class="tt-event ${statusClass}" style="top:${top}px;height:${height}px;--subject-color:${subjectColor};--subject-bg:${bg};--subject-border:${border}">
+                return `<div class="tt-event ${statusClass}" data-plan-id="${p.id}" data-plan-date="${key}" data-start-minute="${rawStart}" data-end-minute="${rawEnd}" style="top:${top}px;height:${height}px;--subject-color:${subjectColor};--subject-bg:${bg};--subject-border:${border}">
                     <div class="tt-event-title">${this.escapeHtml(p.subject_name || '미지정')}</div>
                     <div class="tt-event-time">${this.minuteToTime(rawStart)} - ${this.minuteToTime(rawEnd)}</div>
                     ${p.note ? `<div class="tt-event-note">${this.escapeHtml(p.note)}</div>` : ''}
@@ -331,8 +350,13 @@ const UI = {
             );
         }
 
+        const legendHtml = Array.from(usedSubjects.values()).map((s) => {
+            return `<span class="tt-legend-item"><i class="tt-legend-dot" style="background:${s.color}"></i>${this.escapeHtml(s.name)}</span>`;
+        }).join('');
+
         this.elements.calendarTimeline.innerHTML = `
             <div class="week-grid-wrap">
+                ${legendHtml ? `<div class="tt-legend">${legendHtml}</div>` : ''}
                 <div class="week-timetable" style="--timeline-height:${timelineHeight}px">
                     <div class="tt-corner">TIME</div>
                     ${headCols.join('')}
@@ -340,6 +364,93 @@ const UI = {
                     ${dayCols.join('')}
                 </div>
             </div>`;
+    },
+
+    handlePlanPointerDown(event) {
+        const eventBox = event.target.closest('.tt-event');
+        if (!eventBox) return;
+        if (event.target.closest('.plan-delete-btn')) return;
+
+        const planId = parseInt(eventBox.dataset.planId, 10);
+        if (!planId) return;
+
+        const rawStart = parseInt(eventBox.dataset.startMinute, 10) || 0;
+        const rawEnd = parseInt(eventBox.dataset.endMinute, 10) || 0;
+        const duration = Math.max(5, rawEnd - rawStart);
+
+        this.dragState = {
+            planId,
+            eventEl: eventBox,
+            startY: event.clientY,
+            originalStart: rawStart,
+            originalEnd: rawEnd,
+            duration,
+            planDate: eventBox.dataset.planDate,
+            changed: false,
+            nextStart: rawStart,
+            nextEnd: rawEnd
+        };
+
+        eventBox.classList.add('is-dragging');
+        eventBox.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+    },
+
+    handlePlanPointerMove(event) {
+        if (!this.dragState) return;
+
+        const minutePerPx = 60 / this.timetableConfig.hourHeight;
+        const deltaMinuteRaw = (event.clientY - this.dragState.startY) * minutePerPx;
+        const snap = this.timetableConfig.snapMinute;
+        const deltaMinute = Math.round(deltaMinuteRaw / snap) * snap;
+
+        const minStart = this.timetableConfig.dayStartMinute;
+        const maxStart = this.timetableConfig.dayEndMinute - this.dragState.duration;
+        const nextStart = Math.max(minStart, Math.min(maxStart, this.dragState.originalStart + deltaMinute));
+        const nextEnd = nextStart + this.dragState.duration;
+
+        if (nextStart === this.dragState.nextStart && nextEnd === this.dragState.nextEnd) return;
+
+        this.dragState.nextStart = nextStart;
+        this.dragState.nextEnd = nextEnd;
+        this.dragState.changed = true;
+
+        const totalMinutes = this.timetableConfig.dayEndMinute - this.timetableConfig.dayStartMinute;
+        const timelineHeight = Math.floor((totalMinutes / 60) * this.timetableConfig.hourHeight);
+        const top = Math.floor(((nextStart - this.timetableConfig.dayStartMinute) / totalMinutes) * timelineHeight);
+        this.dragState.eventEl.style.top = `${top}px`;
+
+        const timeEl = this.dragState.eventEl.querySelector('.tt-event-time');
+        if (timeEl) timeEl.textContent = `${this.minuteToTime(nextStart)} - ${this.minuteToTime(nextEnd)}`;
+    },
+
+    async handlePlanPointerUp() {
+        if (!this.dragState) return;
+
+        const ctx = this.dragState;
+        this.dragState = null;
+        ctx.eventEl.classList.remove('is-dragging');
+
+        if (!ctx.changed) return;
+
+        const plan = (this.weekData?.plans || []).find((p) => Number(p.id) === Number(ctx.planId));
+        if (!plan) {
+            await this.loadWeekCalendar(this.weekOffset);
+            return;
+        }
+
+        try {
+            await StorageManager.updatePlan(ctx.planId, {
+                plan_date: ctx.planDate,
+                start_time: this.minuteToTime(ctx.nextStart),
+                end_time: this.minuteToTime(ctx.nextEnd),
+                note: plan.note || ''
+            });
+            await this.loadWeekCalendar(this.weekOffset);
+        } catch (e) {
+            alert(e.message || '타임라인 수정 실패');
+            await this.loadWeekCalendar(this.weekOffset);
+        }
     },
 
     formatDuration(sec) {
@@ -409,7 +520,7 @@ const UI = {
     },
 
     async handlePlanDelete(event) {
-        const btn = event.target.closest('[data-plan-id]');
+        const btn = event.target.closest('.plan-delete-btn[data-plan-id]');
         if (!btn) return;
         const planId = parseInt(btn.getAttribute('data-plan-id'), 10);
         if (!planId) return;

@@ -108,5 +108,22 @@ const StorageManager = {
             console.error('StorageManager.deletePlan 오류:', e);
             throw e;
         }
+    },
+
+    async updatePlan(planId, payload) {
+        try {
+            const r = await fetch(`/api/study/calendar/plan/${planId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(payload)
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || '타임라인 수정 실패');
+            return data.plan;
+        } catch (e) {
+            console.error('StorageManager.updatePlan 오류:', e);
+            throw e;
+        }
     }
 };

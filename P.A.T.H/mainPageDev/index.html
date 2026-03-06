@@ -37,7 +37,6 @@ function toggleTheme() {
         <div class="status-right">
             <span class="resource">🪙 <span id="gold-val">14,500</span></span>
             <span class="resource">📄 원서비 <span id="ticket-val">01</span>장</span>
-            <button id="theme-btn" class="exit-timer-btn" onclick="toggleTheme()" title="라이트/다크 모드" style="font-size:16px;">☀️</button>
             <button class="exit-timer-btn" onclick="openTimerSettings()" title="설정" style="font-size:16px;">⚙</button>
         </div>
     </header>
@@ -49,6 +48,19 @@ function toggleTheme() {
             <button class="timer-settings-close" onclick="closeTimerSettings()">×</button>
         </div>
         <div class="timer-settings-body">
+            <div class="ts-section-title">UI 표시 (UI DISPLAY)</div>
+            <div class="ts-row">
+                <span class="ts-label">라이트 모드</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="ts-theme-toggle" onchange="saveTimerUiSettings()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="ts-note" id="ts-ui-note">메인허브와 동일한 테마 설정을 공유합니다.</div>
+
+            <div class="ts-section-title">계정 (ACCOUNT)</div>
+            <button type="button" class="ts-action-btn" onclick="doTimerLogout()">로그아웃</button>
+
             <div class="ts-section-title">캠인증 (CAM CERTIFICATION)</div>
             <div class="ts-row">
                 <span class="ts-label">캠인증 활성화</span>
@@ -173,10 +185,10 @@ function toggleTheme() {
         </div>
     </div>
 
-    <script src="wakelock.js"></script>
-    <script src="storage.js"></script> 
-    <script src="core.js"></script>
-    <script src="cam.js"></script>
-    <script src="ui.js"></script>
+    <script src="wakelock.js?v=2"></script>
+    <script src="storage.js?v=2"></script> 
+    <script src="core.js?v=2"></script>
+    <script src="cam.js?v=2"></script>
+    <script src="ui.js?v=2"></script>
 </body>
 </html>

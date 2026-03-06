@@ -162,6 +162,7 @@ function openTimerSettings() {
     const panel = document.getElementById('timer-settings-panel');
     if (panel) {
         panel.classList.remove('hidden');
+        loadTimerUiSettings();
         CamManager.loadSettings();
     }
 }
@@ -188,6 +189,47 @@ async function saveTimerCamSettings() {
             note.style.color = '';
         }, 2000);
     }
+}
+
+function loadTimerUiSettings() {
+    const themeToggle = document.getElementById('ts-theme-toggle');
+    if (themeToggle) {
+        themeToggle.checked = document.body.classList.contains('light');
+    }
+}
+
+function saveTimerUiSettings() {
+    const themeToggle = document.getElementById('ts-theme-toggle');
+    const note = document.getElementById('ts-ui-note');
+    if (!themeToggle) return;
+
+    const shouldLight = !!themeToggle.checked;
+    const isLightNow = document.body.classList.contains('light');
+    if (shouldLight !== isLightNow) {
+        if (typeof window.toggleTheme === 'function') {
+            window.toggleTheme();
+        } else {
+            document.body.classList.toggle('light', shouldLight);
+            localStorage.setItem('path_theme', shouldLight ? 'light' : 'dark');
+        }
+    }
+
+    if (note) {
+        note.textContent = `저장됨 — 테마: ${shouldLight ? '라이트' : '다크'}`;
+        note.style.color = '#D4AF37';
+        setTimeout(() => {
+            note.textContent = '메인허브와 동일한 테마 설정을 공유합니다.';
+            note.style.color = '';
+        }, 1800);
+    }
+}
+
+async function doTimerLogout() {
+    if (!confirm('로그아웃 하시겠습니까?')) return;
+    try {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (e) {}
+    window.location.href = '/P.A.T.H/login/index.html';
 }
 
 async function submitAdminInquiry() {

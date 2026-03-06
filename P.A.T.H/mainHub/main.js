@@ -442,6 +442,37 @@ function renderOtherUsers(users) {
     }
 }
 
+function _normalizeUserId(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+}
+
+function _composeVisibleUsers() {
+    const byId = new Map();
+
+    (allUsers || []).forEach((u) => {
+        const id = _normalizeUserId(u?.id);
+        if (id === null) return;
+        byId.set(id, { ...u, id });
+    });
+
+    _wsNearby.forEach((p, rawId) => {
+        const id = _normalizeUserId(rawId);
+        if (id === null) return;
+        const prev = byId.get(id) || {};
+        byId.set(id, { ...prev, ...p, id });
+    });
+
+    return [...byId.values()];
+}
+
+function _renderSocketAwareUsers() {
+    const isLight = document.body.classList.contains('light');
+    if (window.WorldScene && window.WorldScene.isReady) {
+        window.WorldScene.setUsers(_composeVisibleUsers(), currentUser, isLight);
+    }
+}
+
 // ── 랭킹 패널 ────────────────────────────────────────────────────────
 async function loadRankPanel(tab) {
     const listEl = document.getElementById('rank-list');
@@ -2369,35 +2400,39 @@ function initWorldSocket(user) {
     // ── Receive full nearby-player snapshot ──────────────────────────
     worldSocket.on('players:nearby', (players) => {
         _wsNearby.clear();
-        players.forEach(p => _wsNearby.set(p.id, p));
-        if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.updateWorldPlayers(players, currentUser);
-        }
+        players.forEach((p) => {
+            const id = _normalizeUserId(p?.id);
+            if (id === null) return;
+            _wsNearby.set(id, { ...p, id });
+        });
+        _renderSocketAwareUsers();
     });
 
     // ── A new player entered the nearby area ─────────────────────────
     worldSocket.on('player:enter', (player) => {
-        _wsNearby.set(player.id, player);
-        if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.updateWorldPlayers([...(_wsNearby.values())], currentUser);
-        }
+        const id = _normalizeUserId(player?.id);
+        if (id === null) return;
+        _wsNearby.set(id, { ...player, id });
+        _renderSocketAwareUsers();
     });
 
     // ── Remote player moved ──────────────────────────────────────────
     worldSocket.on('player:moved', ({ id, worldX, worldY }) => {
-        const p = _wsNearby.get(id);
+        const userId = _normalizeUserId(id);
+        if (userId === null) return;
+        const p = _wsNearby.get(userId);
         if (p) { p.worldX = worldX; p.worldY = worldY; }
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.moveWorldPlayer(id, worldX, worldY);
+            window.WorldScene.moveWorldPlayer(userId, worldX, worldY);
         }
     });
 
     // ── Remote player disconnected ───────────────────────────────────
     worldSocket.on('player:left', ({ id }) => {
-        _wsNearby.delete(id);
-        if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.removeWorldPlayer(id);
-        }
+        const userId = _normalizeUserId(id);
+        if (userId === null) return;
+        _wsNearby.delete(userId);
+        _renderSocketAwareUsers();
     });
 
     // ── Interaction state snapshot on join ───────────────────────────
@@ -2416,14 +2451,18 @@ function initWorldSocket(user) {
     });
 
     // ── Announce ourselves to the server ────────────────────────────
+    const pos = (window.WorldScene && window.WorldScene.isReady)
+        ? window.WorldScene.getWorldPosition()
+        : { x: 0, y: 0 };
+
     worldSocket.emit('player:join', {
         userId:         user.id,
         nickname:       user.nickname       || '',
         university:     user.university     || '',
         balloon_skin:   user.balloon_skin   || 'default',
         status_message: user.status_message || null,
-        worldX: 0,
-        worldY: 0,
+        worldX: pos.x,
+        worldY: pos.y,
     });
 
     // Wire up WorldScene's interaction callback so local clicks are emitted.

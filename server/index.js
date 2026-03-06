@@ -63,6 +63,7 @@ app.use('/api/university', require('./routes/university'));
 app.use('/api/cam', require('./routes/cam'));
 app.use('/api/friends', require('./routes/friends'));
 app.use('/api/messages', require('./routes/messages'));
+app.use('/api/community', require('./routes/community'));
 
 app.use('/uploads/scores/:filename', (req, res) => {
     res.redirect(`/api/auth/score-image/${req.params.filename}`);
@@ -80,14 +81,28 @@ const staticOptions = {
     index: 'index.html'
 };
 
+// Safari/edge CDN combinations can keep stale app-shell files despite query params.
+// For route entrypoints and their JS/CSS, disable caching completely.
+const noCacheStaticOptions = {
+    maxAge: 0,
+    etag: false,
+    index: 'index.html',
+    setHeaders(res) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+    }
+};
+
 // Public URL mounts (hide internal folder structure from browser address bar)
 app.use('/assets', express.static(path.join(projectRoot, 'P.A.T.H', 'assets'), staticOptions));
-app.use('/login', express.static(path.join(projectRoot, 'P.A.T.H', 'login'), staticOptions));
-app.use('/mainHub', express.static(path.join(projectRoot, 'P.A.T.H', 'mainHub'), staticOptions));
-app.use('/timer', express.static(path.join(projectRoot, 'P.A.T.H', 'mainPageDev'), staticOptions));
-app.use('/community', express.static(path.join(projectRoot, 'P.A.T.H', 'community'), staticOptions));
-app.use('/setup-profile', express.static(path.join(projectRoot, 'P.A.T.H', 'setup-profile'), staticOptions));
-app.use('/admin', express.static(path.join(projectRoot, 'P.A.T.H', 'admin'), staticOptions));
+app.use('/login', express.static(path.join(projectRoot, 'P.A.T.H', 'login'), noCacheStaticOptions));
+app.use('/mainHub', express.static(path.join(projectRoot, 'P.A.T.H', 'mainHub'), noCacheStaticOptions));
+app.use('/timer', express.static(path.join(projectRoot, 'P.A.T.H', 'mainPageDev'), noCacheStaticOptions));
+app.use('/community', express.static(path.join(projectRoot, 'P.A.T.H', 'community'), noCacheStaticOptions));
+app.use('/setup-profile', express.static(path.join(projectRoot, 'P.A.T.H', 'setup-profile'), noCacheStaticOptions));
+app.use('/admin', express.static(path.join(projectRoot, 'P.A.T.H', 'admin'), noCacheStaticOptions));
 
 // Legacy URL compatibility: redirect old internal paths to clean public paths
 app.get('/P.A.T.H/login', (_req, res) => res.redirect(301, '/login/'));

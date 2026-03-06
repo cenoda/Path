@@ -53,86 +53,149 @@ const WorldScene = {
     isDragging: false,
     isDraggingBalloon: false,
     balloonDragDist: 0,
-    lastPointer: null,
-    pinchStart: null,
 
-    isLight: false,
-    dayNightMix: 0,
-    dayNightTarget: 0,
-    isReady: false,
+
+        const envelopeMat = new THREE.MeshStandardMaterial({
     frameCount: 0,
-    friendIds: new Set(),
-
-    // Callback set by main.js; fired when the local player interacts with a prop.
+            roughness: 0.62,
+            metalness: 0.1
     // signature: (propId: string, activated: boolean) => void
-    onInteraction: null,
+        const stripeMat = new THREE.MeshStandardMaterial({
+            color: colors.secondary,
+            roughness: 0.58,
+            metalness: 0.12
+        });
+        const accentMat = new THREE.MeshStandardMaterial({
+            color: colors.accent,
+            roughness: 0.46,
+            metalness: 0.22
+        });
+        const basketMat = new THREE.MeshStandardMaterial({
+            color: 0x9a6f2e,
+            roughness: 0.9,
+            metalness: 0.02
+        });
+        const basketInnerMat = new THREE.MeshStandardMaterial({
+            color: 0x4a2f16,
+            roughness: 1.0,
+            metalness: 0
+        });
+        const ropeMat = new THREE.MeshStandardMaterial({
+            color: 0x5f3e1f,
+            roughness: 0.96,
+            metalness: 0
+        });
 
-    SPRING: 0.10,
-    FRICTION: 0.82,
-    TILT_STRENGTH: 0.018,
-    TILT_RETURN: 0.08,
+        const profile = [
+            new THREE.Vector2(scale * 8,  scale * -26),
+            new THREE.Vector2(scale * 19, scale * -18),
+            new THREE.Vector2(scale * 30, scale * -3),
+            new THREE.Vector2(scale * 36, scale * 17),
+            new THREE.Vector2(scale * 38, scale * 33),
+            new THREE.Vector2(scale * 34, scale * 46),
+            new THREE.Vector2(scale * 24, scale * 55),
+            new THREE.Vector2(scale * 10, scale * 60),
+            new THREE.Vector2(scale * 4,  scale * 61)
+        ];
+        const envelopeGeo = new THREE.LatheGeometry(profile, 24);
+        const envelope = new THREE.Mesh(envelopeGeo, envelopeMat);
+        envelope.position.y = scale * 16;
+        group.add(envelope);
 
-    init() {
-        this.isLight = document.body.classList.contains('light');
+        const stripeCount = 8;
+        const stripeRadius = scale * 31.5;
+        const stripeHeight = scale * 76;
+        const stripeY = scale * 24;
+        const stripeMeshes = [];
+        for (let i = 0; i < stripeCount; i++) {
+            const a = (i / stripeCount) * Math.PI * 2;
+            const stripeGeo = new THREE.CylinderGeometry(scale * 0.95, scale * 0.95, stripeHeight, 5, 1, true);
         this.dayNightMix = this.isLight ? 1 : 0;
-        this.dayNightTarget = this.dayNightMix;
-
-        const canvas = document.createElement('canvas');
-        canvas.id = 'three-canvas';
-        canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block;touch-action:none;';
-        document.body.prepend(canvas);
+                color: colors.secondary,
+                roughness: 0.56,
+                metalness: 0.15,
+                transparent: true,
+                opacity: 0.82
 
         const bgCanvas = document.getElementById('bg-canvas');
-        if (bgCanvas) bgCanvas.style.display = 'none';
-
-        const W = window.innerWidth, H = window.innerHeight;
-
+            stripe.position.set(Math.cos(a) * stripeRadius, stripeY, Math.sin(a) * stripeRadius);
+            stripe.rotation.z = Math.cos(a) * 0.035;
+            stripe.rotation.x = Math.sin(a) * 0.035;
         this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+            stripeMeshes.push(stripe);
         this.renderer.setSize(W, H);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.shadowMap.enabled = false;
-        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.1;
+        const topCap = new THREE.Mesh(
+            new THREE.SphereGeometry(scale * 8, 12, 10),
+            accentMat
+        );
+        topCap.position.y = scale * 77;
 
-        this.scene = new THREE.Scene();
-        this._updateSky();
+        const throatRing = new THREE.Mesh(
+            new THREE.TorusGeometry(scale * 9, scale * 1.5, 8, 16),
+            accentMat
+        );
+        throatRing.rotation.x = Math.PI / 2;
+        throatRing.position.y = scale * -10;
 
-        this.camera = new THREE.PerspectiveCamera(46, W / H, 1, 40000);
+        const neck = new THREE.Mesh(
+            new THREE.CylinderGeometry(scale * 8.2, scale * 10.2, scale * 9, 10),
+            new THREE.MeshStandardMaterial({ color: 0x704826, roughness: 0.9, metalness: 0 })
+        );
+        neck.position.y = scale * -14;
+
+        group.add(topCap);
+        group.add(throatRing);
+        group.add(neck);
+
+        const basket = new THREE.Mesh(
+            new THREE.BoxGeometry(scale * 20, scale * 13, scale * 20),
+            basketMat
+        );
+        basket.position.y = scale * -34;
+
+        const basketInner = new THREE.Mesh(
+            new THREE.BoxGeometry(scale * 15.5, scale * 8.2, scale * 15.5),
+            basketInnerMat
+        );
+        basketInner.position.y = scale * -31;
+
+        const basketRim = new THREE.Mesh(
+            new THREE.TorusGeometry(scale * 10.6, scale * 1.25, 8, 18),
+            new THREE.MeshStandardMaterial({ color: 0xb88946, roughness: 0.74, metalness: 0.1 })
+        );
+        basketRim.rotation.x = Math.PI / 2;
+        basketRim.position.y = scale * -27.5;
+
+        group.add(basket);
+        group.add(basketInner);
+        group.add(basketRim);
+
+        const makeRope = (start, end) => {
+            const dir = end.clone().sub(start);
+            const len = dir.length();
+            const geo = new THREE.CylinderGeometry(scale * 0.42, scale * 0.55, len, 5);
+            const rope = new THREE.Mesh(geo, ropeMat);
+            rope.position.copy(start).add(end).multiplyScalar(0.5);
+            rope.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+            return rope;
+        };
+
+        const ropeStartY = scale * -13.5;
+        const ropeEndY = scale * -27;
+        const ropeStartR = scale * 8.8;
+        const ropeEndR = scale * 9.5;
+        [
+            [1, 1],
+            [-1, 1],
+            [1, -1],
+            [-1, -1]
+        ].forEach(([sx, sz]) => {
+            const start = new THREE.Vector3(sx * ropeStartR, ropeStartY, sz * ropeStartR);
+            const end = new THREE.Vector3(sx * ropeEndR, ropeEndY, sz * ropeEndR);
+            group.add(makeRope(start, end));
+        });
         this.camera.position.set(0, 0, this.camZ);
-        this.camera.lookAt(0, 0, 0);
-
-        this.ambientLight = new THREE.AmbientLight(0x8090c0, 0.8);
-        this.scene.add(this.ambientLight);
-        this.dirLight = new THREE.DirectionalLight(0xfff0dd, 1.6);
-        this.dirLight.position.set(300, 500, 600);
-        this.scene.add(this.dirLight);
-        this.fillLight = new THREE.DirectionalLight(0x4060ff, 0.3);
-        this.fillLight.position.set(-200, -100, 300);
-        this.scene.add(this.fillLight);
-
-        this._buildStars();
-        this._buildMoon();
-        this._buildClouds();
-        this._buildFireflies();
-        this._buildSkyIslands();
-
-        this._setupComposer(W, H);
-        this._setupInput();
-        this._setupKeyboard();
-
-        window.addEventListener('resize', () => this._onResize());
-
-        this.isReady = true;
-        this._loop();
-    },
-
-    _updateSky() {
-        this.setDayNightMode(this.isLight, false);
-    },
-
-    setDayNightMode(isLight, animate = true) {
-        this.isLight = !!isLight;
         this.dayNightTarget = this.isLight ? 1 : 0;
         if (!animate) {
             this.dayNightMix = this.dayNightTarget;
@@ -141,11 +204,17 @@ const WorldScene = {
     },
 
     _applyDayNightBlend(mix) {
-        const nightBg = new THREE.Color(0x060814);
+            flame.position.y = scale * -21;
         const dayBg = new THREE.Color(0x87ceeb);
         const fogNight = new THREE.Color(0x060814);
         const fogDay = new THREE.Color(0xb0d8f0);
 
+
+        group.userData.colorParts = {
+            primary: [envelope],
+            secondary: stripeMeshes,
+            accent: [topCap, throatRing]
+        };
         if (!this.scene.background || !this.scene.background.isColor) {
             this.scene.background = nightBg.clone();
         }
@@ -1094,8 +1163,8 @@ const WorldScene = {
         balloon3D.position.y = isMe ? 80 : 50;
         balloon3D.renderOrder = 100;
 
-        // Store reference to the main balloon mesh for animations
-        const balloonMesh = balloon3D.children[0]; // The main sphere
+        // Keep a stable reference to the primary balloon envelope mesh.
+        const balloonMesh = balloon3D.userData?.colorParts?.primary?.[0] || balloon3D.children[0];
         group.userData.balloon = balloonMesh;
 
         group.add(balloon3D);
@@ -1415,22 +1484,17 @@ const WorldScene = {
         const balloon3D = group.children.find(child => child.isGroup || (child.children && child.children.length > 0));
         if (!balloon3D) return;
 
-        // Update main balloon mesh color
+        const parts = balloon3D.userData?.colorParts;
+        if (parts) {
+            (parts.primary || []).forEach((m) => m?.material?.color?.setHex(colors.primary));
+            (parts.secondary || []).forEach((m) => m?.material?.color?.setHex(colors.secondary));
+            (parts.accent || []).forEach((m) => m?.material?.color?.setHex(colors.accent));
+            return;
+        }
+
+        // Backward-compatible fallback for older balloon instances.
         if (balloon3D.children[0] && balloon3D.children[0].material) {
             balloon3D.children[0].material.color.setHex(colors.primary);
-        }
-
-        // Update stripes color
-        for (let i = 1; i <= 8; i++) {
-            if (balloon3D.children[i] && balloon3D.children[i].material) {
-                balloon3D.children[i].material.color.setHex(colors.secondary);
-            }
-        }
-
-        // Update cap color
-        const capIndex = 9;
-        if (balloon3D.children[capIndex] && balloon3D.children[capIndex].material) {
-            balloon3D.children[capIndex].material.color.setHex(colors.accent);
         }
     },
 

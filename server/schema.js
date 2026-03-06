@@ -222,6 +222,47 @@ async function initSchema() {
             ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255) DEFAULT NULL;
         `);
 
+        // ── 커뮤니티 테이블 ─────────────────────────────────────────────
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS community_posts (
+                id             SERIAL PRIMARY KEY,
+                user_id        INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                category       VARCHAR(20)  NOT NULL DEFAULT '정보',
+                title          VARCHAR(200) NOT NULL,
+                body           TEXT         NOT NULL DEFAULT '',
+                ip_prefix      VARCHAR(20),
+                nickname       VARCHAR(50),
+                views          INTEGER NOT NULL DEFAULT 0,
+                likes          INTEGER NOT NULL DEFAULT 0,
+                comments_count INTEGER NOT NULL DEFAULT 0,
+                created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_cp_created_at ON community_posts(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_cp_category   ON community_posts(category);
+            CREATE INDEX IF NOT EXISTS idx_cp_likes      ON community_posts(likes DESC);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS community_likes (
+                post_id  INTEGER NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+                user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                PRIMARY KEY (post_id, user_id)
+            );
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS community_comments (
+                id         SERIAL PRIMARY KEY,
+                post_id    INTEGER NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+                user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                body       TEXT NOT NULL,
+                ip_prefix  VARCHAR(20),
+                nickname   VARCHAR(50),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_cc_post_id ON community_comments(post_id);
+        `);
+
         console.log('DB 스키마 초기화 완료');
     } catch (err) {
         console.error('DB 스키마 초기화 오류:', err.message);

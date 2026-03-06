@@ -315,13 +315,13 @@ const mapLayer  = document.getElementById('map-layer');
 // ── 백분위 기반 건물 크기/밝기 ──────────────────────────────────────
 function getBuildingStyle(percentile) {
     const pct = percentile || 50;
-    if (pct >= 99)  return { img: '/P.A.T.H/assets/castle_main.png', sizePx: 480, brightness: 1.0 };
-    if (pct >= 96)  return { img: '/P.A.T.H/assets/castle_main.png', sizePx: 380, brightness: 0.9 };
-    if (pct >= 90)  return { img: '/P.A.T.H/assets/castle_main.png', sizePx: 300, brightness: 0.8 };
-    if (pct >= 80)  return { img: '/P.A.T.H/assets/hut.png', sizePx: 180, brightness: 0.95 };
-    if (pct >= 70)  return { img: '/P.A.T.H/assets/hut.png', sizePx: 145, brightness: 0.85 };
-    if (pct >= 60)  return { img: '/P.A.T.H/assets/hut.png', sizePx: 115, brightness: 0.7 };
-    return { img: '/P.A.T.H/assets/hut.png', sizePx: 90, brightness: 0.55 };
+    if (pct >= 99)  return { img: '/assets/castle_main.png', sizePx: 480, brightness: 1.0 };
+    if (pct >= 96)  return { img: '/assets/castle_main.png', sizePx: 380, brightness: 0.9 };
+    if (pct >= 90)  return { img: '/assets/castle_main.png', sizePx: 300, brightness: 0.8 };
+    if (pct >= 80)  return { img: '/assets/hut.png', sizePx: 180, brightness: 0.95 };
+    if (pct >= 70)  return { img: '/assets/hut.png', sizePx: 145, brightness: 0.85 };
+    if (pct >= 60)  return { img: '/assets/hut.png', sizePx: 115, brightness: 0.7 };
+    return { img: '/assets/hut.png', sizePx: 90, brightness: 0.55 };
 }
 
 // ── 초기화 ───────────────────────────────────────────────────────────
@@ -332,7 +332,7 @@ async function initHub() {
             fetch('/api/ranking/me', { credentials: 'include' })
         ]);
 
-        if (!meRes.ok) { window.location.href = '/P.A.T.H/login/index.html'; return; }
+        if (!meRes.ok) { window.location.href = '/login/'; return; }
 
         const meData = await meRes.json();
         currentUser = meData.user;
@@ -1150,24 +1150,18 @@ function returnToHome() {
     if (window.WorldScene) window.WorldScene.focusHome();
 }
 
-function resolveHubPath(absolutePath, relativePathFromHub) {
-    // Prefer absolute path, but fall back to relative when app is hosted under a prefix.
-    if (window.location.pathname.startsWith('/P.A.T.H/')) return absolutePath;
-    return new URL(relativePathFromHub, window.location.href).pathname;
-}
-
 function goToTimer() {
-    window.location.href = resolveHubPath('/P.A.T.H/mainPageDev/index.html', '../mainPageDev/index.html');
+    window.location.href = '/timer/';
 }
 
 function goToCommunity() {
-    window.location.href = resolveHubPath('/P.A.T.H/community/index.html', '../community/index.html');
+    window.location.href = '/community/';
 }
 
 async function doLogout() {
     if (!confirm('로그아웃 하시겠습니까?')) return;
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-    window.location.href = '/P.A.T.H/login/index.html';
+    window.location.href = '/login/';
 }
 
 /* ── SHOP SYSTEM ── */

@@ -267,7 +267,7 @@ function toggleTheme() {
         (async () => {
             try {
                 const r = await fetch('/api/auth/me', { credentials: 'include' });
-                if (r.ok) window.location.href = '/P.A.T.H/mainHub/index.html';
+                if (r.ok) window.location.href = '/mainHub/';
             } catch (e) {}
         })();
 
@@ -340,7 +340,7 @@ function toggleTheme() {
                 const data = await r.json();
                 if (!r.ok) { errEl.textContent = data.error; return; }
                 localStorage.setItem('path_onboarding_pending', 'true');
-                window.location.href = '/P.A.T.H/mainHub/index.html';
+                window.location.href = '/mainHub/';
             } catch (err) { errEl.textContent = '서버 연결 오류'; }
         }
 
@@ -368,7 +368,7 @@ function toggleTheme() {
                 });
                 const data = await r.json();
                 if (!r.ok) { errEl.textContent = data.error; return; }
-                window.location.href = '/P.A.T.H/mainHub/index.html';
+                window.location.href = '/mainHub/';
             } catch (err) { errEl.textContent = '서버 연결 오류'; }
         }
     </script>

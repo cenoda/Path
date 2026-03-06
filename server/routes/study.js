@@ -1,8 +1,44 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const pool = require('../db');
 const { STUDY_GOLD_PER_HR } = require('../data/universities');
 
 const router = express.Router();
+const STUDY_PROOF_BONUS_GOLD = 5;
+
+const proofUploadDir = path.join(__dirname, '../../uploads/study-proofs');
+if (!fs.existsSync(proofUploadDir)) {
+    fs.mkdirSync(proofUploadDir, { recursive: true });
+}
+
+const proofStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, proofUploadDir),
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname) || '.jpg';
+        const safeExt = ext.toLowerCase();
+        const uniqueSuffix = `${Date.now()}_${Math.round(Math.random() * 1E9)}`;
+        cb(null, `studyproof_${req.session.userId}_${uniqueSuffix}${safeExt}`);
+    }
+});
+
+const proofImageFilter = (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.heic'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, allowed.includes(ext));
+};
+
+const uploadProof = multer({
+    storage: proofStorage,
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: proofImageFilter
+});
+
+function requireAuth(req, res, next) {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    next();
+}
 
 function parseTimeToMinute(timeText) {
     const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(timeText || '').trim());
@@ -338,11 +374,13 @@ router.post('/complete', async (req, res) => {
             earnedExp = 0;
         }
 
-        await client.query(
+        const recordInsertRes = await client.query(
             `INSERT INTO study_records (user_id, duration_sec, result, earned_gold, earned_exp, subject_id)
-             VALUES ($1,$2,$3,$4,$5,$6)`,
+             VALUES ($1,$2,$3,$4,$5,$6)
+             RETURNING id`,
             [req.session.userId, elapsedSec, studyResult, earnedGold, earnedExp, user.current_study_subject_id || null]
         );
+        const studyRecordId = recordInsertRes.rows[0]?.id || null;
 
         if (studyResult === 'SUCCESS' && user.current_study_subject_id) {
             await client.query(
@@ -378,13 +416,119 @@ router.post('/complete', async (req, res) => {
         );
 
         await client.query('COMMIT');
-        res.json({ ok: true, earnedGold, earnedExp, user: updRes.rows[0] });
+        res.json({ ok: true, earnedGold, earnedExp, studyRecordId, user: updRes.rows[0] });
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('complete error:', err);
         res.status(500).json({ error: '서버 오류' });
     } finally {
         client.release();
+    }
+});
+
+router.post('/upload-proof', requireAuth, uploadProof.array('studyProof', 10), async (req, res) => {
+    if (!Array.isArray(req.files) || req.files.length === 0) {
+        return res.status(400).json({ error: '이미지 파일을 1장 이상 선택해주세요.' });
+    }
+
+    const recordId = parseInt(req.body.record_id, 10);
+    if (!recordId) return res.status(400).json({ error: '유효하지 않은 공부 기록입니다.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const recordRes = await client.query(
+            `SELECT id, result, proof_bonus_claimed
+             FROM study_records
+             WHERE id = $1 AND user_id = $2
+             FOR UPDATE`,
+            [recordId, req.session.userId]
+        );
+
+        if (recordRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '공부 기록을 찾을 수 없습니다.' });
+        }
+
+        const record = recordRes.rows[0];
+        if (record.result !== 'SUCCESS') {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '성공한 공부 기록만 인증할 수 있습니다.' });
+        }
+
+        const imageUrls = req.files.map((f) => `/uploads/study-proofs/${f.filename}`);
+        const bonusGold = record.proof_bonus_claimed ? 0 : STUDY_PROOF_BONUS_GOLD;
+
+        for (const imageUrl of imageUrls) {
+            await client.query(
+                `INSERT INTO study_proof_images (study_record_id, user_id, image_url)
+                 VALUES ($1, $2, $3)`,
+                [recordId, req.session.userId, imageUrl]
+            );
+        }
+
+        await client.query(
+            `UPDATE study_records
+             SET proof_image_url = COALESCE(proof_image_url, $1),
+                 proof_bonus_gold = proof_bonus_gold + $2,
+                 proof_bonus_claimed = CASE WHEN $2 > 0 THEN TRUE ELSE proof_bonus_claimed END
+             WHERE id = $3 AND user_id = $4`,
+            [imageUrls[0], bonusGold, recordId, req.session.userId]
+        );
+
+        let userRow = null;
+        if (bonusGold > 0) {
+            const userRes = await client.query(
+                `UPDATE users
+                 SET gold = gold + $1
+                 WHERE id = $2
+                 RETURNING id, nickname, university, gold, exp, tier, tickets, is_studying, mock_exam_score`,
+                [bonusGold, req.session.userId]
+            );
+            userRow = userRes.rows[0] || null;
+        }
+
+        await client.query('COMMIT');
+        res.json({
+            ok: true,
+            bonusGold,
+            proofImageUrl: imageUrls[0],
+            proofImageUrls: imageUrls,
+            uploadedCount: imageUrls.length,
+            user: userRow
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('study/upload-proof error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
+    }
+});
+
+router.get('/proof-image/:filename', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    try {
+        const filename = path.basename(req.params.filename);
+        const ownerMatch = filename.match(/^studyproof_(\d+)_/);
+        if (!ownerMatch) return res.status(400).json({ error: '유효하지 않은 파일명입니다.' });
+
+        const ownerId = parseInt(ownerMatch[1], 10);
+        const adminCheck = await pool.query('SELECT is_admin FROM users WHERE id = $1', [req.session.userId]);
+        const isAdmin = adminCheck.rows[0]?.is_admin;
+
+        if (!isAdmin && ownerId !== req.session.userId) {
+            return res.status(403).json({ error: '접근 권한이 없습니다.' });
+        }
+
+        const filePath = path.join(proofUploadDir, filename);
+        if (!fs.existsSync(filePath)) return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+        res.sendFile(filePath);
+    } catch (err) {
+        console.error('study/proof-image error:', err);
+        res.status(500).json({ error: '서버 오류' });
     }
 });
 

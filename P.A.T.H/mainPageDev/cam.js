@@ -229,7 +229,7 @@ async function doTimerLogout() {
     try {
         await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (e) {}
-    window.location.href = '/P.A.T.H/login/index.html';
+    window.location.href = '/login/';
 }
 
 async function submitAdminInquiry() {

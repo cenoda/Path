@@ -120,7 +120,7 @@
             try {
                 const r = await fetch('/api/auth/me', { credentials: 'include' });
                 if (!r.ok) {
-                    window.location.href = '/P.A.T.H/login/';
+                    window.location.href = '/login/';
                     return;
                 }
                 const data = await r.json();
@@ -128,7 +128,7 @@
                 
                 // 이미 닉네임이 설정된 경우 메인으로
                 if (user && user.nickname && !user.nickname.startsWith('user')) {
-                    window.location.href = '/P.A.T.H/mainHub/';
+                    window.location.href = '/mainHub/';
                     return;
                 }
 
@@ -142,7 +142,7 @@
                 tempUserId = user.id;
             } catch (e) {
                 console.error('session check error:', e);
-                window.location.href = '/P.A.T.H/login/';
+                window.location.href = '/login/';
             }
         }
 
@@ -252,7 +252,7 @@
                 }
 
                 localStorage.setItem('path_onboarding_pending', 'true');
-                window.location.href = '/P.A.T.H/mainHub/';
+                window.location.href = '/mainHub/';
             } catch (err) {
                 console.error('profile update error:', err);
                 errEl.textContent = '서버 연결 오류가 발생했습니다.';

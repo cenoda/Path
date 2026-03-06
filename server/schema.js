@@ -119,7 +119,23 @@ async function initSchema() {
         await client.query(`
             ALTER TABLE users ADD COLUMN IF NOT EXISTS current_study_subject_id INTEGER DEFAULT NULL;
             ALTER TABLE study_records ADD COLUMN IF NOT EXISTS subject_id INTEGER DEFAULT NULL;
+            ALTER TABLE study_records ADD COLUMN IF NOT EXISTS proof_image_url TEXT;
+            ALTER TABLE study_records ADD COLUMN IF NOT EXISTS proof_bonus_gold INTEGER DEFAULT 0;
+            ALTER TABLE study_records ADD COLUMN IF NOT EXISTS proof_bonus_claimed BOOLEAN DEFAULT FALSE;
             CREATE INDEX IF NOT EXISTS idx_study_records_user_subject_created ON study_records(user_id, subject_id, created_at);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS study_proof_images (
+                id               SERIAL PRIMARY KEY,
+                study_record_id  INTEGER NOT NULL REFERENCES study_records(id) ON DELETE CASCADE,
+                user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                image_url        TEXT NOT NULL,
+                created_at       TIMESTAMP DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_study_proof_images_record_id ON study_proof_images(study_record_id);
+            CREATE INDEX IF NOT EXISTS idx_study_proof_images_user_id ON study_proof_images(user_id);
+            CREATE INDEX IF NOT EXISTS idx_study_proof_images_created_at ON study_proof_images(created_at);
         `);
 
         await client.query(`

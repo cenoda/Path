@@ -78,7 +78,7 @@ const TimerEngine = {
         const result = await StorageManager.completeStudy(type, studyMode);
 
         if (result?.user) UI.updateAssets(result.user);
-        UI.showResult(type, result?.earnedGold || 0, studyMode);
+        UI.showResult(type, result?.earnedGold || 0, studyMode, result?.studyRecordId || null);
 
         console.log(`P.A.T.H: 완료 [${type}] [${studyMode}] Gold: ${result?.earnedGold}`);
     }

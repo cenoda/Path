@@ -79,7 +79,7 @@ html_content = """<!DOCTYPE html>
             <div class="building" id="my-castle" onclick="openEstate()">
                 <div class="building-marker"></div>
                 <div class="building-icon">
-                    <img id="my-castle-img" src="/P.A.T.H/assets/castle_main.png" alt="Estate">
+                    <img id="my-castle-img" src="/assets/castle_main.png" alt="Estate">
                 </div>
                 <div class="building-info">
                     <span class="b-type">ESTATE</span>

@@ -13,6 +13,7 @@ const worldManager = require('./world');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
+const projectRoot = path.join(__dirname, '..');
 
 app.set('trust proxy', 1);
 
@@ -69,21 +70,52 @@ app.use('/uploads/scores/:filename', (req, res) => {
 app.use('/uploads/gpa/:filename', (req, res) => {
     res.redirect(`/api/auth/gpa-image/${req.params.filename}`);
 });
-app.use(express.static(path.join(__dirname, '..'), {
+app.use('/uploads/study-proofs/:filename', (req, res) => {
+    res.redirect(`/api/study/proof-image/${req.params.filename}`);
+});
+
+const staticOptions = {
     maxAge: '1d',
-    etag: true
-}));
+    etag: true,
+    index: 'index.html'
+};
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'P.A.T.H', 'login', 'index.html'));
-});
+// Public URL mounts (hide internal folder structure from browser address bar)
+app.use('/assets', express.static(path.join(projectRoot, 'P.A.T.H', 'assets'), staticOptions));
+app.use('/login', express.static(path.join(projectRoot, 'P.A.T.H', 'login'), staticOptions));
+app.use('/mainHub', express.static(path.join(projectRoot, 'P.A.T.H', 'mainHub'), staticOptions));
+app.use('/timer', express.static(path.join(projectRoot, 'P.A.T.H', 'mainPageDev'), staticOptions));
+app.use('/community', express.static(path.join(projectRoot, 'P.A.T.H', 'community'), staticOptions));
+app.use('/setup-profile', express.static(path.join(projectRoot, 'P.A.T.H', 'setup-profile'), staticOptions));
+app.use('/admin', express.static(path.join(projectRoot, 'P.A.T.H', 'admin'), staticOptions));
 
-app.get('/mainHub', (req, res) => {
-    res.redirect('/P.A.T.H/mainHub/');
-});
+// Legacy URL compatibility: redirect old internal paths to clean public paths
+app.get('/P.A.T.H/login', (_req, res) => res.redirect(301, '/login/'));
+app.get('/P.A.T.H/login/', (_req, res) => res.redirect(301, '/login/'));
+app.get('/P.A.T.H/login/index.html', (_req, res) => res.redirect(301, '/login/'));
 
-app.get('/login', (req, res) => {
-    res.redirect('/P.A.T.H/login/');
+app.get('/P.A.T.H/mainHub', (_req, res) => res.redirect(301, '/mainHub/'));
+app.get('/P.A.T.H/mainHub/', (_req, res) => res.redirect(301, '/mainHub/'));
+app.get('/P.A.T.H/mainHub/index.html', (_req, res) => res.redirect(301, '/mainHub/'));
+
+app.get('/P.A.T.H/mainPageDev', (_req, res) => res.redirect(301, '/timer/'));
+app.get('/P.A.T.H/mainPageDev/', (_req, res) => res.redirect(301, '/timer/'));
+app.get('/P.A.T.H/mainPageDev/index.html', (_req, res) => res.redirect(301, '/timer/'));
+
+app.get('/P.A.T.H/community', (_req, res) => res.redirect(301, '/community/'));
+app.get('/P.A.T.H/community/', (_req, res) => res.redirect(301, '/community/'));
+app.get('/P.A.T.H/community/index.html', (_req, res) => res.redirect(301, '/community/'));
+
+app.get('/P.A.T.H/setup-profile', (_req, res) => res.redirect(301, '/setup-profile/'));
+app.get('/P.A.T.H/setup-profile/', (_req, res) => res.redirect(301, '/setup-profile/'));
+app.get('/P.A.T.H/setup-profile/index.html', (_req, res) => res.redirect(301, '/setup-profile/'));
+
+app.get('/P.A.T.H/admin', (_req, res) => res.redirect(301, '/admin/'));
+app.get('/P.A.T.H/admin/', (_req, res) => res.redirect(301, '/admin/'));
+app.get('/P.A.T.H/admin/index.html', (_req, res) => res.redirect(301, '/admin/'));
+
+app.get('/', (_req, res) => {
+    res.redirect('/login/');
 });
 
 initSchema()

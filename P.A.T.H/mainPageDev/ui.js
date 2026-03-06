@@ -7,6 +7,7 @@ const UI = {
     dragState: null,
     undoTimeoutId: null,
     pendingUndo: null,
+    lastStudyRecordId: null,
     studyPlanDrafts: [],
     draftSeq: 1,
     quickSubjectNames: ['국어', '영어', '수학', '사회', '과학', '코딩', '전공'],
@@ -60,6 +61,10 @@ const UI = {
         overlay:     document.getElementById('overlay'),
         resTitle:    document.getElementById('res-title'),
         resLoot:     document.getElementById('res-loot'),
+        proofSection: document.getElementById('study-proof-section'),
+        proofFileInput: document.getElementById('study-proof-file'),
+        proofUploadBtn: document.getElementById('study-proof-upload-btn'),
+        proofStatus: document.getElementById('study-proof-status'),
         bottomInfo:  document.querySelector('.footer-info .system-msg')
     },
 
@@ -190,7 +195,56 @@ const UI = {
                 TimerEngine.interrupt();
             }
         };
+
+        this.elements.proofFileInput?.addEventListener('change', () => this.handleStudyProofSelection());
+        this.elements.proofUploadBtn?.addEventListener('click', () => this.uploadStudyProof());
         this.elements.resetBtn.onclick = () => location.reload();
+    },
+
+    handleStudyProofSelection() {
+        const selectedCount = this.elements.proofFileInput?.files?.length || 0;
+        const hasFile = selectedCount > 0;
+        if (this.elements.proofUploadBtn) this.elements.proofUploadBtn.disabled = !hasFile;
+        if (this.elements.proofStatus && hasFile) {
+            this.elements.proofStatus.textContent = `${selectedCount}장 업로드 준비 완료`;
+            this.elements.proofStatus.className = 'study-proof-status';
+        }
+    },
+
+    async uploadStudyProof() {
+        const recordId = this.lastStudyRecordId;
+        const files = Array.from(this.elements.proofFileInput?.files || []);
+
+        if (!recordId) {
+            alert('인증 가능한 공부 기록이 없습니다.');
+            return;
+        }
+        if (files.length === 0) {
+            alert('사진을 1장 이상 선택해주세요.');
+            return;
+        }
+
+        try {
+            this.elements.proofUploadBtn.disabled = true;
+            this.elements.proofStatus.textContent = '업로드 중...';
+            this.elements.proofStatus.className = 'study-proof-status';
+
+            const data = await StorageManager.uploadStudyProof(recordId, files);
+            if (data.user) this.updateAssets(data.user);
+
+            const uploadedCount = data.uploadedCount || files.length;
+            const bonusGold = data.bonusGold || 0;
+            this.elements.proofStatus.textContent = bonusGold > 0
+                ? `${uploadedCount}장 업로드 완료! +${bonusGold.toLocaleString()}G 지급`
+                : `${uploadedCount}장 업로드 완료! (추가 골드는 이미 지급됨)`;
+            this.elements.proofStatus.className = 'study-proof-status done';
+            this.elements.proofUploadBtn.disabled = true;
+            this.elements.proofFileInput.value = '';
+        } catch (e) {
+            this.elements.proofStatus.textContent = e.message || '업로드 실패';
+            this.elements.proofStatus.className = 'study-proof-status error';
+            this.elements.proofUploadBtn.disabled = false;
+        }
     },
 
     switchTab(tab) {
@@ -927,9 +981,24 @@ const UI = {
         if (this.elements.tierTag)   this.elements.tierTag.innerText   = data.university || data.tier || '-';
     },
 
-    showResult(type, gold = 0, mode = 'timer') {
+    showResult(type, gold = 0, mode = 'timer', studyRecordId = null) {
         this.elements.body.classList.remove('active');
         this.elements.overlay.classList.remove('hidden');
+        this.lastStudyRecordId = studyRecordId;
+
+        if (this.elements.proofSection) {
+            this.elements.proofSection.classList.add('hidden');
+        }
+        if (this.elements.proofStatus) {
+            this.elements.proofStatus.textContent = '';
+            this.elements.proofStatus.className = 'study-proof-status';
+        }
+        if (this.elements.proofUploadBtn) {
+            this.elements.proofUploadBtn.disabled = true;
+        }
+        if (this.elements.proofFileInput) {
+            this.elements.proofFileInput.value = '';
+        }
 
         if (type === 'SUCCESS') {
             this.elements.resTitle.innerText   = 'MISSION COMPLETE';
@@ -937,6 +1006,10 @@ const UI = {
             this.elements.resLoot.innerHTML    =
                 `<span style="font-size:2.5rem;color:#fff">+${gold.toLocaleString()}G</span><br>` +
                 `<small>${mode === 'stopwatch' ? '스톱워치 모드 (골드 50%)' : '목표 달성 완수 보너스'}</small>`;
+
+            if (studyRecordId && this.elements.proofSection) {
+                this.elements.proofSection.classList.remove('hidden');
+            }
         } else if (type === 'INTERRUPTED') {
             this.elements.resTitle.innerText   = 'PATH BROKEN';
             this.elements.resTitle.style.color = '#444';

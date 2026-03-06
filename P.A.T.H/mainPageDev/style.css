@@ -61,12 +61,9 @@ body.light .tt-legend-item { color: #53627a; }
 body.light .tt-event-title { color: #1a1f2e; }
 body.light .tt-event-time,
 body.light .tt-event-note { color: #334258; }
-body.light .tt-resize-handle { border-top-color: rgba(0,0,0,0.18); }
 body.light .plan-delete-btn { border-color: rgba(0,0,0,0.2); color: #334258; background: rgba(255,255,255,0.8); }
 body.light .tt-record-chip { color: #214c7a; background: rgba(52, 152, 219, 0.16); border-color: rgba(52, 152, 219, 0.35); }
 body.light .tt-now-label { background: rgba(255,255,255,0.92); color: #de3c41; }
-body.light .calendar-undo-snackbar { background: rgba(255,255,255,0.97); border-color: rgba(0,0,0,0.16); }
-body.light .calendar-undo-snackbar .undo-text { color: #334258; }
 
 :root {
     --bg-color: #050505;
@@ -383,7 +380,6 @@ body.active { border-color: var(--accent-red); }
 .tt-event.is-dragging {
     box-shadow: 0 8px 22px rgba(0,0,0,0.35), inset 2px 0 0 var(--subject-color, #D4AF37);
     z-index: 8;
-    opacity: 0.96;
 }
 
 .tt-event.is-planned {
@@ -415,14 +411,6 @@ body.active { border-color: var(--accent-red); }
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
-}
-
-.tt-resize-handle {
-    margin-top: auto;
-    width: 100%;
-    height: 8px;
-    border-top: 1px dashed rgba(255,255,255,0.28);
-    cursor: ns-resize;
 }
 
 .tt-records-box {
@@ -511,50 +499,6 @@ body.active { border-color: var(--accent-red); }
 
 .plan-submit-btn {
     font-weight: 600;
-}
-
-.calendar-undo-snackbar {
-    position: fixed;
-    left: 50%;
-    bottom: 22px;
-    transform: translate(-50%, 20px);
-    background: rgba(14, 16, 22, 0.94);
-    border: 1px solid rgba(255,255,255,0.16);
-    border-radius: 10px;
-    padding: 10px 12px;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    z-index: 900;
-}
-
-.calendar-undo-snackbar.show {
-    opacity: 1;
-    transform: translate(-50%, 0);
-    pointer-events: auto;
-}
-
-.calendar-undo-snackbar .undo-text {
-    font-size: 12px;
-    color: #dfe5f3;
-}
-
-.calendar-undo-snackbar .undo-btn {
-    background: rgba(212,175,55,0.14);
-    color: #D4AF37;
-    border: 1px solid rgba(212,175,55,0.45);
-    border-radius: 7px;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 5px 9px;
-    cursor: pointer;
-}
-
-.calendar-undo-snackbar .undo-btn:hover {
-    background: rgba(212,175,55,0.24);
 }
 
 .mode-group {

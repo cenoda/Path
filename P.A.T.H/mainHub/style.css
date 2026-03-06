@@ -882,8 +882,8 @@ body.light ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2); }
     }
 
     #coordinates-display {
-        width: calc(100vw - 16px) !important;
-        max-width: none;
+        width: min(220px, calc(100vw - 16px)) !important;
+        max-width: 220px;
         bottom: 56px !important;
         left: 8px !important;
         padding: 8px 10px;
@@ -901,7 +901,7 @@ body.light ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2); }
         left: 8px;
         right: 8px;
         transform: none;
-        bottom: 56px;
+        bottom: 132px;
         align-items: stretch;
     }
     .pill-action {
@@ -956,6 +956,8 @@ body.light ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2); }
     .msg-row { max-width: 88%; }
 
     #coordinates-display {
+        width: min(180px, calc(100vw - 16px)) !important;
+        max-width: 180px;
         font-size: 10px !important;
     }
 }

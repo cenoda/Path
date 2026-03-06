@@ -260,7 +260,7 @@ const UI = {
         const timelineHeight = Math.floor((totalMinutes / 60) * hourHeight);
 
         const dayNames = ['월', '화', '수', '목', '금', '토', '일'];
-        const start = new Date(`${this.weekData.week.start_date}T00:00:00`);
+        const start = this.parseLocalDate(this.weekData.week.start_date);
         const now = new Date();
         const todayKey = this.toLocalYmd(now);
         const nowMinute = now.getHours() * 60 + now.getMinutes();
@@ -268,12 +268,14 @@ const UI = {
         const recordsByDate = new Map();
 
         for (const plan of (this.weekData.plans || [])) {
-            const key = String(plan.plan_date).slice(0, 10);
+            const key = this.normalizeDateKey(plan.plan_date);
+            if (!key) continue;
             if (!plansByDate.has(key)) plansByDate.set(key, []);
             plansByDate.get(key).push(plan);
         }
         for (const rec of (this.weekData.records || [])) {
-            const key = String(rec.record_date).slice(0, 10);
+            const key = this.normalizeDateKey(rec.record_date || rec.created_at);
+            if (!key) continue;
             if (!recordsByDate.has(key)) recordsByDate.set(key, []);
             recordsByDate.get(key).push(rec);
         }
@@ -292,7 +294,7 @@ const UI = {
         for (let i = 0; i < 7; i++) {
             const d = new Date(start);
             d.setDate(start.getDate() + i);
-            const key = d.toISOString().slice(0, 10);
+            const key = this.toLocalYmd(d);
             const plans = plansByDate.get(key) || [];
             const records = recordsByDate.get(key) || [];
             const totalRecordSec = records.reduce((acc, r) => acc + (parseInt(r.duration_sec, 10) || 0), 0);
@@ -549,6 +551,30 @@ const UI = {
         const m = String(dateObj.getMonth() + 1).padStart(2, '0');
         const d = String(dateObj.getDate()).padStart(2, '0');
         return `${y}-${m}-${d}`;
+    },
+
+    parseLocalDate(value) {
+        if (value instanceof Date) return new Date(value.getTime());
+        if (typeof value === 'string') {
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+            if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            const parsed = new Date(value);
+            if (!Number.isNaN(parsed.getTime())) return parsed;
+        }
+        const fallback = new Date(value);
+        if (!Number.isNaN(fallback.getTime())) return fallback;
+        return new Date();
+    },
+
+    normalizeDateKey(value) {
+        if (!value) return null;
+        if (typeof value === 'string') {
+            const direct = value.trim().slice(0, 10);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(direct)) return direct;
+        }
+        const parsed = this.parseLocalDate(value);
+        if (Number.isNaN(parsed.getTime())) return null;
+        return this.toLocalYmd(parsed);
     },
 
     getWeekDateByIndex(index) {

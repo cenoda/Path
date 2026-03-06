@@ -11,6 +11,7 @@ const BG = {
         this.topPct = parseFloat(topPct) || 100;
         this.canvas = document.getElementById('bg-canvas');
         if (!this.canvas) return;
+        this.canvas.style.display = 'block';
         this.ctx = this.canvas.getContext('2d');
         this.quality = this.getQuality();
         this.resize();

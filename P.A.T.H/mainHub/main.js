@@ -361,7 +361,12 @@ async function initHub() {
             }
         }
 
-        // BG is replaced by the Three.js WorldScene; skip legacy BG.init
+        // Fallback: if Three.js scene did not boot, run legacy canvas background.
+        if (!(window.WorldScene && window.WorldScene.isReady) && window.BG && typeof window.BG.init === 'function') {
+            const bgCanvas = document.getElementById('bg-canvas');
+            if (bgCanvas) bgCanvas.style.display = 'block';
+            window.BG.init(topPct);
+        }
 
         updateHUD(currentUser);
         updateMyBuilding(currentUser);
@@ -2476,15 +2481,43 @@ function initWorldSocket(user) {
 }
 
 function _startApp() {
+    let started = false;
+
+    const boot = (useWorldScene) => {
+        if (started) return;
+        started = true;
+
+        if (useWorldScene && window.WorldScene) {
+            try {
+                window.WorldScene.init();
+            } catch (e) {
+                console.error('WorldScene init 실패, legacy BG로 폴백합니다:', e);
+                useWorldScene = false;
+            }
+        }
+
+        initHub().then(() => {
+            if (useWorldScene && currentUser) initWorldSocket(currentUser);
+        });
+    };
+
     if (window._worldSceneReady && window.WorldScene) {
-        window.WorldScene.init();
-        initHub().then(() => { if (currentUser) initWorldSocket(currentUser); });
-    } else {
-        window._onWorldSceneReady = function() {
-            window.WorldScene.init();
-            initHub().then(() => { if (currentUser) initWorldSocket(currentUser); });
-        };
+        boot(true);
+        return;
     }
+
+    window._onWorldSceneReady = function() {
+        boot(true);
+    };
+
+    // scene.js 자체가 로드 실패하면 _onWorldSceneReady가 호출되지 않으므로
+    // 일정 시간 후 허브 초기화를 진행하고 BG 캔버스로 폴백한다.
+    setTimeout(() => {
+        if (!started) {
+            console.warn('WorldScene 로드 타임아웃, legacy BG로 폴백합니다.');
+            boot(false);
+        }
+    }, 2500);
 }
 _startApp();
 startCoordinateSyncLoop();

@@ -1118,8 +1118,16 @@ function togglePanel(id) {
         if (id === 'panel-notif') loadNotifPanel();
         if (id === 'panel-shop') renderShopContent(currentShopTab);
         if (id === 'panel-settings') loadSettingsPanel();
+        if (id === 'panel-community') loadCommunityPanel();
     } else {
         el.classList.add('hidden');
+    }
+}
+
+function loadCommunityPanel() {
+    const iframe = document.getElementById('community-iframe');
+    if (iframe && !iframe.src) {
+        iframe.src = resolveHubPath('/P.A.T.H/community/index.html', '../community/index.html');
     }
 }
 
@@ -2203,16 +2211,6 @@ startCoordinateSyncLoop();
 
 document.addEventListener('DOMContentLoaded', () => {
     const teleportBtn = document.getElementById('btn-teleport');
-    const communityBtn = document.getElementById('btn-community');
-
-    // Explicit listener prevents edge-cases where inline handler is blocked on some touch UIs.
-    if (communityBtn) {
-        communityBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            goToCommunity();
-        });
-    }
 
     if (teleportBtn) {
         teleportBtn.addEventListener('pointerup', (e) => {

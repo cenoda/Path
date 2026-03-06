@@ -24,7 +24,7 @@ const ONBOARDING_STEPS = [
     {
         target: '#btn-enter-path',
         title: '공부 시작하기',
-        text: '하단 INITIALIZE PATH 버튼을 누르면 공부 타이머 화면으로 이동합니다.'
+        text: '하단 공부 시작하기 버튼을 누르면 공부 타이머 화면으로 이동합니다.'
     },
     {
         target: '#tutorial-btn-rank',

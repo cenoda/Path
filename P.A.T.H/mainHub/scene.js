@@ -8,7 +8,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 // world-units to Three.js scene-units so the renderer stays in a comfortable
 // numeric range while the coordinate system feels large-scale to players.
 const WORLD_SIZE        = 200000;  // total world width/height (world-units)
-const WORLD_SCALE       = 0.05;    // scene-units per world-unit  (200 000 → 10 000 scene-units)
+const WORLD_SCALE       = 0.15;    // scene-units per world-unit  (200,000 → 30,000 scene-units)
 const CHUNK_SIZE        = 4000;    // spatial-partition chunk edge (world-units)
 const DRAG_SENSITIVITY  = 0.55;    // 0..1 – lower = less sensitive mouse/touch drag
 const WORLD_HALF        = WORLD_SIZE / 2;   // convenience: max |world coord|

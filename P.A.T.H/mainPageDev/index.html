@@ -118,8 +118,19 @@ function toggleTheme() {
                 </div>
                 <div class="subject-row">
                     <input id="subject-input" class="subject-input" type="text" maxlength="60" placeholder="예: 미적분, 영어 독해">
-                    <span class="subject-hint">공부 시작 전 과목을 선택하세요</span>
+                    <span class="subject-hint">입력 귀찮으면 아래 빠른 과목 버튼만 눌러도 됩니다</span>
                 </div>
+                <div id="quick-subjects" class="quick-subjects" aria-label="빠른 과목 선택"></div>
+
+                <form id="study-plan-form" class="study-plan-form">
+                    <input id="study-plan-subject" class="plan-input" type="text" maxlength="60" placeholder="과목(선택, 비우면 현재 선택 과목)">
+                    <input id="study-plan-topic" class="plan-input" type="text" maxlength="120" placeholder="세부 계획(예: 문학 현대시 3지문)" required>
+                    <input id="study-plan-duration" class="plan-input" type="number" min="5" max="300" step="5" placeholder="예상 시간(분, 기본 50)">
+                    <input id="study-plan-note" class="plan-input" type="text" maxlength="120" placeholder="메모(선택)">
+                    <button id="study-plan-add-btn" class="plan-submit-btn" type="submit">플래너 항목 추가</button>
+                </form>
+                <div id="study-plan-list" class="study-plan-list" aria-live="polite"></div>
+                <span class="subject-hint">시작하면 플래너 항목이 오늘 타임라인에 자동 저장됩니다</span>
             </div>
 
             <div class="mode-group" id="mode-group">

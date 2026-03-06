@@ -1142,9 +1142,19 @@ function returnToHome() {
     if (window.WorldScene) window.WorldScene.focusHome();
 }
 
-function goToTimer() { window.location.href = '/P.A.T.H/mainPageDev/index.html'; }
+function resolveHubPath(absolutePath, relativePathFromHub) {
+    // Prefer absolute path, but fall back to relative when app is hosted under a prefix.
+    if (window.location.pathname.startsWith('/P.A.T.H/')) return absolutePath;
+    return new URL(relativePathFromHub, window.location.href).pathname;
+}
 
-function goToCommunity() { window.location.href = '/P.A.T.H/community/index.html'; }
+function goToTimer() {
+    window.location.href = resolveHubPath('/P.A.T.H/mainPageDev/index.html', '../mainPageDev/index.html');
+}
+
+function goToCommunity() {
+    window.location.href = resolveHubPath('/P.A.T.H/community/index.html', '../community/index.html');
+}
 
 async function doLogout() {
     if (!confirm('로그아웃 하시겠습니까?')) return;
@@ -2193,6 +2203,17 @@ startCoordinateSyncLoop();
 
 document.addEventListener('DOMContentLoaded', () => {
     const teleportBtn = document.getElementById('btn-teleport');
+    const communityBtn = document.getElementById('btn-community');
+
+    // Explicit listener prevents edge-cases where inline handler is blocked on some touch UIs.
+    if (communityBtn) {
+        communityBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            goToCommunity();
+        });
+    }
+
     if (teleportBtn) {
         teleportBtn.addEventListener('pointerup', (e) => {
             e.preventDefault();
@@ -2232,4 +2253,8 @@ async function saveStatusMsg(e) {
         if (btn) { const orig = btn.textContent; btn.textContent = '✓ 저장됨'; setTimeout(() => btn.textContent = orig, 1800); }
     } catch (err) {}
 }
+
+// Keep inline handlers stable for all browsers/build modes.
+window.goToCommunity = goToCommunity;
+window.goToTimer = goToTimer;
 

@@ -7,6 +7,9 @@ const UI = {
     dragState: null,
     undoTimeoutId: null,
     pendingUndo: null,
+    studyPlanDrafts: [],
+    draftSeq: 1,
+    quickSubjectNames: ['국어', '영어', '수학', '사회', '과학', '코딩', '전공'],
     timetableConfig: {
         dayStartMinute: 6 * 60,
         dayEndMinute: 24 * 60,
@@ -27,6 +30,13 @@ const UI = {
         subjectSelect: document.getElementById('subject-select'),
         subjectInput: document.getElementById('subject-input'),
         subjectAddBtn: document.getElementById('subject-add-btn'),
+        quickSubjects: document.getElementById('quick-subjects'),
+        studyPlanForm: document.getElementById('study-plan-form'),
+        studyPlanSubject: document.getElementById('study-plan-subject'),
+        studyPlanTopic: document.getElementById('study-plan-topic'),
+        studyPlanDuration: document.getElementById('study-plan-duration'),
+        studyPlanNote: document.getElementById('study-plan-note'),
+        studyPlanList: document.getElementById('study-plan-list'),
         planSubjectSelect: document.getElementById('plan-subject-select'),
         planDate: document.getElementById('plan-date'),
         planStartTime: document.getElementById('plan-start-time'),
@@ -68,6 +78,7 @@ const UI = {
         this.bindEvents();
         this.syncInputToDisplay();
         await this.loadSubjects();
+        this.renderStudyPlanDrafts();
         await this.loadWeekCalendar(0);
 
         if (typeof CamManager !== 'undefined') CamManager.loadSettings();
@@ -114,6 +125,10 @@ const UI = {
                 this.handleAddSubject();
             }
         });
+        this.elements.subjectSelect?.addEventListener('change', () => this.renderQuickSubjects());
+        this.elements.quickSubjects?.addEventListener('click', (e) => this.handleQuickSubjectClick(e));
+        this.elements.studyPlanForm?.addEventListener('submit', (e) => this.handleStudyPlanSubmit(e));
+        this.elements.studyPlanList?.addEventListener('click', (e) => this.handleStudyPlanDraftDelete(e));
 
         this.elements.weekPrevBtn.onclick = () => this.loadWeekCalendar(this.weekOffset - 1);
         this.elements.weekNextBtn.onclick = () => this.loadWeekCalendar(this.weekOffset + 1);
@@ -139,6 +154,13 @@ const UI = {
             }
             if (this.currentMode === 'timer' && hr === 0 && min === 0) {
                 alert('목표 시간을 설정하십시오.');
+                return;
+            }
+
+            try {
+                await this.persistStudyPlanDrafts();
+            } catch (e) {
+                alert(e.message || '플래너 저장에 실패했습니다.');
                 return;
             }
 
@@ -222,6 +244,185 @@ const UI = {
 
         this.elements.subjectSelect.innerHTML = build('과목을 먼저 추가하세요');
         this.elements.planSubjectSelect.innerHTML = build('과목 필요');
+        this.renderQuickSubjects();
+    },
+
+    renderQuickSubjects() {
+        if (!this.elements.quickSubjects) return;
+        const selectedId = parseInt(this.elements.subjectSelect?.value, 10) || 0;
+        const selected = this.subjects.find((s) => Number(s.id) === selectedId);
+        const selectedName = selected ? this.normalizeSubjectName(selected.name) : '';
+        this.elements.quickSubjects.innerHTML = this.quickSubjectNames.map((name) => {
+            const isActive = selectedName === this.normalizeSubjectName(name);
+            return `<button type="button" class="quick-subject-btn${isActive ? ' active' : ''}" data-subject-name="${this.escapeHtml(name)}">${this.escapeHtml(name)}</button>`;
+        }).join('');
+    },
+
+    normalizeSubjectName(name) {
+        return String(name || '').trim().toLowerCase();
+    },
+
+    async ensureSubjectByName(name) {
+        const trimmed = String(name || '').trim();
+        if (!trimmed) return null;
+
+        const normalized = this.normalizeSubjectName(trimmed);
+        const found = this.subjects.find((s) => this.normalizeSubjectName(s.name) === normalized);
+        if (found) return found;
+
+        const added = await StorageManager.addSubject(trimmed);
+        this.subjects = await StorageManager.fetchSubjects();
+        this.renderSubjectOptions(added?.id);
+        return this.subjects.find((s) => Number(s.id) === Number(added?.id)) || added;
+    },
+
+    selectSubjectById(subjectId) {
+        if (!subjectId) return;
+        this.elements.subjectSelect.value = String(subjectId);
+        this.elements.planSubjectSelect.value = String(subjectId);
+        this.renderQuickSubjects();
+    },
+
+    async handleQuickSubjectClick(event) {
+        const btn = event.target.closest('.quick-subject-btn[data-subject-name]');
+        if (!btn) return;
+        const name = btn.getAttribute('data-subject-name') || '';
+        if (!name.trim()) return;
+
+        try {
+            const subject = await this.ensureSubjectByName(name);
+            this.selectSubjectById(subject?.id);
+            if (this.elements.subjectInput) this.elements.subjectInput.value = '';
+            if (this.elements.studyPlanSubject && !this.elements.studyPlanSubject.value.trim()) {
+                this.elements.studyPlanSubject.value = subject?.name || name;
+            }
+        } catch (e) {
+            alert(e.message || '과목 선택 실패');
+        }
+    },
+
+    getDefaultPlanDuration() {
+        if (this.currentMode === 'timer') {
+            const hr = parseInt(this.elements.inputHr.value, 10) || 0;
+            const min = parseInt(this.elements.inputMin.value, 10) || 0;
+            const total = hr * 60 + min;
+            if (total >= 5) return total;
+        }
+        return 50;
+    },
+
+    async handleStudyPlanSubmit(event) {
+        event.preventDefault();
+        const topic = (this.elements.studyPlanTopic?.value || '').trim();
+        if (!topic) {
+            alert('세부 계획을 입력하세요.');
+            return;
+        }
+
+        const typedSubject = (this.elements.studyPlanSubject?.value || '').trim();
+        const selectedId = parseInt(this.elements.subjectSelect?.value, 10) || 0;
+        const selectedSubject = this.subjects.find((s) => Number(s.id) === selectedId);
+        const baseSubjectName = typedSubject || selectedSubject?.name || '';
+
+        if (!baseSubjectName) {
+            alert('과목을 입력하거나 빠른 과목 버튼을 선택하세요.');
+            return;
+        }
+
+        try {
+            const subject = await this.ensureSubjectByName(baseSubjectName);
+            const durationVal = parseInt(this.elements.studyPlanDuration?.value, 10);
+            const durationMin = Number.isFinite(durationVal) && durationVal > 0
+                ? Math.max(5, Math.min(300, durationVal))
+                : this.getDefaultPlanDuration();
+
+            this.studyPlanDrafts.push({
+                id: this.draftSeq++,
+                subjectId: Number(subject.id),
+                subjectName: subject.name,
+                topic,
+                durationMin,
+                note: (this.elements.studyPlanNote?.value || '').trim()
+            });
+
+            this.selectSubjectById(subject.id);
+            if (this.elements.studyPlanSubject) this.elements.studyPlanSubject.value = subject.name;
+            if (this.elements.studyPlanTopic) this.elements.studyPlanTopic.value = '';
+            if (this.elements.studyPlanDuration) this.elements.studyPlanDuration.value = '';
+            if (this.elements.studyPlanNote) this.elements.studyPlanNote.value = '';
+
+            this.renderStudyPlanDrafts();
+        } catch (e) {
+            alert(e.message || '플래너 항목 추가 실패');
+        }
+    },
+
+    renderStudyPlanDrafts() {
+        if (!this.elements.studyPlanList) return;
+        if (!Array.isArray(this.studyPlanDrafts) || this.studyPlanDrafts.length === 0) {
+            this.elements.studyPlanList.innerHTML = `<div class="study-plan-empty">플래너 항목이 없습니다. 세부 계획을 추가해 주세요.</div>`;
+            return;
+        }
+
+        this.elements.studyPlanList.innerHTML = this.studyPlanDrafts.map((item, idx) => {
+            const notePart = item.note ? ` · ${this.escapeHtml(item.note)}` : '';
+            return `<div class="study-plan-item" data-draft-id="${item.id}">
+                <span class="study-plan-order">${idx + 1}</span>
+                <div class="study-plan-content">
+                    <div class="study-plan-title">${this.escapeHtml(item.subjectName)} · ${this.escapeHtml(item.topic)}</div>
+                    <div class="study-plan-meta">예상 ${item.durationMin}분${notePart}</div>
+                </div>
+                <button type="button" class="study-plan-delete" data-draft-id="${item.id}">삭제</button>
+            </div>`;
+        }).join('');
+    },
+
+    handleStudyPlanDraftDelete(event) {
+        const btn = event.target.closest('.study-plan-delete[data-draft-id]');
+        if (!btn) return;
+        const draftId = parseInt(btn.getAttribute('data-draft-id'), 10) || 0;
+        if (!draftId) return;
+        this.studyPlanDrafts = this.studyPlanDrafts.filter((d) => Number(d.id) !== Number(draftId));
+        this.renderStudyPlanDrafts();
+    },
+
+    async persistStudyPlanDrafts() {
+        if (!Array.isArray(this.studyPlanDrafts) || this.studyPlanDrafts.length === 0) return 0;
+
+        const now = new Date();
+        const snap = this.timetableConfig.snapMinute;
+        const today = this.toLocalYmd(now);
+        const dayStart = this.timetableConfig.dayStartMinute;
+        const dayEnd = this.timetableConfig.dayEndMinute;
+        const nowMinute = now.getHours() * 60 + now.getMinutes();
+        let cursor = Math.ceil(nowMinute / snap) * snap;
+        cursor = Math.max(dayStart, Math.min(cursor, dayEnd - snap));
+
+        let createdCount = 0;
+
+        for (const draft of this.studyPlanDrafts) {
+            if (cursor >= dayEnd) break;
+            const duration = Math.max(snap, Math.min(300, parseInt(draft.durationMin, 10) || this.getDefaultPlanDuration()));
+            const startMinute = Math.max(dayStart, Math.min(cursor, dayEnd - snap));
+            const endMinute = Math.max(startMinute + snap, Math.min(dayEnd, startMinute + duration));
+            const note = draft.note ? `${draft.topic} | ${draft.note}` : draft.topic;
+
+            await StorageManager.addPlan({
+                subject_id: draft.subjectId,
+                plan_date: today,
+                start_time: this.minuteToTime(startMinute),
+                end_time: this.minuteToTime(endMinute),
+                note
+            });
+
+            cursor = endMinute;
+            createdCount += 1;
+        }
+
+        this.studyPlanDrafts = [];
+        this.renderStudyPlanDrafts();
+        if (this.currentTab === 'calendar') await this.loadWeekCalendar(this.weekOffset);
+        return createdCount;
     },
 
     async loadWeekCalendar(offset) {

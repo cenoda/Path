@@ -291,6 +291,160 @@ body.tab-calendar-active .focus-container {
     animation: panelReveal 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+#tab-balloon {
+    align-items: stretch;
+}
+
+.balloon-journey {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 14px;
+}
+
+.balloon-hero {
+    border: 1px solid var(--line-color);
+    border-radius: 18px;
+    background: linear-gradient(150deg, rgba(49, 130, 246, 0.14), rgba(0, 196, 113, 0.08) 58%, rgba(255, 179, 0, 0.12));
+    padding: 20px;
+}
+
+.balloon-kicker {
+    color: var(--accent-blue);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    margin-bottom: 10px;
+}
+
+.balloon-title {
+    font-size: clamp(1.15rem, 2.2vw, 1.5rem);
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+
+.balloon-copy {
+    margin-top: 10px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.balloon-sky-card {
+    position: relative;
+    min-height: 232px;
+    border: 1px solid var(--line-color);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(105, 197, 255, 0.22) 0%, rgba(49, 130, 246, 0.06) 45%, rgba(255, 255, 255, 0.18) 100%);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body:not(.light) .balloon-sky-card {
+    background: linear-gradient(180deg, rgba(63, 137, 255, 0.32) 0%, rgba(25, 52, 92, 0.38) 45%, rgba(255, 255, 255, 0.05) 100%);
+}
+
+.balloon-cloud {
+    position: absolute;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.58);
+    filter: blur(0.4px);
+}
+
+.cloud-a {
+    width: 90px;
+    height: 26px;
+    top: 24px;
+    left: 22px;
+}
+
+.cloud-b {
+    width: 72px;
+    height: 22px;
+    top: 56px;
+    right: 26px;
+}
+
+.cloud-c {
+    width: 110px;
+    height: 28px;
+    bottom: 30px;
+    left: 34px;
+}
+
+.balloon-avatar {
+    width: min(240px, 78%);
+    max-height: 176px;
+    object-fit: contain;
+    transform-origin: center bottom;
+    animation: balloonFloat 3.8s ease-in-out infinite;
+    filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.2));
+}
+
+.balloon-badge {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.84);
+    color: #12427b;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    padding: 6px 10px;
+}
+
+body:not(.light) .balloon-badge {
+    background: rgba(16, 23, 39, 0.84);
+    color: #cde5ff;
+    border-color: rgba(170, 209, 255, 0.4);
+}
+
+.balloon-metrics {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.balloon-metric {
+    border: 1px solid var(--line-color);
+    border-radius: 14px;
+    background: var(--surface-soft);
+    min-height: 84px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+}
+
+.balloon-metric-label {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.balloon-metric-val {
+    color: var(--text-primary);
+    font-size: 20px;
+    font-family: var(--font-mono);
+    letter-spacing: -0.01em;
+}
+
+@keyframes balloonFloat {
+    0%,
+    100% {
+        transform: translateY(0px) rotate(-1.5deg);
+    }
+    50% {
+        transform: translateY(-10px) rotate(1.3deg);
+    }
+}
+
 @keyframes panelReveal {
     from {
         opacity: 0;
@@ -1361,6 +1515,18 @@ body.active .tab-panel {
         min-width: 960px;
     }
 
+    .balloon-journey {
+        grid-template-columns: 1fr;
+    }
+
+    .balloon-sky-card {
+        min-height: 200px;
+    }
+
+    .balloon-metrics {
+        grid-template-columns: 1fr;
+    }
+
     .cmd-btn {
         width: 100%;
         min-width: 0;
@@ -1432,5 +1598,19 @@ body.active .tab-panel {
     .week-label {
         justify-self: stretch;
         text-align: center;
+    }
+
+    .balloon-hero,
+    .balloon-sky-card {
+        border-radius: 14px;
+    }
+
+    .balloon-copy {
+        font-size: 12px;
+    }
+
+    .balloon-badge {
+        font-size: 9px;
+        padding: 5px 8px;
     }
 }

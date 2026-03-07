@@ -108,6 +108,7 @@ function toggleTheme() {
         <div class="page-tabs" id="page-tabs">
             <button id="tab-study-btn" class="page-tab-btn active" type="button">학습하기</button>
             <button id="tab-calendar-btn" class="page-tab-btn" type="button">캘린더</button>
+            <button id="tab-balloon-btn" class="page-tab-btn" type="button">열기구</button>
         </div>
 
         <section id="tab-study" class="tab-panel active">
@@ -179,6 +180,39 @@ function toggleTheme() {
                 <input id="plan-note" class="plan-input" type="text" maxlength="120" placeholder="메모(선택)">
                 <button id="plan-add-btn" class="plan-submit-btn" type="submit">타임라인 추가</button>
             </form>
+        </section>
+
+        <section id="tab-balloon" class="tab-panel">
+            <div class="balloon-journey">
+                <div class="balloon-hero">
+                    <p class="balloon-kicker">FOCUS FLIGHT</p>
+                    <h2 class="balloon-title">오늘도 열기구를 띄워 집중 고도를 올리세요</h2>
+                    <p class="balloon-copy">경쟁 앱의 마스코트 느낌을 그대로 가져오되, P.A.T.H 스타일로 부엉이 대신 열기구가 공부 리듬을 안내합니다.</p>
+                </div>
+
+                <div class="balloon-sky-card" aria-label="열기구 상태 카드">
+                    <div class="balloon-cloud cloud-a"></div>
+                    <div class="balloon-cloud cloud-b"></div>
+                    <div class="balloon-cloud cloud-c"></div>
+                    <img class="balloon-avatar" src="/mainHub/assets/balloon_rainbow.png" alt="열기구">
+                    <div class="balloon-badge">PATH BALLOON</div>
+                </div>
+
+                <div class="balloon-metrics">
+                    <article class="balloon-metric">
+                        <span class="balloon-metric-label">오늘 비행 시간</span>
+                        <strong class="balloon-metric-val">02h 10m</strong>
+                    </article>
+                    <article class="balloon-metric">
+                        <span class="balloon-metric-label">집중 연속 기록</span>
+                        <strong class="balloon-metric-val">4일째</strong>
+                    </article>
+                    <article class="balloon-metric">
+                        <span class="balloon-metric-label">다음 목표</span>
+                        <strong class="balloon-metric-val">03h 00m</strong>
+                    </article>
+                </div>
+            </div>
         </section>
     </main>
 

@@ -26,8 +26,10 @@ const UI = {
         rankPct:     document.getElementById('rank-pct'),
         tabStudyBtn: document.getElementById('tab-study-btn'),
         tabCalendarBtn: document.getElementById('tab-calendar-btn'),
+        tabBalloonBtn: document.getElementById('tab-balloon-btn'),
         tabStudy:    document.getElementById('tab-study'),
         tabCalendar: document.getElementById('tab-calendar'),
+        tabBalloon:  document.getElementById('tab-balloon'),
         subjectSelect: document.getElementById('subject-select'),
         subjectInput: document.getElementById('subject-input'),
         subjectAddBtn: document.getElementById('subject-add-btn'),
@@ -120,6 +122,7 @@ const UI = {
 
         this.elements.tabStudyBtn.onclick = () => this.switchTab('study');
         this.elements.tabCalendarBtn.onclick = () => this.switchTab('calendar');
+        this.elements.tabBalloonBtn.onclick = () => this.switchTab('balloon');
 
         this.elements.modeTimer.onclick = () => this.setMode('timer');
         this.elements.modeStopwatch.onclick = () => this.setMode('stopwatch');
@@ -249,12 +252,18 @@ const UI = {
     },
 
     switchTab(tab) {
-        this.currentTab = tab === 'calendar' ? 'calendar' : 'study';
+        const nextTab = tab === 'calendar' || tab === 'balloon' ? tab : 'study';
+        this.currentTab = nextTab;
         const isCalendar = this.currentTab === 'calendar';
-        this.elements.tabStudyBtn.classList.toggle('active', !isCalendar);
-        this.elements.tabCalendarBtn.classList.toggle('active', isCalendar);
-        this.elements.tabStudy.classList.toggle('active', !isCalendar);
-        this.elements.tabCalendar.classList.toggle('active', isCalendar);
+
+        this.elements.tabStudyBtn.classList.toggle('active', this.currentTab === 'study');
+        this.elements.tabCalendarBtn.classList.toggle('active', this.currentTab === 'calendar');
+        this.elements.tabBalloonBtn.classList.toggle('active', this.currentTab === 'balloon');
+
+        this.elements.tabStudy.classList.toggle('active', this.currentTab === 'study');
+        this.elements.tabCalendar.classList.toggle('active', this.currentTab === 'calendar');
+        this.elements.tabBalloon.classList.toggle('active', this.currentTab === 'balloon');
+
         this.elements.body.classList.remove('active');
         this.elements.body.classList.toggle('tab-calendar-active', isCalendar);
 

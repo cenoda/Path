@@ -81,7 +81,19 @@ body.light .fab-rail {
 body.light .fab-btn { color: var(--text-secondary); }
 body.light .fab-btn:hover { background: rgba(49,130,246,0.08); color: var(--accent); }
 body.light .fab-divider { background: rgba(0,0,0,0.07); }
-body.light .pill-action { background: rgba(255,255,255,0.95); border-color: rgba(49,130,246,0.2); }
+body.light .pill-action {
+    background: rgba(255,255,255,0.95);
+    color: var(--accent);
+    border: 1px solid rgba(49,130,246,0.24);
+    box-shadow: 0 4px 18px rgba(49,130,246,0.18);
+}
+body.light .pill-action .pill-icon {
+    background: rgba(49,130,246,0.12);
+}
+body.light .pill-action:hover {
+    background: var(--accent);
+    color: #FFFFFF;
+}
 body.light .sys-btn:hover { background: rgba(49,130,246,0.07); color: var(--accent); border-color: transparent; }
 body.light .profile-unit:hover { background: rgba(49,130,246,0.06); }
 body.light .full-overlay { background: #F5F6FA; }

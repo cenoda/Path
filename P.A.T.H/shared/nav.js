@@ -266,15 +266,20 @@
             e.stopPropagation();
         }, { capture: true, passive: false });
 
-        if (!inlineBlocked) return;
-
         document.addEventListener('click', function (e) {
             const target = e.target && e.target.closest ? e.target.closest('[onclick]') : null;
             if (!target) return;
 
             const now = Date.now();
             const last = Number(target.dataset.pathInlineTs || '0');
-            if (now - last < 350) return;
+            // When pointerup already handled inline onclick, swallow the follow-up click.
+            if (now - last < 350) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+
+            if (!inlineBlocked) return;
 
             const expr = target.getAttribute('onclick');
             if (!expr) return;

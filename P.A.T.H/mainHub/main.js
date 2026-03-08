@@ -2662,6 +2662,14 @@ startCoordinateSyncLoop();
 
 function bindTapAction(el, handler) {
     if (!el || !handler || el.dataset.tapBound === '1') return;
+
+    // Avoid duplicate execution for controls already wired with inline onclick.
+    // shared/nav.js handles touch fallback for inline handlers globally.
+    if (el.hasAttribute && el.hasAttribute('onclick')) {
+        el.dataset.tapBound = '1';
+        return;
+    }
+
     let lastTapTs = 0;
 
     el.addEventListener('click', (e) => {
@@ -2712,52 +2720,16 @@ function bindMainHubPrimaryButtons() {
     bindTapAction(enterPathBtn, () => goToTimer());
 
     if (teleportBtn) {
-        teleportBtn.addEventListener('pointerup', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            openTeleportDialog();
-        });
-        teleportBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            openTeleportDialog();
-        });
+        bindTapAction(teleportBtn, () => openTeleportDialog());
     }
-}
-
-function bindMainHubPanelTapFallback() {
-    // Some mobile WebViews drop synthetic click for tiny controls (tabs/close buttons).
-    // Force-trigger click from touch pointerup so inline onclick keeps working.
-    document.addEventListener('pointerup', (e) => {
-        if (e.pointerType !== 'touch') return;
-
-        const target = e.target && e.target.closest
-            ? e.target.closest('.glass-panel .close-btn, .glass-panel .tab')
-            : null;
-        if (!target) return;
-
-        const now = Date.now();
-        const last = Number(target.dataset.panelTapTs || '0');
-        if (now - last < 250) return;
-        target.dataset.panelTapTs = String(now);
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        try {
-            target.click();
-        } catch (_) {}
-    }, { capture: true, passive: false });
 }
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         bindMainHubPrimaryButtons();
-        bindMainHubPanelTapFallback();
     }, { once: true });
 } else {
     bindMainHubPrimaryButtons();
-    bindMainHubPanelTapFallback();
 }
 
 document.addEventListener('click', (e) => {

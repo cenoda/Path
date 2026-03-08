@@ -2657,8 +2657,56 @@ function _startApp() {
 _startApp();
 startCoordinateSyncLoop();
 
+function bindTapAction(el, handler) {
+    if (!el || !handler || el.dataset.tapBound === '1') return;
+    let lastTapTs = 0;
+
+    el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handler(e);
+    });
+
+    el.addEventListener('pointerup', (e) => {
+        if (e.pointerType !== 'touch') return;
+        const now = Date.now();
+        if (now - lastTapTs < 250) return;
+        lastTapTs = now;
+        e.preventDefault();
+        e.stopPropagation();
+        handler(e);
+    }, { passive: false });
+
+    el.dataset.tapBound = '1';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    const profileBtn = document.getElementById('tutorial-profile');
+    const notifBtn = document.getElementById('tutorial-btn-logs');
+    const settingsBtn = document.getElementById('tutorial-btn-settings');
+    const rankBtn = document.getElementById('tutorial-btn-rank');
+    const shopBtn = document.getElementById('tutorial-btn-shop');
+    const applyBtn = document.getElementById('tutorial-btn-apply');
+    const allyBtn = document.getElementById('btn-ally');
+    const msgBtn = document.getElementById('btn-msg');
+    const communityBtn = document.getElementById('btn-community');
+    const homeBtn = document.querySelector('.fab-btn-sm[title="홈"]');
+    const weatherBtn = document.getElementById('weather-btn');
+    const enterPathBtn = document.getElementById('btn-enter-path');
     const teleportBtn = document.getElementById('btn-teleport');
+
+    bindTapAction(profileBtn, () => openProfileCustomizer());
+    bindTapAction(notifBtn, () => togglePanel('panel-notif'));
+    bindTapAction(settingsBtn, () => togglePanel('panel-settings'));
+    bindTapAction(rankBtn, () => togglePanel('panel-rank'));
+    bindTapAction(shopBtn, () => togglePanel('panel-shop'));
+    bindTapAction(applyBtn, () => toggleApplyPanel());
+    bindTapAction(allyBtn, () => openFriendPanel());
+    bindTapAction(msgBtn, () => openMessengerPanel());
+    bindTapAction(communityBtn, () => navigateTo('/community/'));
+    bindTapAction(homeBtn, () => returnToHome());
+    bindTapAction(weatherBtn, () => toggleWeather());
+    bindTapAction(enterPathBtn, () => goToTimer());
 
     if (teleportBtn) {
         teleportBtn.addEventListener('pointerup', (e) => {

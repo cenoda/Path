@@ -36,6 +36,7 @@ const UI = {
         tabBalloon:  document.getElementById('tab-balloon'),
         scoreCalcUniversity: document.getElementById('scorecalc-university'),
         scoreCalcTrack: document.getElementById('scorecalc-track'),
+        scoreCalcCategory: document.getElementById('scorecalc-category'),
         scoreCalcKorean: document.getElementById('scorecalc-korean'),
         scoreCalcMath: document.getElementById('scorecalc-math'),
         scoreCalcInquiry1: document.getElementById('scorecalc-inquiry1'),
@@ -151,6 +152,7 @@ const UI = {
             this.handleScoreCalcUniversityChange().catch(() => {});
         });
         this.elements.scoreCalcTrack?.addEventListener('change', () => this.renderScoreCalcFormulaHint());
+        this.elements.scoreCalcCategory?.addEventListener('change', () => this.renderScoreCalcFormulaHint());
         this.elements.scoreCalcCalcBtn?.addEventListener('click', () => this.calculateUniversityScore());
 
         this.elements.modeTimer.onclick = () => this.setMode('timer');
@@ -387,6 +389,8 @@ const UI = {
             return;
         }
 
+        this.populateScoreCalcCategories();
+
         const tracks = Object.keys(formula);
         this.elements.scoreCalcTrack.innerHTML = tracks
             .map((track, idx) => `<option value="${this.escapeHtml(track)}"${idx === 0 ? ' selected' : ''}>${this.escapeHtml(track)}</option>`)
@@ -397,10 +401,26 @@ const UI = {
 
     renderScoreCalcFormulaHint() {
         const track = String(this.elements.scoreCalcTrack?.value || '').trim();
+        const category = String(this.elements.scoreCalcCategory?.value || '').trim();
         const formula = this.scoreCalcUniversityInfo?.scoreFormula?.[track];
         if (!formula || !this.elements.scoreCalcResult) return;
         const note = formula.비고 ? ` (${formula.비고})` : '';
-        this.elements.scoreCalcResult.textContent = `${this.scoreCalcUniversityInfo.name} ${track} 환산식 기준으로 계산할 준비가 되었습니다${note}`;
+        const catText = category ? ` / 카테고리: ${category}` : ' / 카테고리: 전체';
+        this.elements.scoreCalcResult.textContent = `${this.scoreCalcUniversityInfo.name} ${track} 환산식 기준으로 계산할 준비가 되었습니다${catText}${note}`;
+    },
+
+    populateScoreCalcCategories() {
+        const select = this.elements.scoreCalcCategory;
+        if (!select) return;
+
+        const categories = [...new Set((this.scoreCalcUniversityInfo?.departments || [])
+            .map((d) => String(d?.category || '').trim())
+            .filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+
+        select.innerHTML = [
+            '<option value="">전체</option>',
+            ...categories.map((c) => `<option value="${this.escapeHtml(c)}">${this.escapeHtml(c)}</option>`)
+        ].join('');
     },
 
     parseNumericInput(element, min, max) {
@@ -485,8 +505,10 @@ const UI = {
     },
 
     buildScoreComparisonHtml(universityInfo, total) {
+        const selectedCategory = String(this.elements.scoreCalcCategory?.value || '').trim();
         const rows = (universityInfo?.departments || [])
             .map((dept) => {
+                if (selectedCategory && dept?.category !== selectedCategory) return null;
                 const cut = Number(dept?.admissions?.정시?.환산컷);
                 if (!Number.isFinite(cut)) return null;
                 const gap = Math.round((total - cut) * 100) / 100;
@@ -503,7 +525,9 @@ const UI = {
             .slice(0, 5);
 
         if (rows.length === 0) {
-            return '<div class="scorecalc-meta">학과별 환산컷 데이터가 없어 비교 결과를 표시할 수 없습니다.</div>';
+            return selectedCategory
+                ? `<div class="scorecalc-meta">${this.escapeHtml(selectedCategory)} 카테고리에는 환산컷 비교 가능한 학과가 없습니다.</div>`
+                : '<div class="scorecalc-meta">학과별 환산컷 데이터가 없어 비교 결과를 표시할 수 없습니다.</div>';
         }
 
         const listHtml = rows.map((row) => {
@@ -517,7 +541,7 @@ const UI = {
         }).join('');
 
         return `
-            <div class="scorecalc-meta">가장 근접한 학과 5개 기준 비교</div>
+            <div class="scorecalc-meta">${selectedCategory ? `${this.escapeHtml(selectedCategory)} 카테고리 ` : ''}가장 근접한 학과 5개 기준 비교</div>
             <ul class="scorecalc-compare-list">${listHtml}</ul>
         `;
     },

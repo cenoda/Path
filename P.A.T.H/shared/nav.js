@@ -243,8 +243,10 @@
 
     function setupInlineOnclickFallback() {
         if (!document.body) return;
-        if (!detectInlineOnclickBlocked()) return;
+        const inlineBlocked = detectInlineOnclickBlocked();
 
+        // Touch WebViews are the main source of missed inline onclick dispatch.
+        // Keep this active regardless of probe result to avoid false negatives.
         document.addEventListener('pointerup', function (e) {
             if (e.pointerType !== 'touch') return;
             const target = e.target && e.target.closest ? e.target.closest('[onclick]') : null;
@@ -263,6 +265,8 @@
             e.preventDefault();
             e.stopPropagation();
         }, { capture: true, passive: false });
+
+        if (!inlineBlocked) return;
 
         document.addEventListener('click', function (e) {
             const target = e.target && e.target.closest ? e.target.closest('[onclick]') : null;

@@ -2725,10 +2725,39 @@ function bindMainHubPrimaryButtons() {
     }
 }
 
+function bindMainHubPanelTapFallback() {
+    // Some mobile WebViews drop synthetic click for tiny controls (tabs/close buttons).
+    // Force-trigger click from touch pointerup so inline onclick keeps working.
+    document.addEventListener('pointerup', (e) => {
+        if (e.pointerType !== 'touch') return;
+
+        const target = e.target && e.target.closest
+            ? e.target.closest('.glass-panel .close-btn, .glass-panel .tab')
+            : null;
+        if (!target) return;
+
+        const now = Date.now();
+        const last = Number(target.dataset.panelTapTs || '0');
+        if (now - last < 250) return;
+        target.dataset.panelTapTs = String(now);
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        try {
+            target.click();
+        } catch (_) {}
+    }, { capture: true, passive: false });
+}
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindMainHubPrimaryButtons, { once: true });
+    document.addEventListener('DOMContentLoaded', () => {
+        bindMainHubPrimaryButtons();
+        bindMainHubPanelTapFallback();
+    }, { once: true });
 } else {
     bindMainHubPrimaryButtons();
+    bindMainHubPanelTapFallback();
 }
 
 document.addEventListener('click', (e) => {

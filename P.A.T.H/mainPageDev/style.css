@@ -293,6 +293,8 @@ body.tab-calendar-active .focus-container {
 
 .page-tabs {
     margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .mode-group {

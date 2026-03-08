@@ -169,6 +169,7 @@ let mapOffsetX = 0, mapOffsetY = 0;
 let scale = 1.0;
 let currentRankTab = 'total';
 let pendingProfileImageFile = null;
+let profileModalOpenedAt = 0;
 
 function getOnboardingDoneKey(userId) {
     return `${ONBOARDING_DONE_PREFIX}${userId}`;
@@ -1316,6 +1317,7 @@ function openProfileCustomizer() {
     if (imageInput) imageInput.value = '';
 
     updateProfilePreview(getProfileImageSrc(currentUser), getNicknameInitial(currentUser.nickname));
+    profileModalOpenedAt = Date.now();
     document.getElementById('modal-profile-custom').classList.remove('hidden');
 }
 
@@ -1387,6 +1389,7 @@ document.querySelectorAll('.modal-backdrop').forEach(el => {
     el.addEventListener('click', e => {
         if (e.target !== el) return;
         if (el.id === 'modal-profile-custom') {
+            if (Date.now() - profileModalOpenedAt < 300) return;
             closeProfileCustomizer();
             return;
         }
@@ -2680,7 +2683,7 @@ function bindTapAction(el, handler) {
     el.dataset.tapBound = '1';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function bindMainHubPrimaryButtons() {
     const profileBtn = document.getElementById('tutorial-profile');
     const notifBtn = document.getElementById('tutorial-btn-logs');
     const settingsBtn = document.getElementById('tutorial-btn-settings');
@@ -2720,7 +2723,13 @@ document.addEventListener('DOMContentLoaded', () => {
             openTeleportDialog();
         });
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindMainHubPrimaryButtons, { once: true });
+} else {
+    bindMainHubPrimaryButtons();
+}
 
 document.addEventListener('click', (e) => {
     const target = e.target && e.target.closest ? e.target.closest('#btn-teleport') : null;

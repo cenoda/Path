@@ -679,9 +679,13 @@ async function openEstate() {
 
         let scoreSection = '';
         if (scoreStatus === 'approved') {
-            scoreSection = `<div class="estate-val" style="color:#4CAF50">✓ 인증 완료 · ${score}점</div>`;
+            scoreSection = `
+                <div class="estate-val" style="color:#4CAF50">✓ 인증 완료 · ${score}점</div>
+                <button class="inline-btn" style="margin-top:6px" onclick="startScoreRetry()">성적 인증 다시하기</button>`;
         } else if (scoreStatus === 'pending') {
-            scoreSection = `<div class="estate-val" style="color:#f1c40f">⏳ 관리자 심사 대기 중</div>`;
+            scoreSection = `
+                <div class="estate-val" style="color:#f1c40f">⏳ 관리자 심사 대기 중</div>
+                <button class="inline-btn" style="margin-top:6px" onclick="startScoreRetry()">성적 인증 다시하기</button>`;
         } else if (scoreStatus === 'rejected') {
             scoreSection = `
                 <div class="estate-val" style="color:var(--accent);margin-bottom:6px">✗ 반려됨 — 재업로드 필요</div>
@@ -753,7 +757,7 @@ async function openEstate() {
 
                 <div class="interior-card">
                     <div class="interior-card-title">📋 평가원 점수 인증</div>
-                    ${scoreSection}
+                    <div id="score-section-body">${scoreSection}</div>
                 </div>
 
                 <div class="interior-card">
@@ -913,6 +917,18 @@ function previewScore(input) {
         };
         reader.readAsDataURL(input.files[0]);
     }
+}
+
+function startScoreRetry() {
+    const scoreSection = document.getElementById('score-section-body');
+    if (!scoreSection) return;
+    scoreSection.innerHTML = `
+        <div class="score-upload-area" id="score-upload-area">
+            <input type="file" id="score-file" accept="image/*" style="display:none" onchange="previewScore(this)">
+            <button class="inline-btn" onclick="document.getElementById('score-file').click()">📷 성적 사진 업로드</button>
+            <div id="score-preview" style="margin-top:6px"></div>
+            <button class="inline-btn" id="btn-upload-score" style="display:none;margin-top:6px" onclick="uploadScore()">업로드</button>
+        </div>`;
 }
 
 async function uploadScore() {

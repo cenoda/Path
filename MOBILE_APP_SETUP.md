@@ -170,3 +170,31 @@ npm run cap:sync
 참고:
 - 현재 AAB는 기본 release 빌드 산출물입니다.
 - Play 스토어 정식 배포 전에는 서명/버전코드 정책을 최종 점검하세요.
+
+## 7) main 커밋마다 앱 자동 업데이트 반영
+현재 앱은 `capacitor.config.json`에서 원격 URL(`https://path.sdij.cloud/login/`)을 로드합니다.
+즉, 서버가 새 커밋으로 배포되면 앱도 자동으로 최신 화면/기능을 받습니다(앱 재설치 불필요).
+
+이 저장소에는 아래 워크플로가 추가되어 있습니다.
+- `.github/workflows/main-auto-update.yml`
+
+동작:
+- `main` 브랜치 push 시 실행
+- `RENDER_DEPLOY_HOOK_URL` 시크릿이 있으면 Render 재배포 트리거
+- `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID` 시크릿이 있으면 Cloudflare 캐시 비우기
+
+GitHub Secrets 설정:
+1. 저장소 `Settings` -> `Secrets and variables` -> `Actions`
+2. 아래 시크릿 추가
+  - `RENDER_DEPLOY_HOOK_URL` (Render 서비스 Deploy Hook URL)
+  - `CLOUDFLARE_API_TOKEN` (Zone Cache Purge 권한 포함 토큰)
+  - `CLOUDFLARE_ZONE_ID` (sdij.cloud Zone ID)
+
+검증 방법:
+1. `main`에 커밋/푸시
+2. GitHub `Actions` 탭에서 `Main Auto Update` 성공 확인
+3. `https://path.sdij.cloud/login/` 새로고침 시 최신 변경 반영 확인
+
+주의:
+- 네이티브 권한/플러그인 변경(예: 카메라 권한, 푸시 SDK 추가)은 앱 재빌드/재배포가 필요합니다.
+- 웹 코드/서버 로직 변경은 위 자동화로 즉시 반영됩니다.

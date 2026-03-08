@@ -114,3 +114,14 @@ Cloudflare DNS에서:
 - API는 그대로 재사용
 - 모바일은 React Native(Expo) 권장
 - 앱 클라이언트 인증은 장기적으로 JWT 전환 권장
+
+## 9) main 푸시 자동 배포(앱 자동 반영)
+저장소에 `main` 브랜치 push 시 실행되는 워크플로가 있습니다.
+
+- 파일: `.github/workflows/main-auto-update.yml`
+- Render: `RENDER_DEPLOY_HOOK_URL` 시크릿이 설정되어 있으면 자동 재배포
+- Cloudflare: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID` 시크릿이 설정되어 있으면 캐시 자동 비우기
+
+핵심 포인트:
+- Capacitor 앱은 원격 URL을 로드하므로, 서버 배포만 완료되면 앱도 최신 상태를 즉시 반영합니다.
+- 네이티브 코드 변경이 없는 웹/서버 수정은 앱 스토어 재심사 없이 반영 가능합니다.

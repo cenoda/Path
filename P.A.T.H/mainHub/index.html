@@ -16,6 +16,8 @@
         }
     }
     </script>
+    <!-- 스킨 데이터 중앙 파일 – main.js / balloonModel.js 보다 먼저 로드 -->
+    <script src="balloonSkins.js?v=1"></script>
     <!-- socket.io client – loaded before scene.js so it is available globally -->
     <script src="/socket.io/socket.io.js"></script>
     <script type="module" src="scene.js?v=8"></script>

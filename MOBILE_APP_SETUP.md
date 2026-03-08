@@ -132,6 +132,29 @@ npm run cap:ios
 - 앱 딥링크/유니버설 링크 연결
 - 버전 강제 업데이트 체크 API 추가
 
+## 5-1) 학습 절전 모드(앱 밝기 최소화) 적용
+웹 브라우저에서는 시스템 밝기 제어가 불가하지만, Capacitor 네이티브 앱에서는 플러그인으로 제어할 수 있습니다.
+
+1. 밝기 플러그인 설치 (프로젝트 정책에 맞는 패키지 1개 선택)
+```bash
+npm i @capawesome-team/capacitor-screen-brightness
+```
+
+2. 네이티브 프로젝트 생성/동기화
+```bash
+npm run cap:add:android
+npm run cap:sync
+```
+
+3. 앱에서 확인
+- 설정 탭의 `학습 시 절전 모드`를 ON
+- 공부 시작 시: 화면은 숫자만 보이는 절전 UI + 밝기 최소
+- 공부 종료/중단 시: 기존 밝기로 자동 복원
+
+참고:
+- 현재 코드(`P.A.T.H/mainPageDev/cam.js`)는 Capacitor 환경에서 `ScreenBrightness` 또는 `Brightness` 플러그인을 자동 탐지해 동작합니다.
+- 플러그인이 없으면 UI 절전 모드만 동작하고 하드웨어 밝기 제어는 생략됩니다.
+
 ## 6) GitHub Actions로 자동 빌드
 로컬 환경이 불안정할 때는 CI로 APK/AAB를 생성할 수 있습니다.
 

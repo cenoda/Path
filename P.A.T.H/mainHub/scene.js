@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { create3DBalloon, getBalloonColors, setBalloonDetailLevel } from './balloonModel.js';
+import { create3DBalloon, getBalloonColors, setBalloonDetailLevel, make3DBalloonPreview } from './balloonModel.js';
 
-// Expose THREE globally so non-module scripts (main.js) can use it
+// Expose globals so non-module scripts (main.js) can use them
 window.THREE = THREE;
+window.make3DBalloonPreview = make3DBalloonPreview;
 
 // ── World constants ──────────────────────────────────────────────────────────
 // The game world is 200,000 × 200,000 world-units.  A WORLD_SCALE factor maps

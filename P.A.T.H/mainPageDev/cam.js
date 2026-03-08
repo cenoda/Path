@@ -160,6 +160,91 @@ const CamManager = {
 
 const STUDY_POWER_SAVE_KEY = 'path_study_power_save';
 
+const AppBrightnessManager = {
+    previousBrightness: null,
+    isDimmed: false,
+
+    isNativeApp() {
+        const cap = window.Capacitor;
+        if (!cap) return false;
+        if (typeof cap.isNativePlatform === 'function') return !!cap.isNativePlatform();
+        return cap.getPlatform?.() !== 'web';
+    },
+
+    getPlugin() {
+        const plugins = window.Capacitor?.Plugins || {};
+        return plugins.ScreenBrightness || plugins.Brightness || null;
+    },
+
+    async readBrightness() {
+        const plugin = this.getPlugin();
+        if (!plugin) return null;
+        try {
+            if (typeof plugin.getBrightness === 'function') {
+                const res = await plugin.getBrightness();
+                return this.normalizeBrightness(res?.brightness);
+            }
+            if (typeof plugin.get === 'function') {
+                const res = await plugin.get();
+                return this.normalizeBrightness(res?.brightness);
+            }
+        } catch (e) {
+            console.warn('밝기 조회 실패:', e?.message || e);
+        }
+        return null;
+    },
+
+    async writeBrightness(value) {
+        const plugin = this.getPlugin();
+        if (!plugin) return false;
+
+        const brightness = this.normalizeBrightness(value);
+        const payload = { brightness };
+        try {
+            if (typeof plugin.setBrightness === 'function') {
+                await plugin.setBrightness(payload);
+                return true;
+            }
+            if (typeof plugin.set === 'function') {
+                await plugin.set(payload);
+                return true;
+            }
+        } catch (e) {
+            console.warn('밝기 변경 실패:', e?.message || e);
+        }
+        return false;
+    },
+
+    normalizeBrightness(value) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return 0;
+        if (numeric > 1) return Math.max(0, Math.min(1, numeric / 100));
+        return Math.max(0, Math.min(1, numeric));
+    },
+
+    async enterPowerSaveBrightness() {
+        if (!this.isNativeApp() || this.isDimmed) return;
+        const plugin = this.getPlugin();
+        if (!plugin) return;
+
+        const current = await this.readBrightness();
+        if (current !== null) this.previousBrightness = current;
+
+        const ok = await this.writeBrightness(0.03);
+        if (ok) this.isDimmed = true;
+    },
+
+    async exitPowerSaveBrightness() {
+        if (!this.isNativeApp()) return;
+        if (!this.isDimmed && this.previousBrightness === null) return;
+
+        const target = this.previousBrightness !== null ? this.previousBrightness : 0.5;
+        await this.writeBrightness(target);
+        this.isDimmed = false;
+        this.previousBrightness = null;
+    }
+};
+
 function isStudyPowerSaveEnabled() {
     return localStorage.getItem(STUDY_POWER_SAVE_KEY) === '1';
 }
@@ -169,7 +254,15 @@ function applyStudyPowerSaveMode(forceActive = null) {
     const activeStudy = typeof forceActive === 'boolean'
         ? forceActive
         : (typeof isRunning !== 'undefined' && !!isRunning);
-    document.body.classList.toggle('low-power-active', shouldUse && activeStudy);
+    const shouldActivate = shouldUse && activeStudy;
+
+    document.body.classList.toggle('low-power-active', shouldActivate);
+
+    if (shouldActivate) {
+        AppBrightnessManager.enterPowerSaveBrightness().catch(() => {});
+    } else {
+        AppBrightnessManager.exitPowerSaveBrightness().catch(() => {});
+    }
 }
 
 function openTimerSettings() {
@@ -237,8 +330,13 @@ function saveTimerUiSettings() {
     localStorage.setItem(STUDY_POWER_SAVE_KEY, shouldPowerSave ? '1' : '0');
     applyStudyPowerSaveMode();
 
+    const nativeBrightnessReady = AppBrightnessManager.isNativeApp() && !!AppBrightnessManager.getPlugin();
+    const powerSaveLabel = shouldPowerSave
+        ? (nativeBrightnessReady ? 'ON' : 'ON (앱 밝기 제어 미연결)')
+        : 'OFF';
+
     if (note) {
-        note.textContent = `저장됨 — 테마: ${shouldLight ? '라이트' : '다크'} · 학습 절전: ${shouldPowerSave ? 'ON' : 'OFF'}`;
+        note.textContent = `저장됨 — 테마: ${shouldLight ? '라이트' : '다크'} · 학습 절전: ${powerSaveLabel}`;
         note.style.color = '#D4AF37';
         setTimeout(() => {
             note.textContent = '메인허브와 동일한 테마 설정을 공유합니다.';

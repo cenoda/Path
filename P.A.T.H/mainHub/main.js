@@ -1,24 +1,11 @@
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-const BALLOON_SKINS = {
-    'default': { id: 'default', name: '기본 열기구', price: 0, darkImg: 'assets/balloon_dark.png', lightImg: 'assets/balloon_light.png', desc: '기본 제공 열기구' },
-    'rainbow': { id: 'rainbow', name: '무지개 열기구', price: 2000, darkImg: 'assets/balloon_rainbow.png', lightImg: 'assets/balloon_rainbow.png', desc: '화려한 무지개 열기구' },
-    'pastel': { id: 'pastel', name: '파스텔 열기구', price: 3000, darkImg: 'assets/balloon_pastel.png', lightImg: 'assets/balloon_pastel.png', desc: '차분한 파스텔톤 열기구' },
-    'redstripes': { id: 'redstripes', name: '레드 스트라이프', price: 4000, darkImg: 'assets/balloon_redstripes.png', lightImg: 'assets/balloon_redstripes.png', desc: '강렬한 레드 스트라이프 열기구' },
-    'golden': { id: 'golden', name: '황금 열기구', price: 5000, darkImg: 'assets/balloon_golden.png', lightImg: 'assets/balloon_golden.png', desc: '고급스러운 황금빛 열기구' },
-    'cosmic': { id: 'cosmic', name: '우주 열기구', price: 6500, darkImg: 'assets/balloon_cosmic.png', lightImg: 'assets/balloon_cosmic.png', desc: '신비로운 우주 테마 열기구' },
-    'sunset': { id: 'sunset', name: '석양 열기구', price: 8000, darkImg: 'assets/balloon_sunset.png', lightImg: 'assets/balloon_sunset.png', desc: '아름다운 석양 그라데이션 열기구' },
-    'emerald': { id: 'emerald', name: '에메랄드 열기구', price: 9500, darkImg: 'assets/balloon_emerald.png', lightImg: 'assets/balloon_emerald.png', desc: '고귀한 에메랄드빛 열기구' },
-    'phoenix': { id: 'phoenix', name: '불사조 열기구', price: 11000, darkImg: 'assets/balloon_phoenix.png', lightImg: 'assets/balloon_phoenix.png', desc: '화염 속 불사조 열기구' },
-    'galaxy': { id: 'galaxy', name: '은하수 열기구', price: 13000, darkImg: 'assets/balloon_galaxy.png', lightImg: 'assets/balloon_galaxy.png', desc: '찬란한 은하수 열기구' },
-    'diamond': { id: 'diamond', name: '다이아몬드 열기구', price: 15000, darkImg: 'assets/balloon_diamond.png', lightImg: 'assets/balloon_diamond.png', desc: '최고급 다이아몬드 열기구' }
-};
-
+// 스킨 데이터는 balloonSkins.js → window.BALLOON_SKINS 에서 로드됩니다.
 function getBalloonSrc(skinId, isLight) {
-    const imageBackedSkins = new Set(['default', 'rainbow', 'pastel', 'redstripes']);
-    const safeSkinId = imageBackedSkins.has(skinId) ? skinId : 'default';
-    const skin = BALLOON_SKINS[safeSkinId] || BALLOON_SKINS['default'];
-    return isLight ? skin.lightImg : skin.darkImg;
+    const skin = window.BALLOON_SKINS?.[skinId];
+    const fallback = window.BALLOON_SKINS?.default;
+    const resolved = (skin?.hasOwnImage ? skin : fallback) || fallback;
+    return isLight ? resolved.lightImg : resolved.darkImg;
 }
 
 const UI_SETTINGS_KEY = 'path_ui_settings';
@@ -1452,152 +1439,6 @@ function cleanupShopBalloonRenderers() {
     shopBalloonRenderers = [];
 }
 
-// Create 3D balloon colors (matches scene.js)
-function getBalloonColors(colorScheme) {
-    const schemes = {
-        default: {
-            primary: 0xff4444,
-            secondary: 0xffaa44,
-            accent: 0xffdd00
-        },
-        rainbow: {
-            primary: 0xff00ff,
-            secondary: 0x00ffff,
-            accent: 0xffff00
-        },
-        pastel: {
-            primary: 0xffb6c1,
-            secondary: 0xb0e0e6,
-            accent: 0xffd700
-        },
-        redstripes: {
-            primary: 0xcc0000,
-            secondary: 0xffffff,
-            accent: 0xcc0000
-        },
-        golden: {
-            primary: 0xffd700,
-            secondary: 0xdaa520,
-            accent: 0xffdf00
-        },
-        cosmic: {
-            primary: 0x0d1b2a,
-            secondary: 0x1b263b,
-            accent: 0x415a77
-        },
-        sunset: {
-            primary: 0xff6b35,
-            secondary: 0xff9a56,
-            accent: 0xffcc00
-        },
-        emerald: {
-            primary: 0x2ecc71,
-            secondary: 0x27ae60,
-            accent: 0x1abc9c
-        },
-        phoenix: {
-            primary: 0xff4500,
-            secondary: 0xff8c00,
-            accent: 0xffd700
-        },
-        galaxy: {
-            primary: 0x6a0dad,
-            secondary: 0x9932cc,
-            accent: 0x00ced1
-        },
-        diamond: {
-            primary: 0xe8f4f8,
-            secondary: 0xb0e0e6,
-            accent: 0xffffff
-        }
-    };
-    return schemes[colorScheme] || schemes.default;
-}
-
-// Create 3D balloon model (matches scene.js)
-function make3DBalloonPreview(scale, colorScheme) {
-    const group = new THREE.Group();
-    const colors = getBalloonColors(colorScheme);
-
-    // Main balloon envelope (spherical shape)
-    const balloonGeo = new THREE.SphereGeometry(scale * 40, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.75);
-    const balloonMat = new THREE.MeshStandardMaterial({
-        color: colors.primary,
-        roughness: 0.7,
-        metalness: 0.1,
-        side: THREE.DoubleSide
-    });
-    const balloonMesh = new THREE.Mesh(balloonGeo, balloonMat);
-    balloonMesh.position.y = scale * 20;
-    group.add(balloonMesh);
-
-    // Vertical stripes on balloon for visual detail
-    const numStripes = 8;
-    for (let i = 0; i < numStripes; i++) {
-        const angle = (i / numStripes) * Math.PI * 2;
-        const stripeGeo = new THREE.PlaneGeometry(scale * 8, scale * 60);
-        const stripeMat = new THREE.MeshStandardMaterial({
-            color: colors.secondary,
-            roughness: 0.7,
-            metalness: 0.1,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.6
-        });
-        const stripe = new THREE.Mesh(stripeGeo, stripeMat);
-        stripe.position.x = Math.cos(angle) * scale * 35;
-        stripe.position.z = Math.sin(angle) * scale * 35;
-        stripe.position.y = scale * 20;
-        stripe.lookAt(0, scale * 20, 0);
-        group.add(stripe);
-    }
-
-    // Top cap of balloon
-    const capGeo = new THREE.SphereGeometry(scale * 8, 12, 8);
-    const capMat = new THREE.MeshStandardMaterial({
-        color: colors.accent,
-        roughness: 0.6,
-        metalness: 0.2
-    });
-    const cap = new THREE.Mesh(capGeo, capMat);
-    cap.position.y = scale * 50;
-    group.add(cap);
-
-    // Basket (rectangular box)
-    const basketGeo = new THREE.BoxGeometry(scale * 20, scale * 15, scale * 20);
-    const basketMat = new THREE.MeshStandardMaterial({
-        color: 0x8b6914,
-        roughness: 0.9,
-        metalness: 0.0
-    });
-    const basket = new THREE.Mesh(basketGeo, basketMat);
-    basket.position.y = scale * -25;
-    group.add(basket);
-
-    // Basket ropes connecting to balloon
-    const ropeMat = new THREE.MeshStandardMaterial({
-        color: 0x654321,
-        roughness: 0.95,
-        metalness: 0.0
-    });
-
-    const ropePositions = [
-        { x: scale * 10, z: scale * 10 },
-        { x: -scale * 10, z: scale * 10 },
-        { x: scale * 10, z: -scale * 10 },
-        { x: -scale * 10, z: -scale * 10 }
-    ];
-
-    ropePositions.forEach(pos => {
-        const ropeGeo = new THREE.CylinderGeometry(scale * 0.5, scale * 0.5, scale * 35, 4);
-        const rope = new THREE.Mesh(ropeGeo, ropeMat);
-        rope.position.set(pos.x, scale * -5, pos.z);
-        group.add(rope);
-    });
-
-    return group;
-}
-
 // Create a mini 3D scene for a balloon preview
 function createBalloonPreviewCanvas(skinId, size = 80) {
     const isLight = document.body.classList.contains('light');
@@ -1863,7 +1704,7 @@ async function buyApplicationFee(targetUniversity, unitPrice) {
 }
 
 async function buySkin(skinId, price) {
-    const skin = BALLOON_SKINS[skinId];
+    const skin = window.BALLOON_SKINS?.[skinId];
     if (!skin) return;
     if (price > 0 && !confirm(`[${skin.name}]을 ${price.toLocaleString()}G에 구매하시겠습니까?`)) return;
     try {

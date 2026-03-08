@@ -1,64 +1,31 @@
 import * as THREE from 'three';
 
-export function getBalloonColors(colorScheme) {
-    const schemes = {
-        default: {
-            primary: 0xff4444,
-            secondary: 0xffaa44,
-            accent: 0xffdd00
-        },
-        rainbow: {
-            primary: 0xff00ff,
-            secondary: 0x00ffff,
-            accent: 0xffff00
-        },
-        pastel: {
-            primary: 0xffb6c1,
-            secondary: 0xb0e0e6,
-            accent: 0xffd700
-        },
-        redstripes: {
-            primary: 0xcc0000,
-            secondary: 0xffffff,
-            accent: 0xcc0000
-        },
-        golden: {
-            primary: 0xffd700,
-            secondary: 0xdaa520,
-            accent: 0xffdf00
-        },
-        cosmic: {
-            primary: 0x0d1b2a,
-            secondary: 0x1b263b,
-            accent: 0x415a77
-        },
-        sunset: {
-            primary: 0xff6b35,
-            secondary: 0xff9a56,
-            accent: 0xffcc00
-        },
-        emerald: {
-            primary: 0x2ecc71,
-            secondary: 0x27ae60,
-            accent: 0x1abc9c
-        },
-        phoenix: {
-            primary: 0xff4500,
-            secondary: 0xff8c00,
-            accent: 0xffd700
-        },
-        galaxy: {
-            primary: 0x6a0dad,
-            secondary: 0x9932cc,
-            accent: 0x00ced1
-        },
-        diamond: {
-            primary: 0xe8f4f8,
-            secondary: 0xb0e0e6,
-            accent: 0xffffff
-        }
-    };
-    return schemes[colorScheme] || schemes.default;
+// balloonSkins.js가 window.BALLOON_SKINS를 먼저 정의합니다.
+export function getBalloonColors(skinId) {
+    const skin = window.BALLOON_SKINS?.[skinId] || window.BALLOON_SKINS?.default;
+    return skin?.colors || { primary: 0xff4444, secondary: 0xffaa44, accent: 0xffdd00 };
+}
+
+function getBalloonMaterialProfile(skinId) {
+    const skin = window.BALLOON_SKINS?.[skinId] || window.BALLOON_SKINS?.default;
+    return skin?.material || { envelopeRoughness: 0.52, envelopeSheen: 0.2, seamRoughness: 0.72, accentMetalness: 0.08 };
+}
+
+export function setBalloonDetailLevel(balloonGroup, useLowDetail) {
+    if (!balloonGroup?.userData) return;
+
+    const lowGroup = balloonGroup.userData.lowDetailGroup;
+    const detailedChildren = balloonGroup.userData.detailedChildren;
+    if (!lowGroup || !Array.isArray(detailedChildren)) return;
+
+    const nextDetail = useLowDetail ? 'low' : 'high';
+    if (balloonGroup.userData.currentDetail === nextDetail) return;
+
+    lowGroup.visible = useLowDetail;
+    detailedChildren.forEach((child) => {
+        child.visible = !useLowDetail;
+    });
+    balloonGroup.userData.currentDetail = nextDetail;
 }
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -81,40 +48,6 @@ function makeWickerPanel(width, height, depth, color) {
         metalness: 0.0
     });
     return new THREE.Mesh(panelGeo, panelMat);
-}
-
-function getBalloonMaterialProfile(colorScheme) {
-    const profiles = {
-        default: { envelopeRoughness: 0.52, envelopeSheen: 0.2, seamRoughness: 0.72, accentMetalness: 0.08 },
-        rainbow: { envelopeRoughness: 0.38, envelopeSheen: 0.38, seamRoughness: 0.58, accentMetalness: 0.1 },
-        pastel: { envelopeRoughness: 0.66, envelopeSheen: 0.18, seamRoughness: 0.8, accentMetalness: 0.06 },
-        redstripes: { envelopeRoughness: 0.48, envelopeSheen: 0.26, seamRoughness: 0.68, accentMetalness: 0.08 },
-        golden: { envelopeRoughness: 0.36, envelopeSheen: 0.45, seamRoughness: 0.56, accentMetalness: 0.25 },
-        cosmic: { envelopeRoughness: 0.3, envelopeSheen: 0.5, seamRoughness: 0.5, accentMetalness: 0.3 },
-        sunset: { envelopeRoughness: 0.42, envelopeSheen: 0.33, seamRoughness: 0.62, accentMetalness: 0.15 },
-        emerald: { envelopeRoughness: 0.5, envelopeSheen: 0.26, seamRoughness: 0.7, accentMetalness: 0.1 },
-        phoenix: { envelopeRoughness: 0.34, envelopeSheen: 0.46, seamRoughness: 0.56, accentMetalness: 0.22 },
-        galaxy: { envelopeRoughness: 0.28, envelopeSheen: 0.52, seamRoughness: 0.48, accentMetalness: 0.28 },
-        diamond: { envelopeRoughness: 0.22, envelopeSheen: 0.62, seamRoughness: 0.42, accentMetalness: 0.34 }
-    };
-    return profiles[colorScheme] || profiles.default;
-}
-
-export function setBalloonDetailLevel(balloonGroup, useLowDetail) {
-    if (!balloonGroup?.userData) return;
-
-    const lowGroup = balloonGroup.userData.lowDetailGroup;
-    const detailedChildren = balloonGroup.userData.detailedChildren;
-    if (!lowGroup || !Array.isArray(detailedChildren)) return;
-
-    const nextDetail = useLowDetail ? 'low' : 'high';
-    if (balloonGroup.userData.currentDetail === nextDetail) return;
-
-    lowGroup.visible = useLowDetail;
-    detailedChildren.forEach((child) => {
-        child.visible = !useLowDetail;
-    });
-    balloonGroup.userData.currentDetail = nextDetail;
 }
 
 export function create3DBalloon(scale, colorScheme, isMe) {
@@ -434,5 +367,89 @@ export function create3DBalloon(scale, colorScheme, isMe) {
     group.userData.currentDetail = 'high';
 
     group.userData.colorParts = colorParts;
+    return group;
+}
+
+/**
+ * 상점 미리보기용 간소화 3D 모델.
+ * scene.js가 window.make3DBalloonPreview로 노출합니다.
+ */
+export function make3DBalloonPreview(scale, skinId) {
+    const group = new THREE.Group();
+    const colors = getBalloonColors(skinId);
+
+    // Main balloon envelope
+    const balloonGeo = new THREE.SphereGeometry(scale * 40, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.75);
+    const balloonMat = new THREE.MeshStandardMaterial({
+        color: colors.primary,
+        roughness: 0.7,
+        metalness: 0.1,
+        side: THREE.DoubleSide
+    });
+    const balloonMesh = new THREE.Mesh(balloonGeo, balloonMat);
+    balloonMesh.position.y = scale * 20;
+    group.add(balloonMesh);
+
+    // Vertical stripes
+    const numStripes = 8;
+    for (let i = 0; i < numStripes; i++) {
+        const angle = (i / numStripes) * Math.PI * 2;
+        const stripeGeo = new THREE.PlaneGeometry(scale * 8, scale * 60);
+        const stripeMat = new THREE.MeshStandardMaterial({
+            color: colors.secondary,
+            roughness: 0.7,
+            metalness: 0.1,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.6
+        });
+        const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+        stripe.position.x = Math.cos(angle) * scale * 35;
+        stripe.position.z = Math.sin(angle) * scale * 35;
+        stripe.position.y = scale * 20;
+        stripe.lookAt(0, scale * 20, 0);
+        group.add(stripe);
+    }
+
+    // Top cap
+    const capGeo = new THREE.SphereGeometry(scale * 8, 12, 8);
+    const capMat = new THREE.MeshStandardMaterial({
+        color: colors.accent,
+        roughness: 0.6,
+        metalness: 0.2
+    });
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.y = scale * 50;
+    group.add(cap);
+
+    // Basket
+    const basketGeo = new THREE.BoxGeometry(scale * 20, scale * 15, scale * 20);
+    const basketMat = new THREE.MeshStandardMaterial({
+        color: 0x8b6914,
+        roughness: 0.9,
+        metalness: 0.0
+    });
+    const basket = new THREE.Mesh(basketGeo, basketMat);
+    basket.position.y = scale * -25;
+    group.add(basket);
+
+    // Ropes
+    const ropeMat = new THREE.MeshStandardMaterial({
+        color: 0x654321,
+        roughness: 0.95,
+        metalness: 0.0
+    });
+    [
+        { x: scale * 10, z: scale * 10 },
+        { x: -scale * 10, z: scale * 10 },
+        { x: scale * 10, z: -scale * 10 },
+        { x: -scale * 10, z: -scale * 10 }
+    ].forEach(pos => {
+        const ropeGeo = new THREE.CylinderGeometry(scale * 0.5, scale * 0.5, scale * 35, 4);
+        const rope = new THREE.Mesh(ropeGeo, ropeMat);
+        rope.position.set(pos.x, scale * -5, pos.z);
+        group.add(rope);
+    });
+
     return group;
 }

@@ -814,7 +814,7 @@ body:not(.light) .plan-toggle-btn.open {
 }
 
 .cmd-btn {
-    min-width: 280px;
+    min-width: 300px;
     min-height: 56px;
     border-radius: var(--border-radius-md);
     border: none;

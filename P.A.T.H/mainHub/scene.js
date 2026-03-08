@@ -4,6 +4,9 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { create3DBalloon, getBalloonColors, setBalloonDetailLevel } from './balloonModel.js';
 
+// Expose THREE globally so non-module scripts (main.js) can use it
+window.THREE = THREE;
+
 // ── World constants ──────────────────────────────────────────────────────────
 // The game world is 200,000 × 200,000 world-units.  A WORLD_SCALE factor maps
 // world-units to Three.js scene-units so the renderer stays in a comfortable

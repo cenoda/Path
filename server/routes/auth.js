@@ -5,11 +5,36 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const pool = require('../db');
 const { getPercentile } = require('../data/universities');
 const aligoService = require('../utils/aligo');
 
 const router = express.Router();
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15분
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '로그인 시도가 너무 많습니다. 15분 후 다시 시도해주세요.' }
+});
+
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1시간
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '회원가입 시도가 너무 많습니다. 1시간 후 다시 시도해주세요.' }
+});
+
+const verificationLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1시간
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '인증번호 요청이 너무 많습니다. 1시간 후 다시 시도해주세요.' }
+});
 
 const USER_FIELDS = 'id, nickname, university, gold, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, profile_image_url, balloon_skin, owned_skins, status_emoji, status_message, phone_verified, phone_verified_at, auth_provider, google_email, is_admin, admin_role';
 
@@ -106,7 +131,7 @@ async function makeUniqueNickname(base) {
     return `user${Date.now().toString().slice(-8)}`;
 }
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
     const { real_name, nickname, password, university, is_n_su, prev_university, privacy_agreed } = req.body;
     if (!nickname || !password || !university) {
         return res.status(400).json({ error: '닉네임, 비밀번호, 대학교를 모두 입력해주세요.' });
@@ -171,7 +196,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
     const { nickname, password } = req.body;
     if (!nickname || !password) return res.status(400).json({ error: '닉네임과 비밀번호를 입력해주세요.' });
     try {
@@ -547,7 +572,7 @@ router.post('/update-profile', requireAuth, async (req, res) => {
  * POST /api/auth/send-verification
  * body: { phone: "01012345678" }
  */
-router.post('/send-verification', async (req, res) => {
+router.post('/send-verification', verificationLimiter, async (req, res) => {
     const { phone } = req.body;
     
     if (!phone) {

@@ -3,6 +3,51 @@ import path from 'path';
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 
+// GLTFExporter uses FileReader in some code paths. Provide a tiny polyfill for Node.
+if (typeof globalThis.FileReader === 'undefined') {
+  class NodeFileReader {
+    constructor() {
+      this.result = null;
+      this.error = null;
+      this.onload = null;
+      this.onloadend = null;
+      this.onerror = null;
+    }
+
+    readAsArrayBuffer(blob) {
+      blob.arrayBuffer()
+        .then((buf) => {
+          this.result = buf;
+          if (typeof this.onload === 'function') this.onload({ target: this });
+          if (typeof this.onloadend === 'function') this.onloadend({ target: this });
+        })
+        .catch((err) => {
+          this.error = err;
+          if (typeof this.onerror === 'function') this.onerror(err);
+          if (typeof this.onloadend === 'function') this.onloadend({ target: this });
+        });
+    }
+
+    readAsDataURL(blob) {
+      blob.arrayBuffer()
+        .then((buf) => {
+          const b64 = Buffer.from(buf).toString('base64');
+          const mime = blob.type || 'application/octet-stream';
+          this.result = `data:${mime};base64,${b64}`;
+          if (typeof this.onload === 'function') this.onload({ target: this });
+          if (typeof this.onloadend === 'function') this.onloadend({ target: this });
+        })
+        .catch((err) => {
+          this.error = err;
+          if (typeof this.onerror === 'function') this.onerror(err);
+          if (typeof this.onloadend === 'function') this.onloadend({ target: this });
+        });
+    }
+  }
+
+  globalThis.FileReader = NodeFileReader;
+}
+
 const OUT_DIR = path.resolve('P.A.T.H/mainHub/assets/landmarks');
 
 const MAT_STONE = new THREE.MeshStandardMaterial({ color: 0x8f96a3, roughness: 0.88, metalness: 0.05 });

@@ -144,18 +144,18 @@ const WorldScene = {
 
     _getUniversityLandmarkModelSpec(university) {
         const specs = {
-            '서울대학교': { path: 'assets/landmarks/snu.glb', scale: 8.0, y: 32, rotY: 0 },
-            '연세대학교': { path: 'assets/landmarks/yonsei.glb', scale: 7.8, y: 30, rotY: 0 },
-            '고려대학교': { path: 'assets/landmarks/korea.glb', scale: 8.2, y: 32, rotY: 0 },
-            '카이스트': { path: 'assets/landmarks/kaist.glb', scale: 8.0, y: 30, rotY: 0 },
-            '포항공과대학교': { path: 'assets/landmarks/postech.glb', scale: 8.0, y: 30, rotY: 0 },
-            '성균관대학교': { path: 'assets/landmarks/skku.glb', scale: 8.0, y: 30, rotY: 0 },
-            '한양대학교': { path: 'assets/landmarks/hanyang.glb', scale: 8.0, y: 30, rotY: 0 },
-            '중앙대학교': { path: 'assets/landmarks/chungang.glb', scale: 8.0, y: 30, rotY: 0 },
-            '경희대학교': { path: 'assets/landmarks/kyunghee.glb', scale: 8.2, y: 30, rotY: 0 },
-            '서강대학교': { path: 'assets/landmarks/sogang.glb', scale: 7.8, y: 30, rotY: 0 },
-            '이화여자대학교': { path: 'assets/landmarks/ewha.glb', scale: 8.2, y: 26, rotY: 0 },
-            '부산대학교': { path: 'assets/landmarks/pusan.glb', scale: 8.0, y: 30, rotY: 0 }
+            '서울대학교': { path: 'assets/landmarks/snu.glb', scale: 3.8, y: 20, rotY: 0.08 },
+            '연세대학교': { path: 'assets/landmarks/yonsei.glb', scale: 3.9, y: 19, rotY: -0.06 },
+            '고려대학교': { path: 'assets/landmarks/korea.glb', scale: 3.9, y: 20, rotY: 0.05 },
+            '카이스트': { path: 'assets/landmarks/kaist.glb', scale: 4.2, y: 18, rotY: 0.1 },
+            '포항공과대학교': { path: 'assets/landmarks/postech.glb', scale: 4.1, y: 18, rotY: -0.08 },
+            '성균관대학교': { path: 'assets/landmarks/skku.glb', scale: 4.0, y: 19, rotY: 0.03 },
+            '한양대학교': { path: 'assets/landmarks/hanyang.glb', scale: 4.1, y: 18, rotY: -0.04 },
+            '중앙대학교': { path: 'assets/landmarks/chungang.glb', scale: 4.0, y: 19, rotY: 0.02 },
+            '경희대학교': { path: 'assets/landmarks/kyunghee.glb', scale: 3.7, y: 20, rotY: 0.04 },
+            '서강대학교': { path: 'assets/landmarks/sogang.glb', scale: 4.0, y: 18, rotY: -0.03 },
+            '이화여자대학교': { path: 'assets/landmarks/ewha.glb', scale: 4.3, y: 16, rotY: 0.12 },
+            '부산대학교': { path: 'assets/landmarks/pusan.glb', scale: 3.9, y: 19, rotY: -0.05 }
         };
         return specs[university] || null;
     },

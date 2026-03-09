@@ -23,6 +23,16 @@ const { formatDisplayName } = require('../utils/progression');
 
 const BEST_MIN_LIKES = 15;
 const GOLD_LIKE_COST = 30;
+const EULA_VERSION = process.env.EULA_VERSION || '2026-03-09';
+const REPORT_REASON_CODES = new Set([
+    'spam',
+    'abuse',
+    'sexual',
+    'hate',
+    'personal_info',
+    'illegal',
+    'other'
+]);
 
 const communityUploadDir = path.join(__dirname, '../../uploads/community');
 if (!fs.existsSync(communityUploadDir)) {
@@ -91,6 +101,46 @@ function normalizeCommunityNickname(raw) {
     if (!trimmed) return fallback;
     if (trimmed.length < 2 || trimmed.length > 20) return null;
     return trimmed;
+}
+
+async function requireLatestEula(req, res, next) {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    try {
+        const result = await pool.query(
+            'SELECT eula_version, eula_agreed_at FROM users WHERE id = $1',
+            [req.session.userId]
+        );
+        const row = result.rows[0];
+        if (!row) return res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+
+        const agreed = !!row.eula_agreed_at && row.eula_version === EULA_VERSION;
+        if (!agreed) {
+            return res.status(403).json({
+                error: '최신 이용약관 동의가 필요합니다.',
+                code: 'EULA_REQUIRED',
+                eula_version: EULA_VERSION,
+            });
+        }
+
+        return next();
+    } catch (err) {
+        console.error('[community] requireLatestEula', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+}
+
+function makeBlockedPostCondition(userId, placeholderIndex, tableAlias = 'p') {
+    if (!userId) return { sql: '', params: [] };
+    return {
+        sql: `(${tableAlias}.user_id IS NULL OR NOT EXISTS (
+            SELECT 1
+            FROM user_blocks ub
+            WHERE ub.blocker_id = $${placeholderIndex}
+              AND ub.blocked_id = ${tableAlias}.user_id
+        ))`,
+        params: [userId]
+    };
 }
 
 // SSRF 방어: 내부 IP/호스트네임 블랙리스트

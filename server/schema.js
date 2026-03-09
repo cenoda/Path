@@ -373,6 +373,69 @@ async function initSchema() {
             CREATE INDEX IF NOT EXISTS idx_cc_post_created_at ON community_comments(post_id, created_at DESC);
         `);
 
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS eula_version VARCHAR(20) DEFAULT NULL;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS eula_agreed_at TIMESTAMP DEFAULT NULL;
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS user_blocks (
+                blocker_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                blocked_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (blocker_id, blocked_id),
+                CONSTRAINT user_blocks_no_self_block CHECK (blocker_id <> blocked_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker ON user_blocks(blocker_id);
+            CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks(blocked_id);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS community_post_reports (
+                id              SERIAL PRIMARY KEY,
+                post_id         INTEGER NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+                reporter_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                reported_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                reason_code     VARCHAR(30) NOT NULL,
+                detail          VARCHAR(500),
+                status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+                created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+                reviewed_at     TIMESTAMP NULL,
+                reviewed_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                UNIQUE(post_id, reporter_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_community_post_reports_post ON community_post_reports(post_id);
+            CREATE INDEX IF NOT EXISTS idx_community_post_reports_reporter ON community_post_reports(reporter_id);
+            CREATE INDEX IF NOT EXISTS idx_community_post_reports_status_created ON community_post_reports(status, created_at DESC);
+        `);
+
+        await client.query(`
+            ALTER TABLE community_post_reports
+                DROP CONSTRAINT IF EXISTS community_post_reports_reason_code_check;
+            ALTER TABLE community_post_reports
+                ADD CONSTRAINT community_post_reports_reason_code_check
+                CHECK (reason_code IN (
+                    'spam',
+                    'abuse',
+                    'sexual',
+                    'hate',
+                    'personal_info',
+                    'illegal',
+                    'other'
+                )) NOT VALID;
+
+            ALTER TABLE community_post_reports
+                DROP CONSTRAINT IF EXISTS community_post_reports_status_check;
+            ALTER TABLE community_post_reports
+                ADD CONSTRAINT community_post_reports_status_check
+                CHECK (status IN ('pending', 'reviewed', 'dismissed')) NOT VALID;
+        `);
+
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS ui_theme VARCHAR(30) DEFAULT 'default';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_themes TEXT DEFAULT 'default';
+        `);
+
         console.log('DB 스키마 초기화 완료');
     } catch (err) {
         console.error('DB 스키마 초기화 오류:', err.message);

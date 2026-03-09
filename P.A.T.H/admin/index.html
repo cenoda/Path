@@ -308,6 +308,17 @@
             margin-top: 10px;
         }
 
+        .edit-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(180px, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .edit-grid .field {
+            margin: 0;
+        }
+
         .empty {
             border: 1px dashed var(--line);
             border-radius: 12px;
@@ -330,6 +341,10 @@
             }
 
             .filter-row {
+                grid-template-columns: 1fr;
+            }
+
+            .edit-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -663,6 +678,10 @@
             listEl.innerHTML = filtered.map((u) => {
                 const scoreClass = u.score_status || 'none';
                 const gpaClass = u.gpa_status || 'none';
+                const safeNicknameValue = esc(u.nickname || '');
+                const safeRealNameValue = esc(u.real_name || '');
+                const safeUniversityValue = esc(u.university || '');
+                const safePrevUniversityValue = esc(u.prev_university || '');
                 return `
                     <article class="card">
                         <div class="card-head">
@@ -682,9 +701,79 @@
                             ${u.is_n_su ? `<strong>N수:</strong> 예 (전적대 ${esc(u.prev_university || '-')})<br>` : ''}
                             <strong>계정 권한:</strong> ${u.is_admin ? '관리자' : '일반 사용자'} / <strong>가입일:</strong> ${formatDate(u.created_at)}
                         </p>
+                        <div class="review-block">
+                            <div class="review-title">
+                                <span>사용자 정보 수정</span>
+                                <span class="badge none">ID ${u.id}</span>
+                            </div>
+                            <div class="edit-grid">
+                                <input class="field" id="edit-nickname-${u.id}" type="text" value="${safeNicknameValue}" placeholder="닉네임">
+                                <input class="field" id="edit-real-name-${u.id}" type="text" value="${safeRealNameValue}" placeholder="실명">
+                                <input class="field" id="edit-university-${u.id}" type="text" value="${safeUniversityValue}" placeholder="대학교">
+                                <input class="field" id="edit-prev-university-${u.id}" type="text" value="${safePrevUniversityValue}" placeholder="전적 대학교 (N수생만)">
+                            </div>
+                            <div class="action-row">
+                                <label class="auto-refresh">
+                                    <input id="edit-is-nsu-${u.id}" type="checkbox" ${u.is_n_su ? 'checked' : ''}>
+                                    N수생
+                                </label>
+                                <button class="btn primary" type="button" onclick="saveUserEdit(${u.id}, this)">저장</button>
+                                <button class="btn" type="button" onclick="resetUserEdit(${u.id})">초기화</button>
+                            </div>
+                        </div>
                     </article>
                 `;
             }).join('');
+        }
+
+        function getUserById(userId) {
+            return state.users.find((u) => u.id === userId) || null;
+        }
+
+        function resetUserEdit(userId) {
+            const user = getUserById(userId);
+            if (!user) return;
+
+            const nicknameEl = document.getElementById(`edit-nickname-${userId}`);
+            const realNameEl = document.getElementById(`edit-real-name-${userId}`);
+            const universityEl = document.getElementById(`edit-university-${userId}`);
+            const prevUniversityEl = document.getElementById(`edit-prev-university-${userId}`);
+            const isNSuEl = document.getElementById(`edit-is-nsu-${userId}`);
+
+            if (nicknameEl) nicknameEl.value = user.nickname || '';
+            if (realNameEl) realNameEl.value = user.real_name || '';
+            if (universityEl) universityEl.value = user.university || '';
+            if (prevUniversityEl) prevUniversityEl.value = user.prev_university || '';
+            if (isNSuEl) isNSuEl.checked = !!user.is_n_su;
+        }
+
+        async function saveUserEdit(userId, button) {
+            const nickname = document.getElementById(`edit-nickname-${userId}`)?.value || '';
+            const real_name = document.getElementById(`edit-real-name-${userId}`)?.value || '';
+            const university = document.getElementById(`edit-university-${userId}`)?.value || '';
+            const prev_university = document.getElementById(`edit-prev-university-${userId}`)?.value || '';
+            const is_n_su = !!document.getElementById(`edit-is-nsu-${userId}`)?.checked;
+
+            if (!window.confirm(`유저 ${userId} 정보를 수정하시겠습니까?`)) return;
+
+            await withActionLock(button, async () => {
+                await apiFetch('/api/admin/update-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        nickname,
+                        real_name,
+                        university,
+                        is_n_su,
+                        prev_university
+                    })
+                });
+                setNotice(`유저 ${userId} 정보 수정 완료`, 'ok');
+                await refreshAll(false);
+            }).catch((error) => {
+                setNotice(error.message, 'error');
+            });
         }
 
         async function loadPending() {
@@ -900,6 +989,8 @@
         state.autoRefreshId = setInterval(() => refreshAll(false), 30000);
 
         window.reviewReport = reviewReport;
+        window.saveUserEdit = saveUserEdit;
+        window.resetUserEdit = resetUserEdit;
     </script>
 </body>
 </html>

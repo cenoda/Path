@@ -4,6 +4,17 @@ const pool = require('../db');
 const router = express.Router();
 const ALWAYS_MAIN_ADMIN_NICKNAME = '낭만화1';
 
+function validateNickname(nickname) {
+    const value = (nickname || '').trim();
+    if (value.length < 2 || value.length > 20) {
+        return { ok: false, error: '닉네임은 2~20자 사이여야 합니다.' };
+    }
+    if (!/^[a-zA-Z0-9가-힣_]+$/.test(value)) {
+        return { ok: false, error: '닉네임은 한글, 영문, 숫자, 밑줄(_)만 사용할 수 있습니다.' };
+    }
+    return { ok: true, value };
+}
+
 async function getAdminRole(userId) {
     const result = await pool.query(
         'SELECT nickname, is_admin, admin_role FROM users WHERE id = $1',
@@ -66,6 +77,7 @@ router.get('/', requireAdmin, (req, res) => {
             'GET /api/admin/all-users',
             'GET /api/admin/roles',
             'GET /api/admin/community-reports',
+            'POST /api/admin/update-user',
             'POST /api/admin/set-role (main only)',
             'POST /api/admin/approve-score',
             'POST /api/admin/reject-score',
@@ -198,6 +210,91 @@ router.get('/all-users', requireAdmin, async (req, res) => {
         res.json({ users: result.rows });
     } catch (err) {
         res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/update-user', requireAdmin, async (req, res) => {
+    const userId = parseInt(req.body?.user_id, 10);
+    const nicknameRaw = typeof req.body?.nickname === 'string' ? req.body.nickname : '';
+    const realNameRaw = typeof req.body?.real_name === 'string' ? req.body.real_name : '';
+    const universityRaw = typeof req.body?.university === 'string' ? req.body.university : '';
+    const isNSu = !!req.body?.is_n_su;
+    const prevUniversityRaw = typeof req.body?.prev_university === 'string' ? req.body.prev_university : '';
+
+    if (!userId) {
+        return res.status(400).json({ error: '유저 ID를 확인해주세요.' });
+    }
+
+    const nickValidation = validateNickname(nicknameRaw);
+    if (!nickValidation.ok) {
+        return res.status(400).json({ error: nickValidation.error });
+    }
+
+    const realName = realNameRaw.trim();
+    if (!realName) {
+        return res.status(400).json({ error: '실명을 입력해주세요.' });
+    }
+    if (realName.length > 50) {
+        return res.status(400).json({ error: '실명은 50자 이하여야 합니다.' });
+    }
+
+    const university = universityRaw.trim();
+    if (!university) {
+        return res.status(400).json({ error: '대학교를 입력해주세요.' });
+    }
+    if (university.length > 100) {
+        return res.status(400).json({ error: '대학교명은 100자 이하여야 합니다.' });
+    }
+
+    const prevUniversity = prevUniversityRaw.trim();
+    if (isNSu && !prevUniversity) {
+        return res.status(400).json({ error: 'N수생은 전적 대학교를 입력해주세요.' });
+    }
+    if (prevUniversity.length > 100) {
+        return res.status(400).json({ error: '전적 대학교명은 100자 이하여야 합니다.' });
+    }
+
+    try {
+        const target = await pool.query(
+            'SELECT id FROM users WHERE id = $1',
+            [userId]
+        );
+        if (!target.rows.length) {
+            return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+        }
+
+        const duplicate = await pool.query(
+            'SELECT id FROM users WHERE nickname = $1 AND id <> $2',
+            [nickValidation.value, userId]
+        );
+        if (duplicate.rows.length) {
+            return res.status(409).json({ error: '이미 사용 중인 닉네임입니다.' });
+        }
+
+        const result = await pool.query(
+            `UPDATE users
+             SET nickname = $1,
+                 real_name = $2,
+                 university = $3,
+                 is_n_su = $4,
+                 prev_university = $5
+             WHERE id = $6
+             RETURNING id, nickname, real_name, university, is_n_su, prev_university,
+                       is_admin, admin_role, user_code, created_at`,
+            [
+                nickValidation.value,
+                realName,
+                university,
+                isNSu,
+                isNSu ? prevUniversity : null,
+                userId,
+            ]
+        );
+
+        return res.json({ ok: true, user: result.rows[0] });
+    } catch (err) {
+        console.error('admin update-user error:', err.message);
+        return res.status(500).json({ error: '서버 오류' });
     }
 });
 

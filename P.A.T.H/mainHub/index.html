@@ -4,16 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>P.A.T.H - Command</title>
-    <!-- PWA -->
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#000000">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="P.A.T.H">
-    <link rel="apple-touch-icon" href="/icons/icon-192.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
-    <script src="/shared/nav.js?v=2"></script>
     <link rel="prefetch" href="/timer/" as="document">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
@@ -28,20 +18,13 @@
     </script>
     <!-- socket.io client – loaded before scene.js so it is available globally -->
     <script src="/socket.io/socket.io.js"></script>
-    <!-- balloon skin data – sets window.BALLOON_SKINS before scene.js initialises -->
-    <script src="balloonSkins.js?v=3"></script>
-    <script type="module" src="scene.js?v=5"></script>
+    <script type="module" src="scene.js?v=8"></script>
 </head>
 <body>
 <script>
 (function(){
     const t = localStorage.getItem('path_theme') || 'dark';
-    const colorThemes = ['rose','emerald','purple','sunset','midnight','sakura'];
-    if (t === 'light') {
-        document.body.classList.add('light');
-    } else if (colorThemes.includes(t)) {
-        document.body.setAttribute('data-theme', t);
-    }
+    if (t === 'light') document.body.classList.add('light');
 })();
 </script>
     <div id="ui-overlay">
@@ -60,7 +43,6 @@
             <div class="hud-right">
                 <div class="stat-group">
                     <div class="stat-unit"><span class="label">GOLD</span> <span id="hud-gold" class="val">0</span></div>
-                    <div class="stat-unit"><span class="label">DIA</span> <span id="hud-diamond" class="val">0</span></div>
                     <div class="stat-unit"><span class="label">TIME</span> <span id="hud-hours" class="val">00:00</span></div>
                     <div class="stat-unit"><span class="label">원서비</span> <span id="hud-tickets" class="val">0장</span></div>
                 </div>
@@ -188,8 +170,6 @@
             <div class="tabs">
                 <button class="tab active" onclick="switchShopTab('item', this)">ITEMS</button>
                 <button class="tab" onclick="switchShopTab('skin', this)">SKINS</button>
-                <button class="tab" onclick="switchShopTab('theme', this)">THEME</button>
-                <button class="tab" onclick="switchShopTab('diamond', this)">DIAMOND</button>
             </div>
             <button class="close-btn" onclick="togglePanel('panel-shop')">×</button>
         </div>
@@ -387,7 +367,6 @@
     </div>
 
     <script src="bg.js?v=5"></script>
-    <script src="main.js?v=11"></script>
-    <script src="/pwa-install.js"></script>
+    <script src="main.js?v=8"></script>
 </body>
 </html>

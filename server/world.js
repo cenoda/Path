@@ -36,9 +36,6 @@ const players = new Map();
 // key: propId (string)  →  { activated: bool, activatedBy: userId|null }
 const interactionState = new Map();
 
-// In-memory group timer room membership: roomId → Set<socketId>
-const roomSockets = new Map();
-
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function chunkOf(worldX, worldY) {
@@ -221,69 +218,6 @@ function setup(io) {
                 emitToNearbyRooms(socket, player.cx, player.cy, 'player:left', { id: player.userId });
                 players.delete(socket.id);
             }
-            // Clean up group timer room membership
-            roomSockets.forEach((sids, roomId) => {
-                if (sids.delete(socket.id) && sids.size === 0) {
-                    roomSockets.delete(roomId);
-                }
-            });
-        });
-
-        // ── room:join ────────────────────────────────────────────────────
-        // Client emits after successfully joining/being a member of a room
-        socket.on('room:join', (data) => {
-            if (!data || !data.roomId) return;
-            const roomId = String(data.roomId);
-            socket.join(`room:${roomId}`);
-            if (!roomSockets.has(roomId)) roomSockets.set(roomId, new Set());
-            roomSockets.get(roomId).add(socket.id);
-        });
-
-        // ── room:leave ───────────────────────────────────────────────────
-        socket.on('room:leave', (data) => {
-            if (!data || !data.roomId) return;
-            const roomId = String(data.roomId);
-            socket.leave(`room:${roomId}`);
-            const sids = roomSockets.get(roomId);
-            if (sids) {
-                sids.delete(socket.id);
-                if (sids.size === 0) roomSockets.delete(roomId);
-            }
-        });
-
-        // ── room:timer_start ─────────────────────────────────────────────
-        // Client emits when starting a timer while in a room
-        socket.on('room:timer_start', (data) => {
-            const player = players.get(socket.id);
-            if (!data || !data.roomId) return;
-            const roomId = String(data.roomId);
-            const nickname = player ? (player.display_nickname || player.nickname) : (data.nickname || '누군가');
-            const subject = String(data.subject || '공부').slice(0, 60);
-            io.to(`room:${roomId}`).emit('room:activity', {
-                type: 'timer_start',
-                userId: player ? player.userId : null,
-                nickname,
-                subject,
-                ts: Date.now(),
-            });
-        });
-
-        // ── room:timer_stop ──────────────────────────────────────────────
-        socket.on('room:timer_stop', (data) => {
-            const player = players.get(socket.id);
-            if (!data || !data.roomId) return;
-            const roomId = String(data.roomId);
-            const nickname = player ? (player.display_nickname || player.nickname) : (data.nickname || '누군가');
-            const durationSec = parseInt(data.duration_sec, 10) || 0;
-            io.to(`room:${roomId}`).emit('room:activity', {
-                type: 'timer_stop',
-                userId: player ? player.userId : null,
-                nickname,
-                duration_sec: durationSec,
-                ts: Date.now(),
-            });
-            // Broadcast leaderboard refresh signal
-            io.to(`room:${roomId}`).emit('room:leaderboard_refresh', { roomId });
         });
     });
 }

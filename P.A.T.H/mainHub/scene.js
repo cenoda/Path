@@ -46,6 +46,7 @@ const WorldScene = {
     hoveredBalloon: null,
     keysPressed: {},
     skyIslands: [],
+    universityLandmarkStats: {},
     seededProps: [],
     interactableProps: [],
     friendIds: new Set(),
@@ -463,18 +464,18 @@ const WorldScene = {
 
     _buildSkyIslands() {
         const islandData = [
-            { x: -900, y: -60, z: -800, rx: 2.0, name: '에메랄드 섬', landmark: '초록 숲', type: 'forest' },
-            { x:  700, y: -80, z: -600, rx: 1.6, name: '수정 섬', landmark: '크리스탈 동굴', type: 'crystal' },
-            { x:  200, y: -50, z:-1000, rx: 1.2, name: '안개 섬', landmark: '안개 계곡', type: 'misty' },
-            { x:-1200, y: -70, z: -400, rx: 1.8, name: '폭포 섬', landmark: '하늘 폭포', type: 'waterfall' },
-            { x: 1400, y: -55, z: -700, rx: 2.2, name: '꽃 섬', landmark: '벚꽃 정원', type: 'flower' },
-            { x:-1600, y: -90, z: -900, rx: 1.4, name: '바위 섬', landmark: '거인의 돌', type: 'rock' },
-            { x:  500, y: -40, z:-1200, rx: 1.9, name: '별빛 섬', landmark: '별자리 광장', type: 'star' },
-            { x:-600,  y: -75, z: -500, rx: 1.5, name: '무지개 섬', landmark: '무지개 다리', type: 'rainbow' },
-            { x: 1800, y: -65, z: -400, rx: 2.4, name: '구름 요새', landmark: '하늘 성벽', type: 'fortress' },
-            { x:-2000, y: -85, z: -600, rx: 1.3, name: '달빛 정원', landmark: '은빛 연못', type: 'moon' },
-            { x: 1100, y: -45, z:-1100, rx: 1.7, name: '용의 둥지', landmark: '화염 바위', type: 'dragon' },
-            { x:-400,  y: -95, z: -300, rx: 2.1, name: '바람의 탑', landmark: '바람개비 탑', type: 'wind' },
+            { x: -900, y: -60, z: -800, rx: 2.0, name: '관악 샤 아일랜드', university: '서울대학교', landmark: '서울대학교 · 서울대 정문·샤 조형물', type: 'forest', admissionUrl: 'https://admission.snu.ac.kr', admissionNote: '수시/정시 모집요강과 전형별 공지 확인' },
+            { x:  700, y: -80, z: -600, rx: 1.6, name: '신촌 독수리 아일랜드', university: '연세대학교', landmark: '연세대학교 · 언더우드관·독수리 상징', type: 'crystal', admissionUrl: 'https://admission.yonsei.ac.kr', admissionNote: '전형 일정 및 모집 단위 확인' },
+            { x:  200, y: -50, z:-1000, rx: 1.2, name: '안암 호랑이 아일랜드', university: '고려대학교', landmark: '고려대학교 · 중앙광장·호랑이 상징', type: 'misty', admissionUrl: 'https://oku.korea.ac.kr', admissionNote: '정시/수시 입학전형 세부사항 확인' },
+            { x:-1200, y: -70, z: -400, rx: 1.8, name: '대덕 사이언스 아일랜드', university: '카이스트', landmark: 'KAIST · 본원 상징 조형·과학광장', type: 'waterfall', admissionUrl: 'https://admission.kaist.ac.kr', admissionNote: '창의도전전형 및 일반전형 안내 확인' },
+            { x: 1400, y: -55, z: -700, rx: 2.2, name: '포스텍 스틸 아일랜드', university: '포항공과대학교', landmark: 'POSTECH · 지곡회관·상징 조형물', type: 'flower', admissionUrl: 'https://adm.postech.ac.kr', admissionNote: '입학전형/장학제도/공지사항 확인' },
+            { x:-1600, y: -90, z: -900, rx: 1.4, name: '인문명륜 아일랜드', university: '성균관대학교', landmark: '성균관대학교 · 명륜당·은행나무 상징', type: 'rock', admissionUrl: 'https://admission.skku.edu', admissionNote: '캠퍼스별 모집요강 및 전형안내 확인' },
+            { x:  500, y: -40, z:-1200, rx: 1.9, name: '사자 한양 아일랜드', university: '한양대학교', landmark: '한양대학교 · 사자상·본관 라인', type: 'star', admissionUrl: 'https://go.hanyang.ac.kr', admissionNote: '전형 일정, 경쟁률, 모집요강 확인' },
+            { x:-600,  y: -75, z: -500, rx: 1.5, name: '흑석 청룡 아일랜드', university: '중앙대학교', landmark: '중앙대학교 · 청룡상·중앙마루', type: 'rainbow', admissionUrl: 'https://admission.cau.ac.kr', admissionNote: '학과별 전형요소 및 합격자 발표일 확인' },
+            { x: 1800, y: -65, z: -400, rx: 2.4, name: '평화의 전당 아일랜드', university: '경희대학교', landmark: '경희대학교 · 평화의전당·캠퍼스 로드', type: 'fortress', admissionUrl: 'https://iphak.khu.ac.kr', admissionNote: '캠퍼스별 모집 인원과 전형계획 확인' },
+            { x:-2000, y: -85, z: -600, rx: 1.3, name: '서강 알바트로스 아일랜드', university: '서강대학교', landmark: '서강대학교 · 본관·알바트로스 상징', type: 'moon', admissionUrl: 'https://admission.sogang.ac.kr', admissionNote: '모집요강, FAQ, 공지사항 확인' },
+            { x: 1100, y: -45, z:-1100, rx: 1.7, name: '이화 유레카 아일랜드', university: '이화여자대학교', landmark: '이화여자대학교 · ECC·유레카 상징', type: 'dragon', admissionUrl: 'https://admission.ewha.ac.kr', admissionNote: '전형별 지원자격 및 제출서류 확인' },
+            { x:-400,  y: -95, z: -300, rx: 2.1, name: '금정 교정 아일랜드', university: '부산대학교', landmark: '부산대학교 · 금정캠퍼스·정문 상징', type: 'wind', admissionUrl: 'https://go.pusan.ac.kr', admissionNote: '정시/수시 모집단위와 일정 확인' },
         ];
         islandData.forEach(d => {
             const group = new THREE.Group();
@@ -552,7 +553,10 @@ const WorldScene = {
             group.position.set(d.x, d.y, d.z);
             group.userData.baseY = d.y;
             group.userData.name = d.name;
+            group.userData.university = d.university || null;
             group.userData.landmark = d.landmark;
+            group.userData.admissionUrl = d.admissionUrl || null;
+            group.userData.admissionNote = d.admissionNote || null;
             group.userData.floatSpeed = 0.4 + Math.random() * 0.3;
             group.userData.floatPhase = Math.random() * Math.PI * 2;
             this.scene.add(group);
@@ -1204,7 +1208,6 @@ const WorldScene = {
     updateWorldPlayers(players, me) {
         const isLight = this.isLight;
         const isLightMode = isLight;
-        const CULL_SCENE = CHUNK_SIZE * 3 * WORLD_SCALE;
 
         const keepIds = new Set(players.map(p => p.id));
         if (me) keepIds.add(me.id);
@@ -1220,8 +1223,6 @@ const WorldScene = {
             const sx = worldToScene(user.worldX);
             const sy = worldToScene(user.worldY);
             const sz = Math.sin(user.id * 3.7) * 40;
-            const distFromCam = Math.hypot(sx - this.camPos.x, sy - this.camPos.y);
-            const visible = distFromCam <= CULL_SCENE;
 
             const skinId = user.balloon_skin || 'default';
 
@@ -1230,7 +1231,7 @@ const WorldScene = {
                 b.group.position.set(sx, sy, sz);
                 b.group.userData.baseY = sy;
                 this._updateBalloonColor(b.group, skinId);
-                b.group.visible = visible;
+                b.group.visible = true;
                 if (b.user.status_message !== user.status_message) {
                     this.updateStatusMsg(user.id, user.status_message);
                 }
@@ -1239,7 +1240,7 @@ const WorldScene = {
                 const grp = this.addBalloon(user, null, false);
                 grp.position.set(sx, sy, sz);
                 grp.userData.baseY = sy;
-                grp.visible = visible;
+                grp.visible = true;
             }
         });
     },
@@ -1411,7 +1412,30 @@ const WorldScene = {
         this.camZTarget = 820;
     },
 
+    setUniversityLandmarkStats(stats) {
+        this.universityLandmarkStats = stats && typeof stats === 'object' ? stats : {};
+    },
+
     _showIslandInfo(islandData) {
+        const esc = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        const universityName = islandData.university || null;
+        const uniStats = universityName ? (this.universityLandmarkStats?.[universityName] || null) : null;
+        const isUniversityLandmark = !!universityName;
+        const topNickname = uniStats?.topScorerNickname ? `@${uniStats.topScorerNickname}` : null;
+        const topScore = Number.isFinite(Number(uniStats?.topScorerScore)) ? `${Math.round(Number(uniStats.topScorerScore))}점` : '미등록';
+        const predictedCutScore = Number.isFinite(Number(uniStats?.predictedCutScore)) ? `${Math.round(Number(uniStats.predictedCutScore))}점` : '집계 대기';
+        const basePercentile = Number.isFinite(Number(uniStats?.basePercentile)) ? `${Number(uniStats.basePercentile)}%` : '집계 대기';
+        const departmentCount = Number.isFinite(Number(uniStats?.departmentCount)) ? `${Math.round(Number(uniStats.departmentCount))}개` : '집계 대기';
+        const regionText = uniStats?.region || '정보 준비 중';
+        const admissionUrl = uniStats?.admissionUrl || islandData.admissionUrl || '';
+        const admissionNote = uniStats?.admissionNote || islandData.admissionNote || '입학처 공지에서 최신 모집요강과 전형 일정을 확인하세요.';
+
         let infoEl = document.getElementById('island-info');
         if (!infoEl) {
             infoEl = document.createElement('div');
@@ -1427,15 +1451,35 @@ const WorldScene = {
             `;
             document.body.appendChild(infoEl);
         }
+
+        const modalId = `island-info-${Date.now()}`;
+        infoEl.setAttribute('data-modal-id', modalId);
         
         infoEl.innerHTML = `
             <div style="font-size:32px;margin-bottom:12px;">🏝️</div>
-            <div style="font-size:22px;color:var(--accent,#3182F6);font-weight:800;margin-bottom:8px;letter-spacing:-0.3px;">${islandData.name}</div>
-            <div style="font-size:13px;color:var(--text-secondary,#7E94B8);margin-bottom:16px;">하늘섬 · ${islandData.landmark}</div>
-            <div style="font-size:12px;color:var(--text-secondary,#7E94B8);line-height:1.65;margin-bottom:18px;">
-                이 하늘섬은 ${islandData.name}의 상징적인 공간입니다.<br>
-                맵을 탐험하며 다양한 대학의 하늘섬을 발견해보세요!
-            </div>
+            <div style="font-size:11px;color:var(--text-secondary,#7E94B8);letter-spacing:1.1px;margin-bottom:6px;">${isUniversityLandmark ? 'UNIVERSITY LANDMARK' : 'SKY ISLAND'}</div>
+            <div style="font-size:22px;color:var(--accent,#3182F6);font-weight:800;margin-bottom:8px;letter-spacing:-0.3px;">${esc(islandData.name)}</div>
+            <div style="font-size:13px;color:var(--text-secondary,#7E94B8);margin-bottom:16px;">${esc(islandData.landmark)}</div>
+            ${isUniversityLandmark ? `
+                <div style="font-size:12px;color:var(--text-secondary,#7E94B8);line-height:1.65;margin-bottom:8px;">
+                    ${esc(universityName)} - 현재 최고점수 보유자: ${topNickname ? `${esc(topNickname)} (${topScore})` : '미등록'}<br>
+                    침공 예상 컷 점수: ${predictedCutScore}
+                </div>
+                <div style="background:rgba(49,130,246,0.09);border:1px solid rgba(49,130,246,0.25);border-radius:12px;padding:10px 12px;text-align:left;margin-bottom:12px;font-size:11px;line-height:1.55;color:var(--text-secondary,#7E94B8)">
+                    <div><strong style="color:#cfe2ff;">입시 스냅샷</strong></div>
+                    <div>지역: ${esc(regionText)} · 모집 단위: ${esc(departmentCount)} · 기준 백분위: ${esc(basePercentile)}</div>
+                    <div style="margin-top:4px;">${esc(admissionNote)}</div>
+                </div>
+                <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;">
+                    <button id="island-admission-link" style="background:#3182F6;border:1px solid #3182F6;color:#fff;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Pretendard Variable',sans-serif;">입학처 바로가기</button>
+                    <button id="island-view-estate" style="background:rgba(49,130,246,0.12);border:1.5px solid rgba(49,130,246,0.35);color:#3182F6;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Pretendard Variable',sans-serif;">대학 정보 보기</button>
+                </div>
+            ` : `
+                <div style="font-size:12px;color:var(--text-secondary,#7E94B8);line-height:1.65;margin-bottom:18px;">
+                    이 하늘섬은 ${esc(islandData.name)}의 상징적인 공간입니다.<br>
+                    맵을 탐험하며 다양한 대학의 하늘섬을 발견해보세요!
+                </div>
+            `}
             <button onclick="document.getElementById('island-info').remove()" style="
                 background:rgba(49,130,246,0.12); border:1.5px solid rgba(49,130,246,0.35);
                 color:#3182F6; padding:10px 28px; border-radius:999px;
@@ -1444,15 +1488,42 @@ const WorldScene = {
             " onmouseover="this.style.background='#3182F6';this.style.color='#fff'"
                onmouseout="this.style.background='rgba(49,130,246,0.12)';this.style.color='#3182F6'">닫기</button>
         `;
-        
-        // 3초 후 자동으로 제거
-        setTimeout(() => {
-            if (infoEl.parentElement) {
-                infoEl.style.opacity = '0';
-                infoEl.style.transition = 'opacity 0.3s';
-                setTimeout(() => infoEl.remove(), 300);
+
+        if (isUniversityLandmark) {
+            const admissionBtn = infoEl.querySelector('#island-admission-link');
+            if (admissionBtn) {
+                if (admissionUrl) {
+                    admissionBtn.addEventListener('click', () => window.open(admissionUrl, '_blank', 'noopener,noreferrer'));
+                } else {
+                    admissionBtn.disabled = true;
+                    admissionBtn.textContent = '입학처 준비 중';
+                    admissionBtn.style.opacity = '0.45';
+                    admissionBtn.style.cursor = 'not-allowed';
+                }
             }
-        }, 4000);
+
+            const estateBtn = infoEl.querySelector('#island-view-estate');
+            if (estateBtn) {
+                estateBtn.addEventListener('click', () => {
+                    if (window.viewUniversityEstate) {
+                        window.viewUniversityEstate(universityName);
+                    }
+                });
+            }
+        }
+        
+        // 일반 섬은 자동으로 닫고, 대학 랜드마크는 사용자 상호작용을 위해 유지합니다.
+        if (!isUniversityLandmark) {
+            setTimeout(() => {
+                if (infoEl.parentElement && infoEl.getAttribute('data-modal-id') === modalId) {
+                    infoEl.style.opacity = '0';
+                    infoEl.style.transition = 'opacity 0.3s';
+                    setTimeout(() => {
+                        if (infoEl.parentElement && infoEl.getAttribute('data-modal-id') === modalId) infoEl.remove();
+                    }, 300);
+                }
+            }, 4000);
+        }
     },
 
     zoom(delta) {
@@ -1948,24 +2019,20 @@ const WorldScene = {
             this.balloons.forEach((b) => {
                 if (b.isMe) return;
                 const dist = Math.hypot(b.group.position.x - myPosX, b.group.position.y - myPosY);
-                if (dist > 6000) {
-                    b.group.visible = false;
-                } else {
-                    b.group.visible = true;
-                    if (b.group.userData.balloon3D) {
-                        const wasLowDetail = !!b.group.userData.isLowDetail;
-                        const useLowDetail = wasLowDetail
-                            ? dist > lodExitDistance
-                            : dist > lodEnterDistance;
+                b.group.visible = true;
+                if (b.group.userData.balloon3D) {
+                    const wasLowDetail = !!b.group.userData.isLowDetail;
+                    const useLowDetail = wasLowDetail
+                        ? dist > lodExitDistance
+                        : dist > lodEnterDistance;
 
-                        if (useLowDetail !== wasLowDetail) {
-                            b.group.userData.isLowDetail = useLowDetail;
-                        }
-                        setBalloonDetailLevel(b.group.userData.balloon3D, useLowDetail);
+                    if (useLowDetail !== wasLowDetail) {
+                        b.group.userData.isLowDetail = useLowDetail;
                     }
-                    if (b.group.userData.label) b.group.userData.label.visible = dist < 3000;
-                    if (b.group.userData.bubbleMesh) b.group.userData.bubbleMesh.visible = dist < 2000;
+                    setBalloonDetailLevel(b.group.userData.balloon3D, useLowDetail);
                 }
+                if (b.group.userData.label) b.group.userData.label.visible = dist < 3000;
+                if (b.group.userData.bubbleMesh) b.group.userData.bubbleMesh.visible = dist < 2000;
             });
         }
 

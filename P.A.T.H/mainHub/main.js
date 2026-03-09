@@ -27,7 +27,6 @@ const DEFAULT_UI_SETTINGS = {
 };
 const ONBOARDING_PENDING_KEY = 'path_onboarding_pending';
 const ONBOARDING_DONE_PREFIX = 'path_onboarding_done_user_';
-const REQUIRED_EULA_VERSION = '2026-03-09';
 const ONBOARDING_STEPS = [
     {
         target: '#btn-enter-path',
@@ -50,8 +49,6 @@ function toggleTheme(forceLight) {
     const isLight = typeof forceLight === 'boolean'
         ? forceLight
         : !document.body.classList.contains('light');
-    // When toggling light/dark via settings, clear any color theme
-    document.body.removeAttribute('data-theme');
     document.body.classList.toggle('light', isLight);
     localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
 
@@ -137,91 +134,6 @@ let dragStartX, dragStartY;
 let mapOffsetX = 0, mapOffsetY = 0;
 let scale = 1.0;
 let currentRankTab = 'total';
-const LANDMARK_UNIVERSITIES = [
-    '서울대학교',
-    '연세대학교',
-    '고려대학교',
-    '카이스트',
-    '포항공과대학교',
-    '성균관대학교',
-    '한양대학교',
-    '중앙대학교',
-    '경희대학교',
-    '서강대학교',
-    '이화여자대학교',
-    '부산대학교'
-];
-
-function normalizeUniName(name) {
-    return String(name || '').replace(/\s+/g, '').toLowerCase();
-}
-
-function matchesUniversity(userUniversity, targetUniversity) {
-    const userUni = normalizeUniName(userUniversity);
-    const targetUni = normalizeUniName(targetUniversity);
-    if (!userUni || !targetUni) return false;
-    if (userUni === targetUni) return true;
-
-    const uniInfo = allUniversities.find((u) => normalizeUniName(u.name) === targetUni);
-    if (!uniInfo) return userUni.includes(targetUni) || targetUni.includes(userUni);
-
-    const aliases = (uniInfo.aliases || []).map(normalizeUniName);
-    if (aliases.some((a) => a && (userUni.includes(a) || a.includes(userUni)))) return true;
-    return userUni.includes(targetUni) || targetUni.includes(userUni);
-}
-
-function getTopScorerForUniversity(universityName) {
-    const universityUsers = allUsers.filter((u) => matchesUniversity(u.university, universityName));
-    const approvedScoreUsers = universityUsers
-        .filter((u) => u.score_status === 'approved' && Number.isFinite(parseFloat(u.mock_exam_score)) && parseFloat(u.mock_exam_score) > 0)
-        .sort((a, b) => parseFloat(b.mock_exam_score) - parseFloat(a.mock_exam_score));
-
-    if (approvedScoreUsers.length > 0) {
-        const top = approvedScoreUsers[0];
-        return {
-            topScorerNickname: top.nickname,
-            topScorerScore: Math.round(parseFloat(top.mock_exam_score))
-        };
-    }
-
-    const byStudyTime = universityUsers
-        .filter((u) => Number.isFinite(parseFloat(u.total_sec)) && parseFloat(u.total_sec) > 0)
-        .sort((a, b) => parseFloat(b.total_sec) - parseFloat(a.total_sec));
-
-    if (byStudyTime.length > 0) {
-        return {
-            topScorerNickname: byStudyTime[0].nickname,
-            topScorerScore: null
-        };
-    }
-
-    return { topScorerNickname: null, topScorerScore: null };
-}
-
-function buildLandmarkUniversityStats() {
-    const stats = {};
-    LANDMARK_UNIVERSITIES.forEach((universityName) => {
-        const basePercentile = getUniBasePercentile(universityName);
-        const predictedCutScore = typeof basePercentile === 'number'
-            ? Math.round(percentileToCutline(basePercentile))
-            : null;
-        const topScorer = getTopScorerForUniversity(universityName);
-
-        stats[universityName] = {
-            university: universityName,
-            basePercentile,
-            predictedCutScore,
-            topScorerNickname: topScorer.topScorerNickname,
-            topScorerScore: topScorer.topScorerScore
-        };
-    });
-    return stats;
-}
-
-function syncLandmarkUniversityStatsToScene() {
-    if (!window.WorldScene || !window.WorldScene.isReady || !window.WorldScene.setUniversityLandmarkStats) return;
-    window.WorldScene.setUniversityLandmarkStats(buildLandmarkUniversityStats());
-}
 
 function getOnboardingDoneKey(userId) {
     return `${ONBOARDING_DONE_PREFIX}${userId}`;
@@ -229,104 +141,6 @@ function getOnboardingDoneKey(userId) {
 
 function clamp(val, min, max) {
     return Math.max(min, Math.min(max, val));
-}
-
-function hasLatestEulaAgreement(user) {
-    if (!user) return false;
-    return user.eula_version === REQUIRED_EULA_VERSION && !!user.eula_agreed_at;
-}
-
-async function ensureLatestEulaAgreement() {
-    if (hasLatestEulaAgreement(currentUser)) return true;
-
-    let eulaMeta = {
-        version: REQUIRED_EULA_VERSION,
-        title: 'P.A.T.H 서비스 이용약관',
-        content: '최신 이용약관 동의가 필요합니다.'
-    };
-
-    try {
-        const eulaRes = await fetch('/api/auth/eula', { credentials: 'include' });
-        if (eulaRes.ok) {
-            const data = await eulaRes.json();
-            if (data && typeof data === 'object') {
-                eulaMeta = {
-                    version: String(data.version || REQUIRED_EULA_VERSION),
-                    title: String(data.title || eulaMeta.title),
-                    content: String(data.content || eulaMeta.content)
-                };
-            }
-        }
-    } catch (_) {
-        // Keep fallback metadata.
-    }
-
-    return new Promise((resolve) => {
-        const backdrop = document.createElement('div');
-        backdrop.className = 'modal-backdrop visible';
-        backdrop.style.zIndex = '2200';
-        backdrop.innerHTML = `
-            <div class="write-modal" role="dialog" aria-modal="true" style="max-width:640px;transform:none;max-height:90vh;">
-                <div class="write-modal-header">
-                    <h2 class="write-modal-title">${esc(eulaMeta.title)} 동의</h2>
-                </div>
-                <div class="write-modal-body" style="padding-top:8px;">
-                    <p style="font-size:12px;color:var(--text-sub);line-height:1.6;white-space:pre-wrap;">${esc(eulaMeta.content)}</p>
-                    <div style="margin-top:14px;padding:10px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.03);">
-                        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);cursor:pointer;">
-                            <input type="checkbox" id="eula-agree-check" style="margin-top:2px;">
-                            <span>위 이용약관을 읽었으며 동의합니다. (필수)</span>
-                        </label>
-                    </div>
-                </div>
-                <div class="write-modal-footer" style="justify-content:space-between;">
-                    <button class="write-cancel-btn" id="eula-logout-btn">동의 안 함</button>
-                    <button class="write-submit-btn" id="eula-agree-btn" disabled>동의하고 계속</button>
-                </div>
-            </div>`;
-
-        document.body.appendChild(backdrop);
-
-        const check = backdrop.querySelector('#eula-agree-check');
-        const agreeBtn = backdrop.querySelector('#eula-agree-btn');
-        const logoutBtn = backdrop.querySelector('#eula-logout-btn');
-
-        check.addEventListener('change', () => {
-            agreeBtn.disabled = !check.checked;
-        });
-
-        logoutBtn.addEventListener('click', async () => {
-            backdrop.remove();
-            await doLogout();
-            resolve(false);
-        });
-
-        agreeBtn.addEventListener('click', async () => {
-            agreeBtn.disabled = true;
-            try {
-                const r = await fetch('/api/auth/eula/agree', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ version: eulaMeta.version })
-                });
-                const data = await r.json().catch(() => ({}));
-                if (!r.ok) {
-                    alert(data.error || '약관 동의 처리에 실패했습니다. 다시 시도해주세요.');
-                    agreeBtn.disabled = false;
-                    return;
-                }
-
-                currentUser.eula_version = data.eula_version || eulaMeta.version;
-                currentUser.eula_agreed_at = data.eula_agreed_at || new Date().toISOString();
-                backdrop.remove();
-                resolve(true);
-            } catch (_) {
-                alert('약관 동의 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
-                agreeBtn.disabled = false;
-            }
-        });
-    });
 }
 
 function getOnboardingElements() {
@@ -529,10 +343,6 @@ async function initHub() {
 
         const meData = await meRes.json();
         currentUser = meData.user;
-        const eulaOk = await ensureLatestEulaAgreement();
-        if (!eulaOk) return;
-        // 저장된 서버 테마 적용 (localStorage보다 서버 값 우선)
-        if (currentUser?.ui_theme) applyTheme(currentUser.ui_theme);
 
         let topPct = 100;
         if (rankMeRes.ok) {
@@ -555,7 +365,6 @@ async function initHub() {
 
         updateHUD(currentUser);
         updateMyBuilding(currentUser);
-        await handleDiamondWebPaymentCallback();
         await Promise.all([loadRankingAndMap(), loadNotifBadge(), loadUniversitiesCache(), refreshFriendBadge()]);
         fetch('/api/friends/list', { credentials: 'include' }).then(r => r.ok ? r.json() : []).then(friends => {
             if (window.WorldScene) window.WorldScene.setFriendIds(friends.map(f => f.id));
@@ -579,18 +388,10 @@ function secToHour(sec) {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function getDisplayNickname(userLike) {
-    if (!userLike) return '';
-    return userLike.display_nickname || userLike.nickname || '';
-}
-
 function updateHUD(user) {
     document.getElementById('badge-char').textContent = (user.nickname || '?').charAt(0).toUpperCase();
-    const titlePrefix = user.active_title ? `[${user.active_title}] ` : '';
-    document.getElementById('hud-univ').textContent = `${titlePrefix}${user.university || '-'}`;
+    document.getElementById('hud-univ').textContent = user.university || '-';
     document.getElementById('hud-gold').textContent = (user.gold || 0).toLocaleString();
-    const diaEl = document.getElementById('hud-diamond');
-    if (diaEl) diaEl.textContent = (user.diamond || 0).toLocaleString();
     document.getElementById('hud-hours').textContent = secToHour(myTotalSec);
     document.getElementById('hud-tickets').textContent = (user.tickets || 0) + '장';
 }
@@ -604,7 +405,7 @@ function updateMyBuilding(user) {
     const label = document.getElementById('my-castle-label');
     if (label) label.textContent = user?.university || 'MY BALLOON';
     if (window.WorldScene && window.WorldScene.isReady) {
-        window.WorldScene.updateMyBalloon(src);
+        window.WorldScene.updateMyBalloon(skinId);
     }
 }
 
@@ -615,7 +416,6 @@ async function loadRankingAndMap() {
         const data = await r.json();
         allUsers = data.ranking || [];
         renderOtherUsers(allUsers);
-        syncLandmarkUniversityStatsToScene();
         if (!document.getElementById('panel-rank').classList.contains('hidden')) {
             loadRankPanel(currentRankTab);
         }
@@ -626,24 +426,29 @@ async function loadRankingAndMap() {
 
 async function loadUniversitiesCache() {
     try {
-        let r = await fetch('/api/universities', { credentials: 'include' });
-        if (!r.ok) {
-            r = await fetch('/api/university/list', { credentials: 'include' });
-        }
+        const r = await fetch('/api/universities', { credentials: 'include' });
         if (!r.ok) return;
         const data = await r.json();
         allUniversities = data.universities || [];
-        syncLandmarkUniversityStatsToScene();
     } catch (e) {
         console.error('loadUniversitiesCache 오류:', e);
     }
 }
 
 function renderOtherUsers(users) {
+    // Once realtime socket is active, world players are controlled by
+    // players:nearby / player:enter / player:moved events.
+    if (worldSocket) return;
+
     const isLight = document.body.classList.contains('light');
     if (window.WorldScene && window.WorldScene.isReady) {
         window.WorldScene.setUsers(users, currentUser, isLight);
     }
+}
+
+function _normalizeUserId(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
 }
 
 // ── 랭킹 패널 ────────────────────────────────────────────────────────
@@ -652,28 +457,13 @@ async function loadRankPanel(tab) {
     listEl.textContent = '로딩 중...';
     try {
         const url = tab === 'today' ? '/api/ranking/today' : '/api/ranking';
-        const [rankRes, bountyRes] = await Promise.all([
-            fetch(url, { credentials: 'include' }),
-            fetch('/api/ranking/bounty', { credentials: 'include' })
-        ]);
-        const data = await rankRes.json();
+        const r = await fetch(url, { credentials: 'include' });
+        const data = await r.json();
         const list = data.ranking;
-        const bountyData = bountyRes.ok ? await bountyRes.json() : { bounties: [] };
 
         if (!list || list.length === 0) { listEl.textContent = '데이터 없음'; return; }
 
-        const bountyHtml = (bountyData.bounties || []).length
-            ? `<div style="margin-bottom:12px;padding:10px;border:1px solid var(--border);border-radius:10px;background:rgba(255,80,80,0.08)">
-                <div style="font-size:11px;color:var(--accent-red);font-weight:700;letter-spacing:0.08em;margin-bottom:8px">WANTED BOARD</div>
-                ${(bountyData.bounties || []).map((b) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:4px;">
-                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.reason || '현상수배')}</span>
-                    <span style="color:var(--gold);font-weight:700">+${Number(b.reward_gold || 0).toLocaleString()}G</span>
-                </div>
-                <div style="font-size:11px;color:var(--text-sub);margin-bottom:6px;">타겟: ${esc(b.display_nickname || b.nickname || '')}${b.active_streak > 0 ? ` · 🔥${b.active_streak}` : ''}</div>`).join('')}
-            </div>`
-            : '';
-
-        const rowsHtml = list.map((u, i) => {
+        listEl.innerHTML = list.map((u, i) => {
             const isMe = u.id === currentUser?.id;
             const val = tab === 'today'
                 ? `<span style="color:#aaa">${secToHour(u.today_sec || 0)}</span>`
@@ -681,13 +471,12 @@ async function loadRankPanel(tab) {
             return `<div class="rank-item ${isMe ? 'me' : ''}" onclick="focusUser(${u.id})">
                 <span class="rank-num">${i + 1}</span>
                 <div style="flex:1;min-width:0">
-                    <div class="rank-nick">${esc(getDisplayNickname(u))} ${u.active_streak > 0 ? `<span class="rank-studying">🔥${u.active_streak}</span>` : ''} ${u.is_studying ? '<span class="rank-studying">📖</span>' : ''}</div>
+                    <div class="rank-nick">${u.nickname} ${u.is_studying ? '<span class="rank-studying">📖</span>' : ''}</div>
                     <div class="rank-univ">${u.university || '-'}</div>
                 </div>
                 <div style="text-align:right">${val}</div>
             </div>`;
         }).join('');
-        listEl.innerHTML = bountyHtml + rowsHtml;
     } catch (e) { listEl.textContent = '오류 발생'; }
 }
 
@@ -743,129 +532,115 @@ async function openEstate() {
         const score = currentUser?.mock_exam_score || 0;
         const scoreStatus = currentUser?.score_status || 'none';
 
-        // ── 수입 표시 구성 ──
-        let rateBadges = '';
-        if (data.nsuBonus) rateBadges += `<span class="estate-badge orange">N수 +${data.nsuBonus}G</span> `;
-        if (data.gpaBonus) rateBadges += `<span class="estate-badge blue">내신 +${data.gpaBonus}G</span> `;
-        if (data.streak_bonus_rate) rateBadges += `<span class="estate-badge orange">콤보 x${Number(data.streak_multiplier || 1).toFixed(2)}</span>`;
+        let rateParts = [];
+        let rateDisplay = `${data.rate}G/hr`;
+        if (data.nsuBonus || data.gpaBonus) {
+            rateParts.push(data.baseRate || data.rate);
+            if (data.nsuBonus) rateParts.push(`<span style="color:#4CAF50">+${data.nsuBonus} N수</span>`);
+            if (data.gpaBonus) rateParts.push(`<span style="color:#2196F3">+${data.gpaBonus} 내신</span>`);
+            rateDisplay = rateParts.join(' + ') + ` = ${data.rate}G/hr`;
+        }
 
-        // ── 점수 인증 섹션 ──
         let scoreSection = '';
         if (scoreStatus === 'approved') {
-            scoreSection = `<span class="estate-badge green">✓ 인증완료 · ${score}점</span>`;
+            scoreSection = `<div class="estate-val" style="color:#4CAF50">✓ 인증 완료 · ${score}점</div>`;
         } else if (scoreStatus === 'pending') {
-            scoreSection = `<span class="estate-badge gold">⏳ 심사 대기 중</span>`;
-        } else {
-            const rejLabel = scoreStatus === 'rejected'
-                ? `<div style="margin-bottom:8px"><span class="estate-badge" style="background:rgba(240,68,82,0.15);color:var(--red)">✗ 반려 — 재업로드 필요</span></div>`
-                : '';
+            scoreSection = `<div class="estate-val" style="color:#f1c40f">⏳ 관리자 심사 대기 중</div>`;
+        } else if (scoreStatus === 'rejected') {
             scoreSection = `
-                ${rejLabel}
+                <div class="estate-val" style="color:var(--accent);margin-bottom:6px">✗ 반려됨 — 재업로드 필요</div>
                 <div class="score-upload-area" id="score-upload-area">
                     <input type="file" id="score-file" accept="image/*" style="display:none" onchange="previewScore(this)">
-                    <button class="inline-btn" onclick="document.getElementById('score-file').click()">사진 선택</button>
+                    <button class="inline-btn" onclick="document.getElementById('score-file').click()">📷 성적 사진 선택</button>
+                    <div id="score-preview" style="margin-top:6px"></div>
+                    <button class="inline-btn" id="btn-upload-score" style="display:none;margin-top:6px" onclick="uploadScore()">업로드</button>
+                </div>`;
+        } else {
+            scoreSection = `
+                <div class="score-upload-area" id="score-upload-area">
+                    <input type="file" id="score-file" accept="image/*" style="display:none" onchange="previewScore(this)">
+                    <button class="inline-btn" onclick="document.getElementById('score-file').click()">📷 성적 사진 업로드</button>
                     <div id="score-preview" style="margin-top:6px"></div>
                     <button class="inline-btn" id="btn-upload-score" style="display:none;margin-top:6px" onclick="uploadScore()">업로드</button>
                 </div>`;
         }
 
-        // ── N수생 배지 ──
-        const nsuBadge = data.is_n_su && data.prev_university
-            ? `<div style="margin-top:4px"><span class="estate-badge green">N수 · ${esc(data.prev_university)}</span></div>`
+        const nsuLine = data.is_n_su && data.prev_university
+            ? `<div class="estate-section"><div class="estate-label">🔄 N수생 전적대</div><div class="estate-val">${data.prev_university} <span style="color:#4CAF50;font-size:10px">(세금 +15% 보너스)</span></div></div>`
             : '';
 
         const interior = document.getElementById('castle-interior');
         document.getElementById('interior-body').innerHTML = `
             <div class="interior-grid">
-
-                <!-- 상태 메시지 (full width) -->
                 <div class="interior-card" style="grid-column:1/-1;">
-                    <div class="interior-card-title">상태 메시지</div>
-                    <div style="display:flex;gap:8px;align-items:center;">
-                        <input type="text" id="status-msg-input" class="interior-input" maxlength="30"
-                            placeholder="열기구 위에 표시될 메시지"
-                            value="${esc(currentUser?.status_message || '')}">
-                        <button id="status-msg-save-btn" class="inline-btn" onclick="saveStatusMsg(event)">저장</button>
-                        <button class="inline-btn" style="color:var(--text-tertiary);background:var(--surface-hover);border-color:var(--border-color);"
-                            onclick="document.getElementById('status-msg-input').value='';saveStatusMsg(event)">지우기</button>
-                    </div>
-                    <div style="font-size:11px;color:var(--text-tertiary);">최대 30자 · 내 열기구 위 말풍선에 표시됩니다</div>
-                </div>
-
-                <!-- 모의진학 정보 -->
-                <div class="interior-card">
-                    <div class="interior-card-title">모의진학</div>
-                    <div class="estate-big-stat">
-                        <div class="label">목표 대학</div>
-                        <div class="number" style="font-size:20px">${esc(data.university || '-')}</div>
-                    </div>
-                    ${nsuBadge}
-                    <div class="estate-divider"></div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <div class="estate-section">
-                            <div class="estate-label">백분위</div>
-                            <div class="estate-val">${data.percentile}%</div>
-                        </div>
-                        <div class="estate-section" style="text-align:right">
-                            <div class="estate-label">보유 골드</div>
-                            <div class="estate-val" style="color:var(--gold)">${(data.gold || 0).toLocaleString()}G</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 수입 -->
-                <div class="interior-card">
-                    <div class="interior-card-title">수입</div>
-                    <div class="estate-big-stat">
-                        <div class="label">미수령</div>
-                        <div class="number" style="color:var(--gold)">${(data.pending || 0).toLocaleString()}<span class="unit">G</span></div>
-                    </div>
-                    <button class="interior-action-btn" onclick="collectTax()">수입 수령</button>
-                    <div class="estate-divider"></div>
+                    <div class="interior-card-title">💬 상태 메시지</div>
                     <div class="estate-section">
-                        <div class="estate-label">패시브 수입</div>
-                        <div class="estate-val">${data.rate}G<span style="font-size:11px;font-weight:500;color:var(--text-secondary)">/hr</span></div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="text" id="status-msg-input" class="interior-input" maxlength="30"
+                                placeholder="열기구 위에 표시될 메시지를 입력하세요"
+                                value="${esc(currentUser?.status_message || '')}">
+                            <button id="status-msg-save-btn" class="inline-btn" onclick="saveStatusMsg(event)">저장</button>
+                            <button class="inline-btn" style="color:#888;background:rgba(255,255,255,0.05);" onclick="document.getElementById('status-msg-input').value='';saveStatusMsg(event)">지우기</button>
+                        </div>
+                        <div style="margin-top:5px;font-size:10px;color:#555;">최대 30자 · 내 열기구 위에 말풍선으로 표시됩니다</div>
                     </div>
-                    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px">${rateBadges || '<span style="font-size:11px;color:var(--text-tertiary)">기본 수입</span>'}</div>
-                    <div class="estate-section" style="margin-top:4px">
-                        <div class="estate-label">공부 수입</div>
-                        <div class="estate-val">10G<span style="font-size:11px;font-weight:500;color:var(--text-secondary)">/hr</span></div>
+                </div>
+                <div class="interior-card">
+                    <div class="interior-card-title">🏫 모의진학 정보</div>
+                    <div class="estate-section">
+                        <div class="estate-label">대학교</div>
+                        <div class="estate-val">${data.university || '-'} <span style="color:var(--text-sub);font-size:10px">(백분위 ${data.percentile}%)</span></div>
+                    </div>
+                    ${nsuLine}
+                    <div class="estate-section">
+                        <div class="estate-label">🪙 보유 골드</div>
+                        <div class="estate-val">${(data.gold || 0).toLocaleString()}G</div>
                     </div>
                 </div>
 
-                <!-- 평가원 점수 인증 -->
                 <div class="interior-card">
-                    <div class="interior-card-title">평가원 점수 인증</div>
+                    <div class="interior-card-title">💰 수입</div>
+                    <div class="estate-section">
+                        <div class="estate-label">모의진학 수입 (패시브)</div>
+                        <div class="estate-val">${rateDisplay}</div>
+                    </div>
+                    <div class="estate-section">
+                        <div class="estate-label">미수령 세금</div>
+                        <div class="estate-val" style="color:var(--gold);font-size:18px;font-weight:700">${data.pending}G</div>
+                    </div>
+                    <button class="interior-action-btn" onclick="collectTax()">💰 수입 수령</button>
+                    <div class="estate-section" style="margin-top:8px">
+                        <div class="estate-label">공부 수입</div>
+                        <div class="estate-val">10G/hr (전 유저 동일)</div>
+                    </div>
+                </div>
+
+                <div class="interior-card">
+                    <div class="interior-card-title">📋 평가원 점수 인증</div>
                     ${scoreSection}
                 </div>
 
-                <!-- 내신 등급 인증 -->
                 <div class="interior-card">
-                    <div class="interior-card-title">내신 등급 인증</div>
+                    <div class="interior-card-title">📝 내신 등급 인증</div>
                     ${buildGpaSection()}
                 </div>
 
-                <!-- 합격 가능성 비교 -->
                 <div class="interior-card" id="gpa-compare-card" style="${currentUser?.gpa_status === 'approved' ? '' : 'display:none'}">
-                    <div class="interior-card-title">합격 가능성 비교</div>
-                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                        <span class="estate-label">내 내신</span>
-                        <span class="estate-badge gold">${currentUser?.gpa_score || '-'}등급</span>
+                    <div class="interior-card-title">🎯 합격 가능성 비교</div>
+                    <div class="estate-section">
+                        <div class="estate-label">내 내신: <strong style="color:var(--gold)">${currentUser?.gpa_score || '-'}등급</strong></div>
                     </div>
-                    <div class="estate-section" style="margin-top:4px">
-                        <input type="text" id="compare-univ-input" class="interior-input" placeholder="비교할 대학명 입력"
-                            value="${esc(currentUser?.university || '')}">
-                        <button class="inline-btn" style="margin-top:6px;align-self:flex-start" onclick="compareGpa()">비교하기</button>
+                    <div class="estate-section" style="margin-top:6px">
+                        <input type="text" id="compare-univ-input" class="interior-input" placeholder="비교할 대학명 입력" value="${esc(currentUser?.university || '')}">
+                        <button class="inline-btn" style="margin-top:6px" onclick="compareGpa()">비교하기</button>
                     </div>
                     <div id="gpa-compare-result" style="margin-top:8px"></div>
                 </div>
 
-                <!-- 대학 모의진학 목록 (full width) -->
-                <div class="interior-card" style="grid-column:1/-1;max-height:300px;overflow-y:auto;">
-                    <div class="interior-card-title">대학 모의진학 목록</div>
-                    <div id="university-estates-list" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">로딩 중...</div>
+                <div class="interior-card" style="grid-column: 1 / -1; max-height: 300px; overflow-y: auto;">
+                    <div class="interior-card-title">🏰 대학 모의진학 목록</div>
+                    <div id="university-estates-list" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">로딩 중...</div>
                 </div>
-
             </div>
         `;
         interior.classList.remove('hidden');
@@ -1054,7 +829,7 @@ async function collectTax() {
 // ── 유저 모달 (도전/모의지원) ─────────────────────────────────────────
 function openUserModal(user) {
     selectedUser = user;
-    document.getElementById('user-modal-title').textContent = `🎓 ${getDisplayNickname(user)}의 모의진학`;
+    document.getElementById('user-modal-title').textContent = `🎓 ${user.nickname}의 모의진학`;
     const myScore = currentUser?.mock_exam_score || 0;
 
     // 합격 확률 계산
@@ -1205,7 +980,7 @@ async function doInvade() {
     if ((currentUser?.tickets || 0) < 1) { alert('원서비가 없습니다.\nSHOP에서 골드로 구매하세요!'); return; }
     if (!currentUser?.mock_exam_score) { alert('평가원 점수를 먼저 등록해주세요.\n(내 성채 클릭 → 점수 등록)'); return; }
 
-    if (!confirm(`${getDisplayNickname(selectedUser)}의 모의진학(${selectedUser.university || '?'})에 지원하시겠습니까?\n원서비 1장 소모`)) return;
+    if (!confirm(`${selectedUser.nickname}의 모의진학(${selectedUser.university || '?'})에 지원하시겠습니까?\n원서비 1장 소모`)) return;
 
     try {
         const r = await fetch('/api/invasion/attack', {
@@ -1222,14 +997,10 @@ async function doInvade() {
         const msg = won
             ? `🎉 모의지원 합격!\n\n내 점수: ${data.attacker_score}점${probLine}\n🏫 대학: ${data.defender_university}(으)로 변경!`
             : `📝 모의지원 불합격\n\n내 점수: ${data.attacker_score}점${probLine}\n\n더 열심히 공부해서 다시 도전하세요!`;
-        const bountyLine = data.bounty_reward > 0 ? `\n💰 현상금 보너스: +${Number(data.bounty_reward).toLocaleString()}G` : '';
-        const titleLine = Array.isArray(data.grantedTitles) && data.grantedTitles.length
-            ? `\n🏷️ 신규 칭호 획득: ${data.grantedTitles.map((t) => `[${t}]`).join(', ')}`
-            : '';
-        alert(msg + bountyLine + titleLine);
-        currentUser = { ...(currentUser || {}), ...(data.user || {}) };
-        updateHUD(currentUser);
-        updateMyBuilding(currentUser);
+        alert(msg);
+        currentUser = data.user;
+        updateHUD(data.user);
+        updateMyBuilding(data.user);
         closeModal('modal-user');
         loadRankingAndMap();
     } catch (e) { alert('서버 오류 발생'); }
@@ -1371,13 +1142,6 @@ function togglePanel(id) {
     }
 }
 
-function loadCommunityPanel() {
-    const iframe = document.getElementById('community-iframe');
-    if (iframe && !iframe.src) {
-        iframe.src = resolveHubPath('/P.A.T.H/community/index.html', '../community/index.html');
-    }
-}
-
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
 document.querySelectorAll('.modal-backdrop').forEach(el => {
@@ -1414,124 +1178,6 @@ async function doLogout() {
 /* ── SHOP SYSTEM ── */
 let currentShopTab = 'item';
 let shopBalloonRenderers = []; // Track 3D renderers for cleanup
-
-function getClientPlatform() {
-    const isNativeApp = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
-    return isNativeApp ? 'app' : 'web';
-}
-
-function getAppStoreProvider() {
-    const ua = (navigator.userAgent || '').toLowerCase();
-    if (ua.includes('android')) return 'googleplay';
-    if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod') || ua.includes('ios')) return 'appstore';
-    return '';
-}
-
-function getAbsoluteMainHubUrl() {
-    return `${window.location.origin}/mainHub/`;
-}
-
-async function loadTossPaymentsSdk() {
-    if (window.TossPayments) return window.TossPayments;
-
-    await new Promise((resolve, reject) => {
-        const existing = document.querySelector('script[data-toss-sdk="1"]');
-        if (existing) {
-            existing.addEventListener('load', () => resolve(), { once: true });
-            existing.addEventListener('error', () => reject(new Error('토스 SDK 로드 실패')), { once: true });
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.src = 'https://js.tosspayments.com/v1/payment';
-        script.async = true;
-        script.dataset.tossSdk = '1';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('토스 SDK 로드 실패'));
-        document.head.appendChild(script);
-    });
-
-    return window.TossPayments;
-}
-
-async function handleDiamondWebPaymentCallback() {
-    const params = new URLSearchParams(window.location.search);
-    const paymentKey = params.get('paymentKey');
-    const orderId = params.get('orderId');
-    const amountRaw = params.get('amount');
-    if (!paymentKey || !orderId || !amountRaw) return;
-
-    const amount = parseInt(amountRaw, 10);
-    if (!Number.isInteger(amount)) return;
-
-    try {
-        const r = await fetch('/api/estate/diamond/web/confirm', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ paymentKey, orderId, amount })
-        });
-        const data = await r.json();
-        if (!r.ok) {
-            alert(data.error || '토스 결제 확인에 실패했습니다.');
-        } else {
-            currentUser = { ...(currentUser || {}), ...(data.user || {}) };
-            updateHUD(currentUser);
-            alert(`다이아 충전 완료! +${Number(data.addedDiamond || 0).toLocaleString()}D`);
-        }
-    } catch (e) {
-        alert('결제 확인 중 오류가 발생했습니다.');
-    } finally {
-        window.history.replaceState({}, document.title, getAbsoluteMainHubUrl());
-    }
-}
-
-// ── UI 테마 ─────────────────────────────────────────────────────────
-function applyTheme(themeId) {
-    const id = themeId || 'default';
-    // 'light' theme uses the existing body.light mechanism
-    if (id === 'light') {
-        document.body.removeAttribute('data-theme');
-        document.body.classList.add('light');
-    } else {
-        document.body.classList.remove('light');
-        if (id === 'default') {
-            document.body.removeAttribute('data-theme');
-        } else {
-            document.body.setAttribute('data-theme', id);
-        }
-    }
-    localStorage.setItem('path_theme', id);
-}
-
-async function buyTheme(themeId, currency = 'gold') {
-    try {
-        const r = await fetch('/api/estate/buy-theme', {
-            method: 'POST', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ themeId, currency })
-        });
-        const data = await r.json();
-        if (!r.ok) { alert(data.error || '구매 실패'); return; }
-        if (data.user) currentUser = { ...(currentUser || {}), ...data.user };
-        applyTheme(themeId);
-        renderShopContent('theme');
-    } catch (e) { alert('오류가 발생했습니다.'); }
-}
-
-async function equipTheme(themeId) {
-    try {
-        const r = await fetch('/api/estate/equip-theme', {
-            method: 'POST', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ themeId })
-        });
-        const data = await r.json();
-        if (!r.ok) { alert(data.error || '적용 실패'); return; }
-        applyTheme(themeId);
-        renderShopContent('theme');
-    } catch (e) { alert('오류가 발생했습니다.'); }
-}
 
 function switchShopTab(tab, btn) {
     currentShopTab = tab;
@@ -1781,15 +1427,13 @@ async function renderShopContent(tab) {
                 const rawUniversities = univData.universities || [];
                 const universities = [...medicalUnivs, ...rawUniversities];
                 const myTickets = currentUser?.tickets || 0;
-                const myGold = currentUser?.gold || 0;
-                const myDiamond = currentUser?.diamond || 0;
+            const myGold = currentUser?.gold || 0;
 
             container.innerHTML = `
                 <div style="padding:10px 0 6px;">
                     <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:10px;">
                         보유 원서비: <strong style="color:var(--gold)">${myTickets}장</strong>
                         &nbsp;|&nbsp; 보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
-                        &nbsp;|&nbsp; 보유 다이아: <strong style="color:#78d7ff">${myDiamond.toLocaleString()}D</strong>
                     </div>
                     <div style="font-size:10px;color:#666;margin-bottom:8px;">목표 대학을 선택하면 해당 대학 기준 원서비를 구매할 수 있습니다.</div>
                     <input type="text" id="shop-univ-search" placeholder="대학 검색..."
@@ -1810,14 +1454,12 @@ async function renderShopContent(tab) {
             const skinData = skinRes.ok ? await skinRes.json() : { skins: [], owned: ['default'], equipped: 'default' };
             const { skins, owned, equipped } = skinData;
             const myGold = currentUser?.gold || 0;
-            const myDiamond = currentUser?.diamond || 0;
             const isLight = document.body.classList.contains('light');
 
             container.innerHTML = `
                 <div style="padding:10px 0 6px;">
                     <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:12px;">
                         보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
-                        &nbsp;|&nbsp; 보유 다이아: <strong style="color:#78d7ff">${myDiamond.toLocaleString()}D</strong>
                     </div>
                     <div id="skin-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
                 </div>
@@ -1875,147 +1517,6 @@ async function renderShopContent(tab) {
             });
         } catch (e) {
             container.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;font-size:12px">로드 실패</div>';
-        }
-    } else if (tab === 'diamond') {
-        try {
-            const [pkgRes, meRes] = await Promise.all([
-                fetch('/api/estate/diamond/packages', { credentials: 'include' }),
-                fetch('/api/auth/me', { credentials: 'include' })
-            ]);
-            const pkgData = pkgRes.ok ? await pkgRes.json() : { packages: [] };
-            const meData = meRes.ok ? await meRes.json() : { user: currentUser };
-            currentUser = { ...(currentUser || {}), ...(meData.user || {}) };
-
-            const packages = pkgData.packages || [];
-            const myDiamond = currentUser?.diamond || 0;
-            const platform = getClientPlatform();
-            const appStoreProvider = getAppStoreProvider();
-
-            let channelHint = '웹 결제: 토스(Toss)만 지원';
-            if (platform === 'app') {
-                if (appStoreProvider === 'googleplay') channelHint = '앱 결제: 구글플레이 결제 사용';
-                else if (appStoreProvider === 'appstore') channelHint = '앱 결제: 앱스토어 결제 사용';
-                else channelHint = '앱 결제: 구글플레이/앱스토어 지원';
-            }
-
-            container.innerHTML = `
-                <div style="padding:10px 0 6px;">
-                    <div style="font-size:11px;color:#9fdfff;letter-spacing:1px;margin-bottom:8px;">
-                        현재 다이아: <strong style="color:#78d7ff">${myDiamond.toLocaleString()}D</strong>
-                    </div>
-                    <div style="font-size:10px;color:#666;margin-bottom:10px;line-height:1.45;">
-                        다이아는 유료 결제로만 충전됩니다.<br>
-                        ${channelHint}<br>
-                        결제 서버에서 발급한 서명(signature)으로만 지급됩니다.
-                    </div>
-                    <div id="diamond-package-list" style="display:flex;flex-direction:column;gap:8px;"></div>
-                </div>
-            `;
-
-            const listEl = document.getElementById('diamond-package-list');
-            if (!listEl) return;
-
-            if (!packages.length) {
-                listEl.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:18px;">다이아 상품이 아직 등록되지 않았습니다.</div>';
-                return;
-            }
-
-            listEl.innerHTML = packages.map((pkg) => {
-                const buttons = [];
-                if (platform === 'web') {
-                    buttons.push(`<button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)}, 'toss')">토스 결제 반영</button>`);
-                } else if (appStoreProvider === 'googleplay') {
-                    buttons.push(`<button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)}, 'googleplay')">구글플레이 반영</button>`);
-                } else if (appStoreProvider === 'appstore') {
-                    buttons.push(`<button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)}, 'appstore')">앱스토어 반영</button>`);
-                } else {
-                    buttons.push(`<button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)}, 'googleplay')">구글플레이 반영</button>`);
-                    buttons.push(`<button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)}, 'appstore')">앱스토어 반영</button>`);
-                }
-
-                return `
-                <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);border-radius:8px;padding:10px;background:rgba(120,215,255,0.04)">
-                    <div>
-                        <div style="font-size:13px;color:#bfeaff;font-weight:700;">${Number(pkg.diamonds || 0).toLocaleString()}D</div>
-                        <div style="font-size:11px;color:#aaa;">${Number(pkg.priceKrw || 0).toLocaleString()}원</div>
-                    </div>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">${buttons.join('')}</div>
-                </div>
-            `;
-            }).join('');
-        } catch (e) {
-            container.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;font-size:12px">다이아 정보를 불러오지 못했습니다.</div>';
-        }
-    } else if (tab === 'theme') {
-        try {
-            const [themeRes, meRes] = await Promise.all([
-                fetch('/api/estate/themes', { credentials: 'include' }),
-                fetch('/api/auth/me', { credentials: 'include' })
-            ]);
-            const themeData = themeRes.ok ? await themeRes.json() : { themes: [], owned: ['default'], equipped: 'default' };
-            const meData = meRes.ok ? await meRes.json() : { user: currentUser };
-            currentUser = { ...(currentUser || {}), ...(meData.user || {}) };
-
-            const { themes, owned, equipped } = themeData;
-            const myGold = currentUser?.gold || 0;
-            const myDiamond = currentUser?.diamond || 0;
-
-            container.innerHTML = `
-                <div style="padding:10px 0 6px;">
-                    <div style="font-size:10px;color:var(--text-tertiary);letter-spacing:1px;margin-bottom:4px;">
-                        보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
-                        &nbsp;|&nbsp; 보유 다이아: <strong style="color:#78d7ff">${myDiamond.toLocaleString()}D</strong>
-                    </div>
-                    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">
-                        UI 테마를 바꿔 나만의 감성으로 꾸며보세요.<br>
-                        테마는 구매 즉시 적용되며 언제든지 변경 가능합니다.
-                    </div>
-                    <div id="theme-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
-                </div>
-            `;
-
-            const grid = document.getElementById('theme-grid');
-            if (!grid) return;
-
-            themes.forEach(theme => {
-                const isOwned = owned.includes(theme.id);
-                const isEquipped = equipped === theme.id;
-
-                const card = document.createElement('div');
-                card.className = `theme-card${isOwned ? ' owned' : ''}${isEquipped ? ' equipped' : ''}`;
-
-                const swatches = (theme.preview || []).map(c =>
-                    `<div class="theme-preview-swatch" style="background:${c}"></div>`
-                ).join('');
-
-                let btnHtml = '';
-                if (isEquipped) {
-                    btnHtml = `<div style="font-size:11px;font-weight:700;color:var(--accent);text-align:center;">현재 적용 중</div>`;
-                } else if (isOwned) {
-                    btnHtml = `<button class="inline-btn" style="width:100%;justify-content:center;" onclick="equipTheme('${theme.id}')">적용하기</button>`;
-                } else if (theme.priceGold === 0) {
-                    btnHtml = `<button class="inline-btn" style="width:100%;justify-content:center;" onclick="buyTheme('${theme.id}','gold')">무료로 받기</button>`;
-                } else {
-                    btnHtml = `
-                        <div style="display:flex;gap:6px;">
-                            <button class="inline-btn" style="flex:1;justify-content:center;font-size:11px;"
-                                onclick="buyTheme('${theme.id}','gold')">${theme.priceGold.toLocaleString()}G</button>
-                            <button class="inline-btn" style="flex:1;justify-content:center;font-size:11px;background:rgba(120,215,255,0.10);border-color:rgba(120,215,255,0.25);color:#78d7ff;"
-                                onclick="buyTheme('${theme.id}','diamond')">${theme.priceDiamond}D</button>
-                        </div>`;
-                }
-
-                card.innerHTML = `
-                    ${isEquipped ? '<div class="theme-equipped-badge">ACTIVE</div>' : ''}
-                    <div class="theme-preview">${swatches}</div>
-                    <div class="theme-name">${esc(theme.name)}</div>
-                    <div class="theme-desc">${esc(theme.description)}</div>
-                    ${btnHtml}
-                `;
-                grid.appendChild(card);
-            });
-        } catch (e) {
-            container.innerHTML = '<div style="color:var(--red);text-align:center;padding:20px;font-size:12px">테마 정보를 불러오지 못했습니다.</div>';
         }
     } else {
         container.innerHTML = `
@@ -2084,8 +1585,8 @@ async function buyApplicationFee(targetUniversity, unitPrice) {
         const data = await r.json();
         if (!r.ok) { alert(data.error || '구매 실패'); return; }
         alert(`[${targetUniversity}] 원서비 1장 구매 완료! (-${data.spent.toLocaleString()}G)`);
-        currentUser = { ...(currentUser || {}), ...(data.user || {}) };
-        updateHUD(currentUser);
+        currentUser = data.user;
+        updateHUD(data.user);
         renderShopContent('item');
     } catch (e) { alert('오류 발생'); }
 }
@@ -2105,7 +1606,6 @@ async function buySkin(skinId, price) {
         if (!r.ok) { alert(data.error || '구매 실패'); return; }
         if (currentUser) {
             currentUser.gold = data.user.gold;
-            currentUser.diamond = data.user.diamond ?? currentUser.diamond;
             currentUser.owned_skins = data.user.owned_skins;
             updateHUD(currentUser);
         }
@@ -2113,107 +1613,6 @@ async function buySkin(skinId, price) {
         renderShopContent('skin');
     } catch (e) { alert('오류 발생'); }
 }
-
-async function completeAppDiamondPurchase(packageId, priceKrw, providerName, providerTxId, paymentSignature) {
-    const r = await fetch('/api/estate/diamond/app/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-            package_id: packageId,
-            provider: providerName,
-            provider_tx_id: providerTxId,
-            paid_amount_krw: priceKrw,
-            payment_signature: paymentSignature,
-            client_platform: 'app'
-        })
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || '앱 결제 반영 실패');
-    currentUser = { ...(currentUser || {}), ...(data.user || {}) };
-    updateHUD(currentUser);
-    alert(`다이아 충전 완료! +${Number(data.addedDiamond || 0).toLocaleString()}D`);
-    renderShopContent('diamond');
-}
-
-async function startWebTossDiamondPayment(packageId) {
-    const prepRes = await fetch('/api/estate/diamond/web/prepare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ package_id: packageId })
-    });
-    const prepData = await prepRes.json();
-    if (!prepRes.ok) throw new Error(prepData.error || '결제 준비 실패');
-
-    const TossPayments = await loadTossPaymentsSdk();
-    const tossPayments = TossPayments(prepData.clientKey);
-    await tossPayments.requestPayment('카드', {
-        amount: prepData.amount,
-        orderId: prepData.orderId,
-        orderName: prepData.orderName,
-        successUrl: getAbsoluteMainHubUrl(),
-        failUrl: getAbsoluteMainHubUrl(),
-        customerName: currentUser?.nickname || 'P.A.T.H USER'
-    });
-}
-
-async function startAppDiamondPayment(packageId, priceKrw, providerName) {
-    const bridge = window.PathNativeIAP;
-    if (!bridge || typeof bridge.requestDiamondPurchase !== 'function') {
-        throw new Error('앱 결제 브리지(PathNativeIAP.requestDiamondPurchase)가 연결되지 않았습니다.');
-    }
-
-    const payload = await bridge.requestDiamondPurchase({
-        packageId,
-        provider: providerName,
-        amountKrw: priceKrw
-    });
-    if (!payload) throw new Error('앱 결제 결과가 없습니다.');
-
-    await completeAppDiamondPurchase(
-        packageId,
-        priceKrw,
-        providerName,
-        String(payload.provider_tx_id || ''),
-        String(payload.payment_signature || '')
-    );
-}
-
-async function purchaseDiamondPackage(packageId, priceKrw, provider) {
-    const providerName = String(provider || '').trim().toLowerCase();
-    if (!providerName) return;
-
-    try {
-        if (providerName === 'toss') {
-            await startWebTossDiamondPayment(packageId);
-            return;
-        }
-
-        await startAppDiamondPayment(packageId, priceKrw, providerName);
-    } catch (e) {
-        alert(e?.message || '다이아 결제 처리 중 오류가 발생했습니다.');
-    }
-}
-
-window.onPathDiamondPurchaseCompleted = async function onPathDiamondPurchaseCompleted(payload) {
-    try {
-        if (!payload || typeof payload !== 'object') throw new Error('결제 결과 payload가 비어 있습니다.');
-
-        const priceKrw = parseInt(payload.paid_amount_krw, 10);
-        if (!Number.isInteger(priceKrw)) throw new Error('결제 금액 정보가 올바르지 않습니다.');
-
-        await completeAppDiamondPurchase(
-            String(payload.package_id || ''),
-            priceKrw,
-            String(payload.provider || ''),
-            String(payload.provider_tx_id || ''),
-            String(payload.payment_signature || '')
-        );
-    } catch (e) {
-        alert(e?.message || '앱 결제 반영 실패');
-    }
-};
 
 async function equipSkin(skinId) {
     try {
@@ -2979,34 +2378,44 @@ function initWorldSocket(user) {
     // ── Receive full nearby-player snapshot ──────────────────────────
     worldSocket.on('players:nearby', (players) => {
         _wsNearby.clear();
-        players.forEach(p => _wsNearby.set(p.id, p));
+        players.forEach((p) => {
+            const id = _normalizeUserId(p?.id);
+            if (id === null) return;
+            _wsNearby.set(id, { ...p, id });
+        });
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.updateWorldPlayers(players, currentUser);
+            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], currentUser);
         }
     });
 
     // ── A new player entered the nearby area ─────────────────────────
     worldSocket.on('player:enter', (player) => {
-        _wsNearby.set(player.id, player);
+        const id = _normalizeUserId(player?.id);
+        if (id === null) return;
+        _wsNearby.set(id, { ...player, id });
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.updateWorldPlayers([...(_wsNearby.values())], currentUser);
+            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], currentUser);
         }
     });
 
     // ── Remote player moved ──────────────────────────────────────────
     worldSocket.on('player:moved', ({ id, worldX, worldY }) => {
-        const p = _wsNearby.get(id);
+        const userId = _normalizeUserId(id);
+        if (userId === null) return;
+        const p = _wsNearby.get(userId);
         if (p) { p.worldX = worldX; p.worldY = worldY; }
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.moveWorldPlayer(id, worldX, worldY);
+            window.WorldScene.moveWorldPlayer(userId, worldX, worldY);
         }
     });
 
     // ── Remote player disconnected ───────────────────────────────────
     worldSocket.on('player:left', ({ id }) => {
-        _wsNearby.delete(id);
+        const userId = _normalizeUserId(id);
+        if (userId === null) return;
+        _wsNearby.delete(userId);
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.removeWorldPlayer(id);
+            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], currentUser);
         }
     });
 
@@ -3026,20 +2435,18 @@ function initWorldSocket(user) {
     });
 
     // ── Announce ourselves to the server ────────────────────────────
-    const initialPos = (window.WorldScene && window.WorldScene.isReady)
+    const pos = (window.WorldScene && window.WorldScene.isReady)
         ? window.WorldScene.getWorldPosition()
         : { x: 0, y: 0 };
 
     worldSocket.emit('player:join', {
         userId:         user.id,
         nickname:       user.nickname       || '',
-        display_nickname: user.display_nickname || getDisplayNickname(user),
-        active_streak: Number(user.active_streak || 0),
         university:     user.university     || '',
         balloon_skin:   user.balloon_skin   || 'default',
         status_message: user.status_message || null,
-        worldX: initialPos.x,
-        worldY: initialPos.y,
+        worldX: pos.x,
+        worldY: pos.y,
     });
 
     // Wire up WorldScene's interaction callback so local clicks are emitted.
@@ -3081,50 +2488,6 @@ document.addEventListener('DOMContentLoaded', () => {
             openTeleportDialog();
         });
     }
-
-    // Explicitly bind onclick buttons to prevent double-invocation on touch browsers
-    // where nav.js fallback + native onclick can both fire the handler.
-    function bindBtn(el, handler) {
-        if (!el) return;
-        el.removeAttribute('onclick');
-        let _lastTap = 0;
-        el.addEventListener('pointerup', (e) => {
-            if (e.pointerType !== 'touch') return;
-            const now = Date.now();
-            if (now - _lastTap < 250) return;
-            _lastTap = now;
-            e.preventDefault();
-            e.stopPropagation();
-            handler();
-        }, { passive: false });
-        el.addEventListener('click', (e) => {
-            const now = Date.now();
-            if (now - _lastTap < 350) { e.preventDefault(); e.stopPropagation(); return; }
-            handler();
-        });
-    }
-
-    // Header: settings open button
-    bindBtn(document.getElementById('tutorial-btn-settings'), () => togglePanel('panel-settings'));
-
-    // Settings panel: close button + logout button
-    const settingsPanel = document.getElementById('panel-settings');
-    if (settingsPanel) {
-        bindBtn(settingsPanel.querySelector('.close-btn'), () => togglePanel('panel-settings'));
-        bindBtn(settingsPanel.querySelector('.settings-action-btn'), () => doLogout());
-    }
-
-    // Settings panel: toggle switches and selects (onchange → explicit change listener)
-    ['theme-toggle', 'minimap-toggle', 'keyboard-guide-toggle', 'coordinates-toggle'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.removeAttribute('onchange');
-        el.addEventListener('change', () => saveUiSettings());
-    });
-    const camToggle = document.getElementById('cam-enabled-toggle');
-    if (camToggle) { camToggle.removeAttribute('onchange'); camToggle.addEventListener('change', () => saveCamSettings()); }
-    const camSelect = document.getElementById('cam-visibility-select');
-    if (camSelect) { camSelect.removeAttribute('onchange'); camSelect.addEventListener('change', () => saveCamSettings()); }
 });
 
 document.addEventListener('click', (e) => {
@@ -3154,8 +2517,6 @@ async function saveStatusMsg(e) {
 }
 
 // Keep inline handlers stable for all browsers/build modes.
-window.togglePanel = togglePanel;
-window.doLogout = doLogout;
 window.goToCommunity = goToCommunity;
 window.goToTimer = goToTimer;
 

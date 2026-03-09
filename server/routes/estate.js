@@ -307,6 +307,85 @@ router.post('/equip-skin', async (req, res) => {
     }
 });
 
+// ── UI 테마 ──────────────────────────────────────────────────────────
+const UI_THEMES = {
+    'default':  { id: 'default',  name: '토스 다크',    price: 0,    desc: '기본 다크 테마',           preview: { accent: '#3182F6', bg: '#0F1117', surface: '#1B2130' } },
+    'rose':     { id: 'rose',     name: '로즈',          price: 500,  desc: '로즈핑크 포인트 컬러',     preview: { accent: '#F0638A', bg: '#0F1117', surface: '#1B2130' } },
+    'emerald':  { id: 'emerald',  name: '에메랄드',      price: 800,  desc: '에메랄드 그린 포인트',     preview: { accent: '#00C471', bg: '#0F1117', surface: '#1B2130' } },
+    'purple':   { id: 'purple',   name: '퍼플 드림',     price: 1000, desc: '신비로운 보라빛 포인트',   preview: { accent: '#9B59B6', bg: '#0F1117', surface: '#1B2130' } },
+    'amber':    { id: 'amber',    name: '선셋',          price: 1200, desc: '따뜻한 주황빛 포인트',     preview: { accent: '#FF6B35', bg: '#0F1117', surface: '#1B2130' } },
+    'midnight': { id: 'midnight', name: '미드나잇',      price: 1500, desc: '딥 네이비 다크 테마',      preview: { accent: '#5B8DEF', bg: '#080C18', surface: '#0E1525' } },
+    'sakura':   { id: 'sakura',   name: '사쿠라',        price: 2000, desc: '벚꽃 핑크 포인트 컬러',   preview: { accent: '#FF6188', bg: '#0F1117', surface: '#1B2130' } },
+};
+
+router.get('/themes', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    try {
+        const userRes = await pool.query('SELECT ui_theme, owned_themes FROM users WHERE id = $1', [req.session.userId]);
+        const user = userRes.rows[0];
+        const owned = (user.owned_themes || 'default').split(',').map(s => s.trim()).filter(Boolean);
+        res.json({ themes: Object.values(UI_THEMES), owned, equipped: user.ui_theme || 'default' });
+    } catch (err) {
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/buy-theme', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { theme_id } = req.body;
+    const theme = UI_THEMES[theme_id];
+    if (!theme) return res.status(400).json({ error: '존재하지 않는 테마입니다.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const userRes = await client.query('SELECT gold, owned_themes FROM users WHERE id = $1 FOR UPDATE', [req.session.userId]);
+        const user = userRes.rows[0];
+        const owned = (user.owned_themes || 'default').split(',').map(s => s.trim()).filter(Boolean);
+
+        if (owned.includes(theme_id)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '이미 보유한 테마입니다.' });
+        }
+        if (user.gold < theme.price) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `골드가 부족합니다. 필요: ${theme.price.toLocaleString()}G` });
+        }
+
+        owned.push(theme_id);
+        const newOwned = owned.join(',');
+        const final = await client.query(
+            `UPDATE users SET gold = gold - $1, owned_themes = $2 WHERE id = $3
+             RETURNING id, gold, diamond, ui_theme, owned_themes`,
+            [theme.price, newOwned, req.session.userId]
+        );
+        await client.query('COMMIT');
+        res.json({ ok: true, spent: theme.price, user: final.rows[0] });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/equip-theme', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { theme_id } = req.body;
+    if (!UI_THEMES[theme_id]) return res.status(400).json({ error: '존재하지 않는 테마입니다.' });
+
+    try {
+        const userRes = await pool.query('SELECT owned_themes FROM users WHERE id = $1', [req.session.userId]);
+        const owned = (userRes.rows[0].owned_themes || 'default').split(',').map(s => s.trim()).filter(Boolean);
+        if (!owned.includes(theme_id)) return res.status(400).json({ error: '보유하지 않은 테마입니다.' });
+
+        await pool.query('UPDATE users SET ui_theme = $1 WHERE id = $2', [theme_id, req.session.userId]);
+        res.json({ ok: true, equipped: theme_id });
+    } catch (err) {
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
 router.get('/diamond/packages', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     res.json({

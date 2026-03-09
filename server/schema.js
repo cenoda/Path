@@ -163,6 +163,11 @@ async function initSchema() {
         `);
 
         await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS ui_theme VARCHAR(30) DEFAULT 'default';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_themes TEXT DEFAULT 'default';
+        `);
+
+        await client.query(`
             ALTER TABLE users ADD COLUMN IF NOT EXISTS current_study_subject_id INTEGER DEFAULT NULL;
             ALTER TABLE study_records ADD COLUMN IF NOT EXISTS subject_id INTEGER DEFAULT NULL;
             ALTER TABLE study_records ADD COLUMN IF NOT EXISTS proof_image_url TEXT;

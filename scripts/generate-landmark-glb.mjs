@@ -706,12 +706,63 @@ function buildEwha() {
 
 function buildPusan() {
   const g = new THREE.Group();
-  add(g, new THREE.BoxGeometry(6.8, 2.3, 3.6), MAT_STONE, 0, 1.15, 0);
-  add(g, new THREE.CylinderGeometry(1.2, 1.5, 8.5, 12), MAT_STONE, -1.8, 5.0, 0);
-  add(g, new THREE.ConeGeometry(1.6, 2.4, 12), MAT_ROOF, -1.8, 9.9, 0);
-  const wave = add(g, new THREE.TorusGeometry(3.0, 0.3, 8, 32, Math.PI), MAT_ACCENT, 1.6, 4.8, -0.2);
-  wave.rotation.x = Math.PI / 2;
-  addWindowGrid(g, -1.8, 5.2, 1.2, 2, 4, 0.7, 1.0, 0xa8c6e7);
+  const stone = new THREE.MeshStandardMaterial({ color: 0x7f858f, roughness: 0.9, metalness: 0.05 });
+  const darkStone = new THREE.MeshStandardMaterial({ color: 0x666d78, roughness: 0.88, metalness: 0.08 });
+  const roof = new THREE.MeshStandardMaterial({ color: 0x4d5a66, roughness: 0.86, metalness: 0.06 });
+  const seaBlue = new THREE.MeshStandardMaterial({ color: 0x2e6f9f, roughness: 0.44, metalness: 0.22 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x9cc5e7, roughness: 0.2, metalness: 0.18, transparent: true, opacity: 0.86 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xb18858, roughness: 0.48, metalness: 0.3 });
+
+  // Base podium and stepped approach.
+  add(g, new THREE.BoxGeometry(13.6, 0.95, 7.8), darkStone, 0, 0.48, 0.45);
+  add(g, new THREE.BoxGeometry(11.0, 0.65, 6.2), stone, 0, 1.3, 0.85);
+  for (let s = 0; s < 5; s += 1) {
+    add(g, new THREE.BoxGeometry(5.2 - s * 0.42, 0.16, 0.48), stone, 0, 0.18 + s * 0.16, 3.45 + s * 0.11);
+  }
+
+  // Main hall and side wings.
+  add(g, new THREE.BoxGeometry(8.1, 3.0, 4.0), MAT_STONE, 0.4, 3.0, 0.2);
+  add(g, new THREE.BoxGeometry(3.0, 2.4, 3.0), MAT_STONE, -3.9, 2.7, 0.35);
+  add(g, new THREE.BoxGeometry(3.0, 2.4, 3.0), MAT_STONE, 4.7, 2.7, 0.35);
+
+  // Clocktower silhouette.
+  add(g, new THREE.CylinderGeometry(1.35, 1.55, 9.2, 14), stone, -2.2, 5.6, -0.05);
+  add(g, new THREE.CylinderGeometry(1.0, 1.2, 2.1, 12), darkStone, -2.2, 10.6, -0.05);
+  add(g, new THREE.ConeGeometry(1.55, 2.2, 12), roof, -2.2, 12.75, -0.05);
+
+  // Clock face and hands.
+  const clockFace = add(g, new THREE.CylinderGeometry(0.58, 0.58, 0.1, 20), brass, -2.2, 10.6, 1.05);
+  clockFace.rotation.x = Math.PI / 2;
+  add(g, new THREE.BoxGeometry(0.06, 0.36, 0.04), darkStone, -2.2, 10.72, 1.1);
+  add(g, new THREE.BoxGeometry(0.24, 0.06, 0.04), darkStone, -2.1, 10.6, 1.1);
+
+  // Front portal and lintel.
+  add(g, new THREE.BoxGeometry(3.2, 2.2, 0.35), darkStone, 0.4, 2.8, 2.2);
+  add(g, new THREE.BoxGeometry(0.28, 2.2, 0.3), stone, -1.05, 2.8, 2.28);
+  add(g, new THREE.BoxGeometry(0.28, 2.2, 0.3), stone, 1.85, 2.8, 2.28);
+
+  // Maritime wave motif (double wave).
+  const waveOuter = add(g, new THREE.TorusGeometry(3.6, 0.34, 10, 42, Math.PI), seaBlue, 2.3, 4.9, -0.1);
+  waveOuter.rotation.x = Math.PI / 2;
+  const waveInner = add(g, new THREE.TorusGeometry(2.6, 0.22, 8, 36, Math.PI), seaBlue, 2.1, 5.9, -0.05);
+  waveInner.rotation.x = Math.PI / 2;
+
+  // Roof caps and skyline accents.
+  add(g, new THREE.ConeGeometry(1.45, 1.0, 4), roof, -3.9, 4.35, 0.35).rotation.y = Math.PI * 0.25;
+  add(g, new THREE.ConeGeometry(1.45, 1.0, 4), roof, 4.7, 4.35, 0.35).rotation.y = Math.PI * 0.25;
+  add(g, new THREE.BoxGeometry(4.6, 0.25, 0.25), seaBlue, 0.4, 4.45, 2.05);
+
+  // Facade windows.
+  addWindowGrid(g, -2.2, 5.8, 1.35, 2, 5, 0.72, 1.0, 0xaccbea);
+  addWindowGrid(g, 0.4, 3.0, 1.75, 5, 2, 0.95, 0.95, 0xb3cce8);
+  addWindowGrid(g, -3.9, 2.7, 1.55, 2, 2, 0.82, 0.9, 0xaec7e2);
+  addWindowGrid(g, 4.7, 2.7, 1.55, 2, 2, 0.82, 0.9, 0xaec7e2);
+  add(g, new THREE.BoxGeometry(2.2, 0.8, 0.32), glass, 0.4, 3.05, 2.1);
+
+  // Harbor beacon detail.
+  add(g, new THREE.CylinderGeometry(0.18, 0.2, 1.2, 8), brass, 2.0, 7.0, -0.05);
+  add(g, new THREE.SphereGeometry(0.22, 10, 8), brass, 2.0, 7.65, -0.05);
+
   return g;
 }
 

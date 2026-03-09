@@ -327,16 +327,34 @@ router.get('/posts/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     if (!id) return res.status(400).json({ error: '잘못된 요청입니다.' });
 
+    const viewerId = req.session?.userId ? parseInt(req.session.userId, 10) : null;
+
     try {
+        const params = [id];
+        let blockedWhere = '';
+        if (viewerId) {
+            params.push(viewerId);
+            blockedWhere = `
+                AND (
+                    p.user_id IS NULL OR NOT EXISTS (
+                        SELECT 1
+                        FROM user_blocks ub
+                        WHERE ub.blocker_id = $2
+                          AND ub.blocked_id = p.user_id
+                    )
+                )`;
+        }
+
         const result = await pool.query(
-            `SELECT p.id, p.category, p.title, p.body, p.image_url, p.link_url, p.nickname, p.ip_prefix,
+            `SELECT p.id, p.user_id, p.category, p.title, p.body, p.image_url, p.link_url, p.nickname, p.ip_prefix,
                     u.nickname AS user_nickname, u.active_title,
                     (p.user_id IS NOT NULL AND u.nickname IS NOT NULL AND p.nickname = u.nickname) AS is_verified_nickname,
                     p.views, p.likes, p.comments_count, p.created_at
              FROM community_posts p
              LEFT JOIN users u ON u.id = p.user_id
-             WHERE p.id = $1`,
-            [id]
+             WHERE p.id = $1
+             ${blockedWhere}`,
+            params
         );
         if (!result.rows.length) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
         const post = result.rows[0];
@@ -353,7 +371,7 @@ router.get('/posts/:id', async (req, res) => {
 /* ════════════════════════════════════════════════════════════ */
 /* POST /uploads/image — 커뮤니티 이미지 업로드                */
 /* ════════════════════════════════════════════════════════════ */
-router.post('/uploads/image', requireAuth, (req, res) => {
+router.post('/uploads/image', requireAuth, requireLatestEula, (req, res) => {
     imageUpload.single('image')(req, res, (err) => {
         if (err) {
             const msg = err.message || '이미지 업로드에 실패했습니다.';
@@ -375,7 +393,7 @@ router.post('/uploads/image', requireAuth, (req, res) => {
 /* ════════════════════════════════════════════════════════════ */
 /* POST /posts — 글 작성 (로그인 필수)                           */
 /* ════════════════════════════════════════════════════════════ */
-router.post('/posts', requireAuth, async (req, res) => {
+router.post('/posts', requireAuth, requireLatestEula, async (req, res) => {
     const { category, title, body = '', anonymous_nickname, image_url, link_url } = req.body;
     const bodyText = typeof body === 'string' ? body : '';
 
@@ -470,7 +488,7 @@ router.post('/posts/:id/view', viewLimiter, async (req, res) => {
 /* ════════════════════════════════════════════════════════════ */
 /* POST /posts/:id/like — 추천 토글                             */
 /* ════════════════════════════════════════════════════════════ */
-router.post('/posts/:id/like', requireAuth, async (req, res) => {
+router.post('/posts/:id/like', requireAuth, requireLatestEula, async (req, res) => {
     const postId = parseInt(req.params.id);
     const userId = req.session.userId;
     if (!postId) return res.status(400).json({ error: '잘못된 요청입니다.' });
@@ -528,7 +546,7 @@ router.post('/posts/:id/like', requireAuth, async (req, res) => {
 /* ════════════════════════════════════════════════════════════ */
 /* POST /posts/:id/gold-like — 골드 추천(+1)                    */
 /* ════════════════════════════════════════════════════════════ */
-router.post('/posts/:id/gold-like', requireAuth, async (req, res) => {
+router.post('/posts/:id/gold-like', requireAuth, requireLatestEula, async (req, res) => {
     const postId = parseInt(req.params.id);
     const userId = req.session.userId;
     if (!postId) return res.status(400).json({ error: '잘못된 요청입니다.' });
@@ -600,16 +618,34 @@ router.get('/posts/:id/comments', async (req, res) => {
     const postId = parseInt(req.params.id);
     if (!postId) return res.status(400).json({ error: '잘못된 요청입니다.' });
 
+    const viewerId = req.session?.userId ? parseInt(req.session.userId, 10) : null;
+
     try {
+        const params = [postId];
+        let blockedWhere = '';
+        if (viewerId) {
+            params.push(viewerId);
+            blockedWhere = `
+                AND (
+                    c.user_id IS NULL OR NOT EXISTS (
+                        SELECT 1
+                        FROM user_blocks ub
+                        WHERE ub.blocker_id = $2
+                          AND ub.blocked_id = c.user_id
+                    )
+                )`;
+        }
+
         const result = await pool.query(
-            `SELECT c.id, c.nickname, c.ip_prefix, c.body, c.created_at,
+            `SELECT c.id, c.user_id, c.nickname, c.ip_prefix, c.body, c.created_at,
                     u.nickname AS user_nickname, u.active_title,
                     (c.user_id IS NOT NULL AND u.nickname IS NOT NULL AND c.nickname = u.nickname) AS is_verified_nickname
              FROM community_comments c
              LEFT JOIN users u ON u.id = c.user_id
              WHERE c.post_id = $1
+             ${blockedWhere}
              ORDER BY c.created_at ASC`,
-            [postId]
+            params
         );
         const comments = result.rows.map((row) => ({
             ...row,
@@ -627,7 +663,7 @@ router.get('/posts/:id/comments', async (req, res) => {
 /* ════════════════════════════════════════════════════════════ */
 /* POST /posts/:id/comments — 댓글 작성                         */
 /* ════════════════════════════════════════════════════════════ */
-router.post('/posts/:id/comments', requireAuth, async (req, res) => {
+router.post('/posts/:id/comments', requireAuth, requireLatestEula, async (req, res) => {
     const postId = parseInt(req.params.id);
     const { body } = req.body;
 
@@ -673,6 +709,118 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     } finally {
         client.release();
+    }
+});
+
+const reportLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '신고 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' }
+});
+
+router.get('/blocks', requireAuth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT ub.blocked_id, u.nickname, ub.created_at
+             FROM user_blocks ub
+             JOIN users u ON u.id = ub.blocked_id
+             WHERE ub.blocker_id = $1
+             ORDER BY ub.created_at DESC`,
+            [req.session.userId]
+        );
+        return res.json({ blocks: result.rows });
+    } catch (err) {
+        console.error('[community] GET /blocks', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+router.post('/blocks/:userId', requireAuth, requireLatestEula, async (req, res) => {
+    const blockerId = req.session.userId;
+    const blockedId = parseInt(req.params.userId, 10);
+    if (!blockedId) return res.status(400).json({ error: '잘못된 요청입니다.' });
+    if (blockedId === blockerId) return res.status(400).json({ error: '자기 자신은 차단할 수 없습니다.' });
+
+    try {
+        const exists = await pool.query('SELECT id FROM users WHERE id = $1', [blockedId]);
+        if (!exists.rows.length) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+        await pool.query(
+            `INSERT INTO user_blocks (blocker_id, blocked_id)
+             VALUES ($1, $2)
+             ON CONFLICT (blocker_id, blocked_id) DO NOTHING`,
+            [blockerId, blockedId]
+        );
+
+        return res.json({ ok: true, blocked_id: blockedId });
+    } catch (err) {
+        console.error('[community] POST /blocks/:userId', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+router.delete('/blocks/:userId', requireAuth, async (req, res) => {
+    const blockedId = parseInt(req.params.userId, 10);
+    if (!blockedId) return res.status(400).json({ error: '잘못된 요청입니다.' });
+
+    try {
+        await pool.query(
+            'DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2',
+            [req.session.userId, blockedId]
+        );
+        return res.json({ ok: true, blocked_id: blockedId });
+    } catch (err) {
+        console.error('[community] DELETE /blocks/:userId', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+router.post('/posts/:id/report', requireAuth, requireLatestEula, reportLimiter, async (req, res) => {
+    const postId = parseInt(req.params.id, 10);
+    const reporterId = req.session.userId;
+    const reasonCode = String(req.body?.reason_code || '').trim();
+    const detailRaw = req.body?.detail;
+    const detail = typeof detailRaw === 'string' ? detailRaw.trim() : '';
+
+    if (!postId) return res.status(400).json({ error: '잘못된 요청입니다.' });
+    if (!REPORT_REASON_CODES.has(reasonCode)) {
+        return res.status(400).json({ error: '신고 사유가 올바르지 않습니다.' });
+    }
+    if (detail.length > 500) {
+        return res.status(400).json({ error: '신고 상세 내용은 500자 이내로 입력해 주세요.' });
+    }
+
+    try {
+        const postRes = await pool.query('SELECT id, user_id FROM community_posts WHERE id = $1', [postId]);
+        if (!postRes.rows.length) {
+            return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+        }
+
+        const reportedUserId = postRes.rows[0].user_id || null;
+        if (reportedUserId && reportedUserId === reporterId) {
+            return res.status(400).json({ error: '본인 게시글은 신고할 수 없습니다.' });
+        }
+
+        await pool.query(
+            `INSERT INTO community_post_reports (post_id, reporter_id, reported_user_id, reason_code, detail, status)
+             VALUES ($1, $2, $3, $4, $5, 'pending')
+             ON CONFLICT (post_id, reporter_id)
+             DO UPDATE SET
+                reason_code = EXCLUDED.reason_code,
+                detail = EXCLUDED.detail,
+                status = 'pending',
+                reviewed_at = NULL,
+                reviewed_by = NULL,
+                created_at = NOW()`,
+            [postId, reporterId, reportedUserId, reasonCode, detail || null]
+        );
+
+        return res.status(201).json({ ok: true });
+    } catch (err) {
+        console.error('[community] POST /posts/:id/report', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     }
 });
 

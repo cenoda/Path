@@ -36,7 +36,12 @@
 <script>
 (function(){
     const t = localStorage.getItem('path_theme') || 'dark';
-    if (t === 'light') document.body.classList.add('light');
+    const colorThemes = ['rose','emerald','purple','sunset','midnight','sakura'];
+    if (t === 'light') {
+        document.body.classList.add('light');
+    } else if (colorThemes.includes(t)) {
+        document.body.setAttribute('data-theme', t);
+    }
 })();
 </script>
     <div id="ui-overlay">
@@ -183,6 +188,7 @@
             <div class="tabs">
                 <button class="tab active" onclick="switchShopTab('item', this)">ITEMS</button>
                 <button class="tab" onclick="switchShopTab('skin', this)">SKINS</button>
+                <button class="tab" onclick="switchShopTab('theme', this)">THEME</button>
                 <button class="tab" onclick="switchShopTab('diamond', this)">DIAMOND</button>
             </div>
             <button class="close-btn" onclick="togglePanel('panel-shop')">×</button>

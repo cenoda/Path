@@ -259,6 +259,12 @@ function toggleTheme() {
                 <a href="#" id="privacy-toggle">보기</a>
             </div>
 
+            <div class="check-row">
+                <input type="checkbox" id="reg-eula">
+                <label for="reg-eula">이용약관 동의(필수)</label>
+                <a href="#" id="eula-toggle">보기</a>
+            </div>
+
             <div class="privacy-box" id="privacy-box">
                 <strong>[개인정보 수집·이용 동의]</strong><br><br>
                 1. 수집 항목: 실명, 닉네임, 대학교, 비밀번호(암호화), 성적 이미지<br>
@@ -267,6 +273,15 @@ function toggleTheme() {
                 4. 동의 거부 시 서비스 이용이 제한됩니다.<br><br>
                 P.A.T.H는 수집된 개인정보를 제3자에게 제공하지 않으며,<br>
                 관련 법령에 따라 안전하게 관리합니다.
+            </div>
+
+            <div class="privacy-box" id="eula-box">
+                <strong>[서비스 이용약관 요약]</strong><br><br>
+                1. 이용자는 관련 법령과 운영정책을 준수해야 합니다.<br>
+                2. 혐오/성적/폭력/불법/개인정보 노출/도배성 게시물은 제한될 수 있습니다.<br>
+                3. 위반 시 게시물 삭제, 기능 제한, 계정 제재가 적용될 수 있습니다.<br>
+                4. 신고된 콘텐츠는 운영 정책에 따라 검토됩니다.<br>
+                5. 최신 약관 동의가 없으면 커뮤니티 기능 사용이 제한됩니다.
             </div>
 
             <div class="error-msg" id="reg-err"></div>
@@ -314,7 +329,14 @@ function toggleTheme() {
         }
 
         function checkSubmit() {
-            document.getElementById('reg-submit').disabled = !document.getElementById('reg-privacy').checked;
+            const privacyChecked = document.getElementById('reg-privacy').checked;
+            const eulaChecked = document.getElementById('reg-eula').checked;
+            document.getElementById('reg-submit').disabled = !(privacyChecked && eulaChecked);
+        }
+
+        function toggleEula(e) {
+            e.preventDefault();
+            document.getElementById('eula-box').classList.toggle('show');
         }
 
         async function loadUniversityOptions() {
@@ -379,11 +401,15 @@ function toggleTheme() {
 
             const nsuCheckbox = document.getElementById('reg-nsu');
             const privacyCheckbox = document.getElementById('reg-privacy');
+            const eulaCheckbox = document.getElementById('reg-eula');
             if (nsuCheckbox) nsuCheckbox.addEventListener('change', toggleNsu);
             if (privacyCheckbox) privacyCheckbox.addEventListener('change', checkSubmit);
+            if (eulaCheckbox) eulaCheckbox.addEventListener('change', checkSubmit);
 
             const privacyToggle = document.getElementById('privacy-toggle');
             if (privacyToggle) privacyToggle.addEventListener('click', togglePrivacy);
+            const eulaToggle = document.getElementById('eula-toggle');
+            if (eulaToggle) eulaToggle.addEventListener('click', toggleEula);
 
             // Fallback for WebViews where touch does not dispatch click on anchors.
             document.querySelectorAll('a.btn-oauth').forEach(function (link) {
@@ -447,16 +473,18 @@ function toggleTheme() {
             const is_n_su     = document.getElementById('reg-nsu').checked;
             const prev_university = is_n_su ? document.getElementById('reg-prev-univ').value.trim() : '';
             const privacy_agreed  = document.getElementById('reg-privacy').checked;
+            const eula_agreed = document.getElementById('reg-eula').checked;
 
             if (!real_name) { errEl.textContent = '실명을 입력해주세요.'; return; }
             if (!privacy_agreed) { errEl.textContent = '개인정보 수집·이용에 동의해주세요.'; return; }
+            if (!eula_agreed) { errEl.textContent = '이용약관에 동의해주세요.'; return; }
 
             try {
                 const r = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ real_name, nickname, university, password, is_n_su, prev_university, privacy_agreed })
+                    body: JSON.stringify({ real_name, nickname, university, password, is_n_su, prev_university, privacy_agreed, eula_agreed })
                 });
                 const data = await r.json();
                 if (!r.ok) { errEl.textContent = data.error; return; }
@@ -469,6 +497,7 @@ function toggleTheme() {
         window.switchTab = switchTab;
         window.toggleNsu = toggleNsu;
         window.togglePrivacy = togglePrivacy;
+        window.toggleEula = toggleEula;
         window.checkSubmit = checkSubmit;
         window.doLogin = doLogin;
         window.doRegister = doRegister;

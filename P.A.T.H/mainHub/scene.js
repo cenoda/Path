@@ -144,20 +144,46 @@ const WorldScene = {
 
     _getUniversityLandmarkModelSpec(university) {
         const specs = {
-            '서울대학교': { path: 'assets/landmarks/snu.glb', scale: 3.8, y: 20, rotY: 0.08 },
-            '연세대학교': { path: 'assets/landmarks/yonsei.glb', scale: 3.9, y: 19, rotY: -0.06 },
-            '고려대학교': { path: 'assets/landmarks/korea.glb', scale: 3.9, y: 20, rotY: 0.05 },
-            '카이스트': { path: 'assets/landmarks/kaist.glb', scale: 4.2, y: 18, rotY: 0.1 },
-            '포항공과대학교': { path: 'assets/landmarks/postech.glb', scale: 4.1, y: 18, rotY: -0.08 },
-            '성균관대학교': { path: 'assets/landmarks/skku.glb', scale: 4.0, y: 19, rotY: 0.03 },
-            '한양대학교': { path: 'assets/landmarks/hanyang.glb', scale: 4.1, y: 18, rotY: -0.04 },
-            '중앙대학교': { path: 'assets/landmarks/chungang.glb', scale: 4.0, y: 19, rotY: 0.02 },
-            '경희대학교': { path: 'assets/landmarks/kyunghee.glb', scale: 3.7, y: 20, rotY: 0.04 },
-            '서강대학교': { path: 'assets/landmarks/sogang.glb', scale: 4.0, y: 18, rotY: -0.03 },
-            '이화여자대학교': { path: 'assets/landmarks/ewha.glb', scale: 4.3, y: 16, rotY: 0.12 },
-            '부산대학교': { path: 'assets/landmarks/pusan.glb', scale: 3.9, y: 19, rotY: -0.05 }
+            '서울대학교': { path: 'assets/landmarks/snu.glb', targetHeight: 88, y: 20, rotY: 0.08, scaleMult: 1.0 },
+            '연세대학교': { path: 'assets/landmarks/yonsei.glb', targetHeight: 86, y: 19, rotY: -0.06, scaleMult: 1.0 },
+            '고려대학교': { path: 'assets/landmarks/korea.glb', targetHeight: 90, y: 20, rotY: 0.05, scaleMult: 1.0 },
+            '카이스트': { path: 'assets/landmarks/kaist.glb', targetHeight: 84, y: 18, rotY: 0.1, scaleMult: 1.0 },
+            '포항공과대학교': { path: 'assets/landmarks/postech.glb', targetHeight: 84, y: 18, rotY: -0.08, scaleMult: 1.0 },
+            '성균관대학교': { path: 'assets/landmarks/skku.glb', targetHeight: 86, y: 19, rotY: 0.03, scaleMult: 1.0 },
+            '한양대학교': { path: 'assets/landmarks/hanyang.glb', targetHeight: 84, y: 18, rotY: -0.04, scaleMult: 1.0 },
+            '중앙대학교': { path: 'assets/landmarks/chungang.glb', targetHeight: 86, y: 19, rotY: 0.02, scaleMult: 1.0 },
+            '경희대학교': { path: 'assets/landmarks/kyunghee.glb', targetHeight: 90, y: 20, rotY: 0.04, scaleMult: 1.0 },
+            '서강대학교': { path: 'assets/landmarks/sogang.glb', targetHeight: 84, y: 18, rotY: -0.03, scaleMult: 1.0 },
+            '이화여자대학교': { path: 'assets/landmarks/ewha.glb', targetHeight: 82, y: 16, rotY: 0.12, scaleMult: 1.0 },
+            '부산대학교': { path: 'assets/landmarks/pusan.glb', targetHeight: 86, y: 19, rotY: -0.05, scaleMult: 1.0 }
         };
         return specs[university] || null;
+    },
+
+    _normalizeLandmarkModel(model, islandData, spec) {
+        const baseBox = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        baseBox.getSize(size);
+        baseBox.getCenter(center);
+
+        const rawHeight = Math.max(size.y, 0.001);
+        const desiredHeight = (spec.targetHeight || 86) * (islandData.rx / 2.0);
+        const uniformScale = (desiredHeight / rawHeight) * (spec.scaleMult || 1);
+
+        model.scale.setScalar(uniformScale);
+
+        const scaledBox = new THREE.Box3().setFromObject(model);
+        const scaledCenter = new THREE.Vector3();
+        const scaledSize = new THREE.Vector3();
+        scaledBox.getCenter(scaledCenter);
+        scaledBox.getSize(scaledSize);
+
+        const y = spec.y || 18;
+        const minY = scaledCenter.y - (scaledSize.y / 2);
+        const lift = y - minY;
+
+        model.position.set(-scaledCenter.x, lift, -scaledCenter.z);
     },
 
     _loadUniversityLandmarkModel(path) {
@@ -210,9 +236,7 @@ const WorldScene = {
                     }
                 });
 
-                const s = islandData.rx * (spec.scale || 8);
-                model.scale.setScalar(s);
-                model.position.set(0, spec.y || 28, 0);
+                this._normalizeLandmarkModel(model, islandData, spec);
                 model.rotation.y = spec.rotY || 0;
                 model.userData.isUniversityModel = true;
                 group.add(model);

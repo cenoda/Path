@@ -27,6 +27,7 @@ const DEFAULT_UI_SETTINGS = {
 };
 const ONBOARDING_PENDING_KEY = 'path_onboarding_pending';
 const ONBOARDING_DONE_PREFIX = 'path_onboarding_done_user_';
+const REQUIRED_EULA_VERSION = '2026-03-09';
 const ONBOARDING_STEPS = [
     {
         target: '#btn-enter-path',
@@ -49,6 +50,8 @@ function toggleTheme(forceLight) {
     const isLight = typeof forceLight === 'boolean'
         ? forceLight
         : !document.body.classList.contains('light');
+    // When toggling light/dark via settings, clear any color theme
+    document.body.removeAttribute('data-theme');
     document.body.classList.toggle('light', isLight);
     localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
 
@@ -226,6 +229,104 @@ function getOnboardingDoneKey(userId) {
 
 function clamp(val, min, max) {
     return Math.max(min, Math.min(max, val));
+}
+
+function hasLatestEulaAgreement(user) {
+    if (!user) return false;
+    return user.eula_version === REQUIRED_EULA_VERSION && !!user.eula_agreed_at;
+}
+
+async function ensureLatestEulaAgreement() {
+    if (hasLatestEulaAgreement(currentUser)) return true;
+
+    let eulaMeta = {
+        version: REQUIRED_EULA_VERSION,
+        title: 'P.A.T.H 서비스 이용약관',
+        content: '최신 이용약관 동의가 필요합니다.'
+    };
+
+    try {
+        const eulaRes = await fetch('/api/auth/eula', { credentials: 'include' });
+        if (eulaRes.ok) {
+            const data = await eulaRes.json();
+            if (data && typeof data === 'object') {
+                eulaMeta = {
+                    version: String(data.version || REQUIRED_EULA_VERSION),
+                    title: String(data.title || eulaMeta.title),
+                    content: String(data.content || eulaMeta.content)
+                };
+            }
+        }
+    } catch (_) {
+        // Keep fallback metadata.
+    }
+
+    return new Promise((resolve) => {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop visible';
+        backdrop.style.zIndex = '2200';
+        backdrop.innerHTML = `
+            <div class="write-modal" role="dialog" aria-modal="true" style="max-width:640px;transform:none;max-height:90vh;">
+                <div class="write-modal-header">
+                    <h2 class="write-modal-title">${esc(eulaMeta.title)} 동의</h2>
+                </div>
+                <div class="write-modal-body" style="padding-top:8px;">
+                    <p style="font-size:12px;color:var(--text-sub);line-height:1.6;white-space:pre-wrap;">${esc(eulaMeta.content)}</p>
+                    <div style="margin-top:14px;padding:10px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.03);">
+                        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);cursor:pointer;">
+                            <input type="checkbox" id="eula-agree-check" style="margin-top:2px;">
+                            <span>위 이용약관을 읽었으며 동의합니다. (필수)</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="write-modal-footer" style="justify-content:space-between;">
+                    <button class="write-cancel-btn" id="eula-logout-btn">동의 안 함</button>
+                    <button class="write-submit-btn" id="eula-agree-btn" disabled>동의하고 계속</button>
+                </div>
+            </div>`;
+
+        document.body.appendChild(backdrop);
+
+        const check = backdrop.querySelector('#eula-agree-check');
+        const agreeBtn = backdrop.querySelector('#eula-agree-btn');
+        const logoutBtn = backdrop.querySelector('#eula-logout-btn');
+
+        check.addEventListener('change', () => {
+            agreeBtn.disabled = !check.checked;
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            backdrop.remove();
+            await doLogout();
+            resolve(false);
+        });
+
+        agreeBtn.addEventListener('click', async () => {
+            agreeBtn.disabled = true;
+            try {
+                const r = await fetch('/api/auth/eula/agree', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ version: eulaMeta.version })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    alert(data.error || '약관 동의 처리에 실패했습니다. 다시 시도해주세요.');
+                    agreeBtn.disabled = false;
+                    return;
+                }
+
+                currentUser.eula_version = data.eula_version || eulaMeta.version;
+                currentUser.eula_agreed_at = data.eula_agreed_at || new Date().toISOString();
+                backdrop.remove();
+                resolve(true);
+            } catch (_) {
+                alert('약관 동의 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+                agreeBtn.disabled = false;
+            }
+        });
+    });
 }
 
 function getOnboardingElements() {
@@ -428,6 +529,10 @@ async function initHub() {
 
         const meData = await meRes.json();
         currentUser = meData.user;
+        const eulaOk = await ensureLatestEulaAgreement();
+        if (!eulaOk) return;
+        // 저장된 서버 테마 적용 (localStorage보다 서버 값 우선)
+        if (currentUser?.ui_theme) applyTheme(currentUser.ui_theme);
 
         let topPct = 100;
         if (rankMeRes.ok) {
@@ -638,118 +743,129 @@ async function openEstate() {
         const score = currentUser?.mock_exam_score || 0;
         const scoreStatus = currentUser?.score_status || 'none';
 
-        let rateParts = [];
-        let rateDisplay = `${data.rate}G/hr`;
-        if (data.nsuBonus || data.gpaBonus || data.streak_bonus_rate) {
-            rateParts.push(data.baseRate || data.rate);
-            if (data.nsuBonus) rateParts.push(`<span style="color:#4CAF50">+${data.nsuBonus} N수</span>`);
-            if (data.gpaBonus) rateParts.push(`<span style="color:#2196F3">+${data.gpaBonus} 내신</span>`);
-            if (data.streak_bonus_rate) {
-                rateParts.push(`<span style="color:#ff8c42">x${Number(data.streak_multiplier || 1).toFixed(2)} 콤보🔥</span>`);
-            }
-            rateDisplay = rateParts.join(' + ') + ` = ${data.rate}G/hr`;
-        }
+        // ── 수입 표시 구성 ──
+        let rateBadges = '';
+        if (data.nsuBonus) rateBadges += `<span class="estate-badge orange">N수 +${data.nsuBonus}G</span> `;
+        if (data.gpaBonus) rateBadges += `<span class="estate-badge blue">내신 +${data.gpaBonus}G</span> `;
+        if (data.streak_bonus_rate) rateBadges += `<span class="estate-badge orange">콤보 x${Number(data.streak_multiplier || 1).toFixed(2)}</span>`;
 
+        // ── 점수 인증 섹션 ──
         let scoreSection = '';
         if (scoreStatus === 'approved') {
-            scoreSection = `<div class="estate-val" style="color:#4CAF50">✓ 인증 완료 · ${score}점</div>`;
+            scoreSection = `<span class="estate-badge green">✓ 인증완료 · ${score}점</span>`;
         } else if (scoreStatus === 'pending') {
-            scoreSection = `<div class="estate-val" style="color:#f1c40f">⏳ 관리자 심사 대기 중</div>`;
-        } else if (scoreStatus === 'rejected') {
-            scoreSection = `
-                <div class="estate-val" style="color:var(--accent);margin-bottom:6px">✗ 반려됨 — 재업로드 필요</div>
-                <div class="score-upload-area" id="score-upload-area">
-                    <input type="file" id="score-file" accept="image/*" style="display:none" onchange="previewScore(this)">
-                    <button class="inline-btn" onclick="document.getElementById('score-file').click()">📷 성적 사진 선택</button>
-                    <div id="score-preview" style="margin-top:6px"></div>
-                    <button class="inline-btn" id="btn-upload-score" style="display:none;margin-top:6px" onclick="uploadScore()">업로드</button>
-                </div>`;
+            scoreSection = `<span class="estate-badge gold">⏳ 심사 대기 중</span>`;
         } else {
+            const rejLabel = scoreStatus === 'rejected'
+                ? `<div style="margin-bottom:8px"><span class="estate-badge" style="background:rgba(240,68,82,0.15);color:var(--red)">✗ 반려 — 재업로드 필요</span></div>`
+                : '';
             scoreSection = `
+                ${rejLabel}
                 <div class="score-upload-area" id="score-upload-area">
                     <input type="file" id="score-file" accept="image/*" style="display:none" onchange="previewScore(this)">
-                    <button class="inline-btn" onclick="document.getElementById('score-file').click()">📷 성적 사진 업로드</button>
+                    <button class="inline-btn" onclick="document.getElementById('score-file').click()">사진 선택</button>
                     <div id="score-preview" style="margin-top:6px"></div>
                     <button class="inline-btn" id="btn-upload-score" style="display:none;margin-top:6px" onclick="uploadScore()">업로드</button>
                 </div>`;
         }
 
-        const nsuLine = data.is_n_su && data.prev_university
-            ? `<div class="estate-section"><div class="estate-label">🔄 N수생 전적대</div><div class="estate-val">${data.prev_university} <span style="color:#4CAF50;font-size:10px">(세금 +15% 보너스)</span></div></div>`
+        // ── N수생 배지 ──
+        const nsuBadge = data.is_n_su && data.prev_university
+            ? `<div style="margin-top:4px"><span class="estate-badge green">N수 · ${esc(data.prev_university)}</span></div>`
             : '';
 
         const interior = document.getElementById('castle-interior');
         document.getElementById('interior-body').innerHTML = `
             <div class="interior-grid">
+
+                <!-- 상태 메시지 (full width) -->
                 <div class="interior-card" style="grid-column:1/-1;">
-                    <div class="interior-card-title">💬 상태 메시지</div>
-                    <div class="estate-section">
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <input type="text" id="status-msg-input" class="interior-input" maxlength="30"
-                                placeholder="열기구 위에 표시될 메시지를 입력하세요"
-                                value="${esc(currentUser?.status_message || '')}">
-                            <button id="status-msg-save-btn" class="inline-btn" onclick="saveStatusMsg(event)">저장</button>
-                            <button class="inline-btn" style="color:#888;background:rgba(255,255,255,0.05);" onclick="document.getElementById('status-msg-input').value='';saveStatusMsg(event)">지우기</button>
+                    <div class="interior-card-title">상태 메시지</div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="text" id="status-msg-input" class="interior-input" maxlength="30"
+                            placeholder="열기구 위에 표시될 메시지"
+                            value="${esc(currentUser?.status_message || '')}">
+                        <button id="status-msg-save-btn" class="inline-btn" onclick="saveStatusMsg(event)">저장</button>
+                        <button class="inline-btn" style="color:var(--text-tertiary);background:var(--surface-hover);border-color:var(--border-color);"
+                            onclick="document.getElementById('status-msg-input').value='';saveStatusMsg(event)">지우기</button>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-tertiary);">최대 30자 · 내 열기구 위 말풍선에 표시됩니다</div>
+                </div>
+
+                <!-- 모의진학 정보 -->
+                <div class="interior-card">
+                    <div class="interior-card-title">모의진학</div>
+                    <div class="estate-big-stat">
+                        <div class="label">목표 대학</div>
+                        <div class="number" style="font-size:20px">${esc(data.university || '-')}</div>
+                    </div>
+                    ${nsuBadge}
+                    <div class="estate-divider"></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div class="estate-section">
+                            <div class="estate-label">백분위</div>
+                            <div class="estate-val">${data.percentile}%</div>
                         </div>
-                        <div style="margin-top:5px;font-size:10px;color:#555;">최대 30자 · 내 열기구 위에 말풍선으로 표시됩니다</div>
-                    </div>
-                </div>
-                <div class="interior-card">
-                    <div class="interior-card-title">🏫 모의진학 정보</div>
-                    <div class="estate-section">
-                        <div class="estate-label">대학교</div>
-                        <div class="estate-val">${data.university || '-'} <span style="color:var(--text-sub);font-size:10px">(백분위 ${data.percentile}%)</span></div>
-                    </div>
-                    ${nsuLine}
-                    <div class="estate-section">
-                        <div class="estate-label">🪙 보유 골드</div>
-                        <div class="estate-val">${(data.gold || 0).toLocaleString()}G</div>
+                        <div class="estate-section" style="text-align:right">
+                            <div class="estate-label">보유 골드</div>
+                            <div class="estate-val" style="color:var(--gold)">${(data.gold || 0).toLocaleString()}G</div>
+                        </div>
                     </div>
                 </div>
 
+                <!-- 수입 -->
                 <div class="interior-card">
-                    <div class="interior-card-title">💰 수입</div>
-                    <div class="estate-section">
-                        <div class="estate-label">모의진학 수입 (패시브)</div>
-                        <div class="estate-val">${rateDisplay}</div>
+                    <div class="interior-card-title">수입</div>
+                    <div class="estate-big-stat">
+                        <div class="label">미수령</div>
+                        <div class="number" style="color:var(--gold)">${(data.pending || 0).toLocaleString()}<span class="unit">G</span></div>
                     </div>
+                    <button class="interior-action-btn" onclick="collectTax()">수입 수령</button>
+                    <div class="estate-divider"></div>
                     <div class="estate-section">
-                        <div class="estate-label">미수령 세금</div>
-                        <div class="estate-val" style="color:var(--gold);font-size:18px;font-weight:700">${data.pending}G</div>
+                        <div class="estate-label">패시브 수입</div>
+                        <div class="estate-val">${data.rate}G<span style="font-size:11px;font-weight:500;color:var(--text-secondary)">/hr</span></div>
                     </div>
-                    <button class="interior-action-btn" onclick="collectTax()">💰 수입 수령</button>
-                    <div class="estate-section" style="margin-top:8px">
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px">${rateBadges || '<span style="font-size:11px;color:var(--text-tertiary)">기본 수입</span>'}</div>
+                    <div class="estate-section" style="margin-top:4px">
                         <div class="estate-label">공부 수입</div>
-                        <div class="estate-val">10G/hr (전 유저 동일)</div>
+                        <div class="estate-val">10G<span style="font-size:11px;font-weight:500;color:var(--text-secondary)">/hr</span></div>
                     </div>
                 </div>
 
+                <!-- 평가원 점수 인증 -->
                 <div class="interior-card">
-                    <div class="interior-card-title">📋 평가원 점수 인증</div>
+                    <div class="interior-card-title">평가원 점수 인증</div>
                     ${scoreSection}
                 </div>
 
+                <!-- 내신 등급 인증 -->
                 <div class="interior-card">
-                    <div class="interior-card-title">📝 내신 등급 인증</div>
+                    <div class="interior-card-title">내신 등급 인증</div>
                     ${buildGpaSection()}
                 </div>
 
+                <!-- 합격 가능성 비교 -->
                 <div class="interior-card" id="gpa-compare-card" style="${currentUser?.gpa_status === 'approved' ? '' : 'display:none'}">
-                    <div class="interior-card-title">🎯 합격 가능성 비교</div>
-                    <div class="estate-section">
-                        <div class="estate-label">내 내신: <strong style="color:var(--gold)">${currentUser?.gpa_score || '-'}등급</strong></div>
+                    <div class="interior-card-title">합격 가능성 비교</div>
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                        <span class="estate-label">내 내신</span>
+                        <span class="estate-badge gold">${currentUser?.gpa_score || '-'}등급</span>
                     </div>
-                    <div class="estate-section" style="margin-top:6px">
-                        <input type="text" id="compare-univ-input" class="interior-input" placeholder="비교할 대학명 입력" value="${esc(currentUser?.university || '')}">
-                        <button class="inline-btn" style="margin-top:6px" onclick="compareGpa()">비교하기</button>
+                    <div class="estate-section" style="margin-top:4px">
+                        <input type="text" id="compare-univ-input" class="interior-input" placeholder="비교할 대학명 입력"
+                            value="${esc(currentUser?.university || '')}">
+                        <button class="inline-btn" style="margin-top:6px;align-self:flex-start" onclick="compareGpa()">비교하기</button>
                     </div>
                     <div id="gpa-compare-result" style="margin-top:8px"></div>
                 </div>
 
-                <div class="interior-card" style="grid-column: 1 / -1; max-height: 300px; overflow-y: auto;">
-                    <div class="interior-card-title">🏰 대학 모의진학 목록</div>
-                    <div id="university-estates-list" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">로딩 중...</div>
+                <!-- 대학 모의진학 목록 (full width) -->
+                <div class="interior-card" style="grid-column:1/-1;max-height:300px;overflow-y:auto;">
+                    <div class="interior-card-title">대학 모의진학 목록</div>
+                    <div id="university-estates-list" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">로딩 중...</div>
                 </div>
+
             </div>
         `;
         interior.classList.remove('hidden');
@@ -1370,6 +1486,53 @@ async function handleDiamondWebPaymentCallback() {
     }
 }
 
+// ── UI 테마 ─────────────────────────────────────────────────────────
+function applyTheme(themeId) {
+    const id = themeId || 'default';
+    // 'light' theme uses the existing body.light mechanism
+    if (id === 'light') {
+        document.body.removeAttribute('data-theme');
+        document.body.classList.add('light');
+    } else {
+        document.body.classList.remove('light');
+        if (id === 'default') {
+            document.body.removeAttribute('data-theme');
+        } else {
+            document.body.setAttribute('data-theme', id);
+        }
+    }
+    localStorage.setItem('path_theme', id);
+}
+
+async function buyTheme(themeId, currency = 'gold') {
+    try {
+        const r = await fetch('/api/estate/buy-theme', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ themeId, currency })
+        });
+        const data = await r.json();
+        if (!r.ok) { alert(data.error || '구매 실패'); return; }
+        if (data.user) currentUser = { ...(currentUser || {}), ...data.user };
+        applyTheme(themeId);
+        renderShopContent('theme');
+    } catch (e) { alert('오류가 발생했습니다.'); }
+}
+
+async function equipTheme(themeId) {
+    try {
+        const r = await fetch('/api/estate/equip-theme', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ themeId })
+        });
+        const data = await r.json();
+        if (!r.ok) { alert(data.error || '적용 실패'); return; }
+        applyTheme(themeId);
+        renderShopContent('theme');
+    } catch (e) { alert('오류가 발생했습니다.'); }
+}
+
 function switchShopTab(tab, btn) {
     currentShopTab = tab;
     const parent = btn.parentElement;
@@ -1782,6 +1945,77 @@ async function renderShopContent(tab) {
             }).join('');
         } catch (e) {
             container.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;font-size:12px">다이아 정보를 불러오지 못했습니다.</div>';
+        }
+    } else if (tab === 'theme') {
+        try {
+            const [themeRes, meRes] = await Promise.all([
+                fetch('/api/estate/themes', { credentials: 'include' }),
+                fetch('/api/auth/me', { credentials: 'include' })
+            ]);
+            const themeData = themeRes.ok ? await themeRes.json() : { themes: [], owned: ['default'], equipped: 'default' };
+            const meData = meRes.ok ? await meRes.json() : { user: currentUser };
+            currentUser = { ...(currentUser || {}), ...(meData.user || {}) };
+
+            const { themes, owned, equipped } = themeData;
+            const myGold = currentUser?.gold || 0;
+            const myDiamond = currentUser?.diamond || 0;
+
+            container.innerHTML = `
+                <div style="padding:10px 0 6px;">
+                    <div style="font-size:10px;color:var(--text-tertiary);letter-spacing:1px;margin-bottom:4px;">
+                        보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
+                        &nbsp;|&nbsp; 보유 다이아: <strong style="color:#78d7ff">${myDiamond.toLocaleString()}D</strong>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">
+                        UI 테마를 바꿔 나만의 감성으로 꾸며보세요.<br>
+                        테마는 구매 즉시 적용되며 언제든지 변경 가능합니다.
+                    </div>
+                    <div id="theme-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+                </div>
+            `;
+
+            const grid = document.getElementById('theme-grid');
+            if (!grid) return;
+
+            themes.forEach(theme => {
+                const isOwned = owned.includes(theme.id);
+                const isEquipped = equipped === theme.id;
+
+                const card = document.createElement('div');
+                card.className = `theme-card${isOwned ? ' owned' : ''}${isEquipped ? ' equipped' : ''}`;
+
+                const swatches = (theme.preview || []).map(c =>
+                    `<div class="theme-preview-swatch" style="background:${c}"></div>`
+                ).join('');
+
+                let btnHtml = '';
+                if (isEquipped) {
+                    btnHtml = `<div style="font-size:11px;font-weight:700;color:var(--accent);text-align:center;">현재 적용 중</div>`;
+                } else if (isOwned) {
+                    btnHtml = `<button class="inline-btn" style="width:100%;justify-content:center;" onclick="equipTheme('${theme.id}')">적용하기</button>`;
+                } else if (theme.priceGold === 0) {
+                    btnHtml = `<button class="inline-btn" style="width:100%;justify-content:center;" onclick="buyTheme('${theme.id}','gold')">무료로 받기</button>`;
+                } else {
+                    btnHtml = `
+                        <div style="display:flex;gap:6px;">
+                            <button class="inline-btn" style="flex:1;justify-content:center;font-size:11px;"
+                                onclick="buyTheme('${theme.id}','gold')">${theme.priceGold.toLocaleString()}G</button>
+                            <button class="inline-btn" style="flex:1;justify-content:center;font-size:11px;background:rgba(120,215,255,0.10);border-color:rgba(120,215,255,0.25);color:#78d7ff;"
+                                onclick="buyTheme('${theme.id}','diamond')">${theme.priceDiamond}D</button>
+                        </div>`;
+                }
+
+                card.innerHTML = `
+                    ${isEquipped ? '<div class="theme-equipped-badge">ACTIVE</div>' : ''}
+                    <div class="theme-preview">${swatches}</div>
+                    <div class="theme-name">${esc(theme.name)}</div>
+                    <div class="theme-desc">${esc(theme.description)}</div>
+                    ${btnHtml}
+                `;
+                grid.appendChild(card);
+            });
+        } catch (e) {
+            container.innerHTML = '<div style="color:var(--red);text-align:center;padding:20px;font-size:12px">테마 정보를 불러오지 못했습니다.</div>';
         }
     } else {
         container.innerHTML = `

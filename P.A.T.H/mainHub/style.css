@@ -1025,3 +1025,231 @@ body.light .toggle-slider { background-color: #D1D5DB; }
     #coordinates-display { width: min(180px, calc(100vw - 16px)) !important; max-width: 180px; font-size: 10px !important; }
     .profile-modal-card { width: calc(100vw - 16px); padding: 16px; gap: 14px; }
 }
+
+/* ════════════════════════════════════
+   ESTATE INTERIOR – TOSS STYLE
+════════════════════════════════════ */
+.overlay-head {
+    background: linear-gradient(135deg, var(--surface-color) 0%, var(--surface-raise) 100%);
+    border-bottom: 1px solid var(--border-color);
+}
+.overlay-head h2 {
+    font-size: 20px; font-weight: 800; color: var(--text-primary);
+    letter-spacing: -0.6px;
+}
+
+.estate-section { display: flex; flex-direction: column; gap: 3px; }
+.estate-label {
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+    letter-spacing: 0.2px;
+}
+.estate-val {
+    font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.3px;
+}
+
+.interior-input {
+    width: 100%; box-sizing: border-box;
+    background: var(--surface-hover); border: 1.5px solid var(--border-color);
+    color: var(--text-primary); padding: 10px 14px;
+    font-size: 13px; font-weight: 500; border-radius: var(--radius-sm);
+    outline: none; font-family: var(--font-ui); transition: border-color 0.18s;
+}
+.interior-input:focus { border-color: var(--accent); background: var(--surface-raise); }
+.interior-input::placeholder { color: var(--text-tertiary); }
+
+.inline-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--accent-light); border: 1.5px solid var(--accent-dim);
+    color: var(--accent); padding: 7px 14px; font-size: 12px; font-weight: 700;
+    border-radius: var(--radius-sm); cursor: pointer; transition: 0.16s;
+    font-family: var(--font-ui); white-space: nowrap;
+}
+.inline-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.interior-action-btn {
+    width: 100%; padding: 12px 0; font-size: 14px; font-weight: 700;
+    background: var(--accent); color: #fff; border: none;
+    border-radius: var(--radius-sm); cursor: pointer; transition: 0.16s;
+    font-family: var(--font-ui); letter-spacing: -0.2px;
+}
+.interior-action-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.interior-action-btn:active { transform: translateY(0); }
+
+.score-upload-area {
+    display: flex; flex-direction: column; gap: 8px;
+    background: var(--surface-hover); border: 1.5px dashed var(--border-color);
+    border-radius: var(--radius-sm); padding: 14px;
+}
+
+/* Estate card — Toss big-number stat */
+.estate-big-stat {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 14px 0 8px;
+}
+.estate-big-stat .label {
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+    letter-spacing: 0.3px; text-transform: uppercase;
+}
+.estate-big-stat .number {
+    font-size: 28px; font-weight: 800; color: var(--text-primary);
+    letter-spacing: -1px; line-height: 1.1;
+}
+.estate-big-stat .unit {
+    font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    margin-left: 2px;
+}
+.estate-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 700; padding: 3px 8px;
+    border-radius: var(--radius-pill); letter-spacing: 0.2px;
+}
+.estate-badge.green  { background: rgba(0,196,113,0.15); color: var(--green); }
+.estate-badge.blue   { background: var(--accent-light);  color: var(--accent); }
+.estate-badge.gold   { background: rgba(246,166,35,0.15); color: var(--gold); }
+.estate-badge.orange { background: rgba(255,107,53,0.15); color: var(--orange); }
+
+.estate-divider {
+    height: 1px; background: var(--border-color); margin: 4px 0;
+}
+
+/* ════════════════════════════════════
+   UI THEMES
+════════════════════════════════════ */
+
+/* Rose Gold */
+body[data-theme="rose"] {
+    --accent:        #E07B9B;
+    --accent-hover:  #C65C7E;
+    --accent-light:  rgba(224,123,155,0.12);
+    --accent-dim:    rgba(224,123,155,0.25);
+    --bg-color:      #120910;
+    --surface-color: #1E1018;
+    --surface-hover: #281520;
+    --surface-raise: #321A2A;
+    --border-color:  rgba(224,123,155,0.10);
+    --text-primary:  #F5EAF0;
+    --text-secondary:#B07A90;
+    --text-tertiary: #6A4050;
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.40);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.50);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.60);
+}
+body[data-theme="rose"] .hud-header { border-bottom-color: rgba(224,123,155,0.12); }
+
+/* Emerald */
+body[data-theme="emerald"] {
+    --accent:        #00C471;
+    --accent-hover:  #00A85E;
+    --accent-light:  rgba(0,196,113,0.12);
+    --accent-dim:    rgba(0,196,113,0.25);
+    --bg-color:      #0A130F;
+    --surface-color: #111E17;
+    --surface-hover: #172A20;
+    --surface-raise: #1D3528;
+    --border-color:  rgba(0,196,113,0.10);
+    --text-primary:  #E8F5EE;
+    --text-secondary:#6FA886;
+    --text-tertiary: #3D6650;
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.40);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.50);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.60);
+}
+
+/* Purple Dream */
+body[data-theme="purple"] {
+    --accent:        #9B6DFF;
+    --accent-hover:  #8050EE;
+    --accent-light:  rgba(155,109,255,0.12);
+    --accent-dim:    rgba(155,109,255,0.25);
+    --bg-color:      #0D0A1A;
+    --surface-color: #171030;
+    --surface-hover: #201840;
+    --surface-raise: #2A2050;
+    --border-color:  rgba(155,109,255,0.10);
+    --text-primary:  #EDE8FF;
+    --text-secondary:#8070AA;
+    --text-tertiary: #504070;
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.45);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.55);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.65);
+}
+
+/* Sunset */
+body[data-theme="sunset"] {
+    --accent:        #FF6B35;
+    --accent-hover:  #E85520;
+    --accent-light:  rgba(255,107,53,0.12);
+    --accent-dim:    rgba(255,107,53,0.25);
+    --bg-color:      #140A06;
+    --surface-color: #211208;
+    --surface-hover: #2E1A0C;
+    --surface-raise: #3A2210;
+    --border-color:  rgba(255,107,53,0.10);
+    --text-primary:  #FFF0E8;
+    --text-secondary:#AA7055;
+    --text-tertiary: #6A4030;
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.40);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.50);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.60);
+}
+
+/* Midnight */
+body[data-theme="midnight"] {
+    --accent:        #4A90D9;
+    --accent-hover:  #2E74C0;
+    --accent-light:  rgba(74,144,217,0.12);
+    --accent-dim:    rgba(74,144,217,0.25);
+    --bg-color:      #080D18;
+    --surface-color: #0E1628;
+    --surface-hover: #141E38;
+    --surface-raise: #1A2848;
+    --border-color:  rgba(74,144,217,0.09);
+    --text-primary:  #D8E8F8;
+    --text-secondary:#5878A0;
+    --text-tertiary: #344C6E;
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.45);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.55);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.65);
+}
+
+/* Sakura */
+body[data-theme="sakura"] {
+    --accent:        #FF9EC4;
+    --accent-hover:  #E87AAE;
+    --accent-light:  rgba(255,158,196,0.12);
+    --accent-dim:    rgba(255,158,196,0.25);
+    --bg-color:      #150C12;
+    --surface-color: #221018;
+    --surface-hover: #2E1622;
+    --surface-raise: #3A1E2E;
+    --border-color:  rgba(255,158,196,0.10);
+    --text-primary:  #FFF0F5;
+    --text-secondary:#B07890;
+    --text-tertiary: #6A4055;
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.40);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.50);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.60);
+}
+
+/* ── Theme shop card ── */
+.theme-card {
+    border: 1.5px solid var(--border-color); border-radius: var(--radius-md);
+    padding: 14px; display: flex; flex-direction: column; gap: 10px;
+    background: var(--surface-color); cursor: pointer; transition: 0.18s;
+    position: relative; overflow: hidden;
+}
+.theme-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
+.theme-card.owned  { border-color: rgba(0,196,113,0.35); }
+.theme-card.equipped { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+.theme-preview {
+    height: 44px; border-radius: var(--radius-xs); display: flex; overflow: hidden;
+}
+.theme-preview-swatch { flex: 1; }
+.theme-name { font-size: 13px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.2px; }
+.theme-desc { font-size: 11px; color: var(--text-secondary); }
+.theme-equipped-badge {
+    position: absolute; top: 8px; right: 8px;
+    background: var(--accent); color: #fff;
+    font-size: 9px; font-weight: 700; padding: 2px 7px;
+    border-radius: var(--radius-pill); letter-spacing: 0.3px;
+}

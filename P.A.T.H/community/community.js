@@ -40,6 +40,17 @@ let searchQuery  = '';
 let scrollHook   = null;
 let isLoading    = false;
 let currentUser  = null;  // { id, nickname, is_admin, admin_role } | null
+let currentUserBlocks = new Set();
+
+const REPORT_REASON_OPTIONS = [
+  { code: 'spam', label: '도배/광고' },
+  { code: 'abuse', label: '욕설/괴롭힘' },
+  { code: 'sexual', label: '성적/음란 콘텐츠' },
+  { code: 'hate', label: '혐오/차별 표현' },
+  { code: 'personal_info', label: '개인정보 노출' },
+  { code: 'illegal', label: '불법 정보' },
+  { code: 'other', label: '기타' },
+];
 
 /* ─── DOM ───────────────────────────────────────────────────── */
 const categoryBar    = document.getElementById('category-bar');
@@ -129,6 +140,13 @@ async function init() {
       if (res.ok) {
         const me = await res.json();
         currentUser = me.user || me;
+
+        const blocksRes = await fetch('/api/community/blocks', { credentials: 'include' });
+        if (blocksRes.ok) {
+          const blocksData = await blocksRes.json();
+          const ids = (blocksData.blocks || []).map((b) => Number(b.blocked_id)).filter((n) => Number.isInteger(n));
+          currentUserBlocks = new Set(ids);
+        }
       }
     } catch (_) { /* 무시 */ }
 
@@ -397,6 +415,9 @@ function renderDetailBody(container, { post, postId, comments }) {
     const canModerate = currentUserIsAdmin();
     const safeImageUrl = safeHttpUrl(post.image_url);
     const safeLinkUrl = safeHttpUrl(post.link_url);
+  const authorUserId = Number(post.user_id || 0);
+  const canBlockAuthor = !!currentUser && authorUserId > 0 && authorUserId !== Number(currentUser.id || 0);
+  const alreadyBlocked = canBlockAuthor && currentUserBlocks.has(authorUserId);
     const cmtHtml = comments.map(c => `
       <li class="cmt-item" data-comment-id="${c.id}">
         <div class="cmt-meta">
@@ -436,6 +457,8 @@ function renderDetailBody(container, { post, postId, comments }) {
         <span class="detail-gold-balance" id="detail-gold-balance">
           보유 골드 ${Number(currentUser?.gold || 0).toLocaleString()}G
         </span>
+        ${currentUser ? '<button class="detail-report-btn" id="detail-report-btn">게시물 신고</button>' : ''}
+        ${canBlockAuthor ? `<button class="detail-block-btn" id="detail-block-btn">${alreadyBlocked ? '차단 해제' : '작성자 차단'}</button>` : ''}
         ${canModerate ? '<button class="detail-admin-del-btn" id="detail-admin-del-btn">게시글 삭제</button>' : ''}
       </div>
       <div class="detail-comments">
@@ -456,18 +479,22 @@ function renderDetailBody(container, { post, postId, comments }) {
             const r = await fetch(`/api/community/posts/${postId}/like`, {
                 method: 'POST', credentials: 'include',
             });
-            if (r.ok) {
-                const { liked, likes } = await r.json();
-                const btn = container.querySelector('#detail-like-btn');
-                btn.style.color = liked ? 'var(--accent-red)' : '';
-                btn.querySelector('svg').style.fill = liked ? 'var(--accent-red)' : '';
-                const countSpan = container.querySelector('#like-count');
-                if (countSpan) countSpan.textContent = likes;
-                showToast(liked ? `추천 ${likes}` : '추천을 취소했어요');
-                // 목록 카운트 갱신
-                const likeEl = postList.querySelector(`[data-id="${postId}"] .post-row__likes`);
-                if (likeEl) likeEl.lastChild.textContent = likes;
-            }
+          if (!r.ok) {
+            const errorMsg = await readApiError(r, '오류가 발생했어요');
+            if (errorMsg) showToast(errorMsg);
+            return;
+          }
+
+          const { liked, likes } = await r.json();
+          const btn = container.querySelector('#detail-like-btn');
+          btn.style.color = liked ? 'var(--accent-red)' : '';
+          btn.querySelector('svg').style.fill = liked ? 'var(--accent-red)' : '';
+          const countSpan = container.querySelector('#like-count');
+          if (countSpan) countSpan.textContent = likes;
+          showToast(liked ? `추천 ${likes}` : '추천을 취소했어요');
+          // 목록 카운트 갱신
+          const likeEl = postList.querySelector(`[data-id="${postId}"] .post-row__likes`);
+          if (likeEl) likeEl.lastChild.textContent = likes;
         } catch (_) { showToast('오류가 발생했어요'); }
     });
 
@@ -492,7 +519,11 @@ function renderDetailBody(container, { post, postId, comments }) {
 
           const data = await r.json().catch(() => ({}));
           if (!r.ok) {
-            showToast(data.error || '오류가 발생했어요');
+            if (data?.code === 'EULA_REQUIRED') {
+              showToast('최신 이용약관 동의 후 이용할 수 있어요. 메인 화면에서 동의해 주세요.');
+            } else {
+              showToast(data.error || '오류가 발생했어요');
+            }
             return;
           }
 
@@ -519,6 +550,79 @@ function renderDetailBody(container, { post, postId, comments }) {
       });
     }
 
+    const reportBtn = container.querySelector('#detail-report-btn');
+    if (reportBtn) {
+      reportBtn.addEventListener('click', async () => {
+        if (!currentUser) {
+          showToast('로그인 후 이용할 수 있어요');
+          return;
+        }
+
+        const payload = showReportPrompt();
+        if (!payload) return;
+
+        reportBtn.disabled = true;
+        try {
+          const r = await fetch(`/api/community/posts/${postId}/report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+          });
+          if (!r.ok) {
+            const errorMsg = await readApiError(r, '신고 처리에 실패했어요');
+            if (errorMsg) showToast(errorMsg);
+            return;
+          }
+          showToast('신고가 접수되었습니다. 운영팀이 검토할 예정입니다.');
+        } catch (_) {
+          showToast('신고 처리 중 오류가 발생했어요');
+        } finally {
+          reportBtn.disabled = false;
+        }
+      });
+    }
+
+    const blockBtn = container.querySelector('#detail-block-btn');
+    if (blockBtn && canBlockAuthor) {
+      blockBtn.addEventListener('click', async () => {
+        const targetUserId = Number(post.user_id || 0);
+        if (!targetUserId) return;
+
+        const currentlyBlocked = currentUserBlocks.has(targetUserId);
+        const confirmed = window.confirm(
+          currentlyBlocked
+            ? '작성자 차단을 해제할까요?'
+            : '작성자를 차단하면 해당 사용자의 게시글/댓글이 숨겨집니다. 계속할까요?'
+        );
+        if (!confirmed) return;
+
+        blockBtn.disabled = true;
+        try {
+          const r = await fetch(`/api/community/blocks/${targetUserId}`, {
+            method: currentlyBlocked ? 'DELETE' : 'POST',
+            credentials: 'include',
+          });
+          if (!r.ok) {
+            const errorMsg = await readApiError(r, '차단 설정에 실패했어요');
+            if (errorMsg) showToast(errorMsg);
+            return;
+          }
+
+          await refreshBlockedUsers();
+          showToast(currentlyBlocked ? '차단을 해제했어요' : '작성자를 차단했어요');
+
+          const modal = document.querySelector('.modal-backdrop.visible');
+          if (modal) modal.remove();
+          await Promise.all([renderHotPosts(), resetAndLoad()]);
+        } catch (_) {
+          showToast('차단 처리 중 오류가 발생했어요');
+        } finally {
+          blockBtn.disabled = false;
+        }
+      });
+    }
+
     // 댓글 등록
     container.querySelector('#cmt-submit').addEventListener('click', async () => {
         if (!currentUser) { showToast('로그인 후 댓글을 달 수 있어요'); return; }
@@ -534,8 +638,8 @@ function renderDetailBody(container, { post, postId, comments }) {
                 body: JSON.stringify({ body }),
             });
             if (!r.ok) {
-                const { error } = await r.json();
-                showToast(error || '오류가 발생했어요');
+              const errorMsg = await readApiError(r, '오류가 발생했어요');
+              if (errorMsg) showToast(errorMsg);
                 return;
             }
             const { comment } = await r.json();
@@ -1140,6 +1244,49 @@ function showToast(msg) {
         t.classList.remove('visible');
         t.addEventListener('transitionend', () => t.remove(), { once: true });
     }, 2400);
+}
+
+async function readApiError(response, fallback) {
+  const data = await response.json().catch(() => ({}));
+  if (data?.code === 'EULA_REQUIRED') {
+    showToast('최신 이용약관 동의 후 이용할 수 있어요. 메인 화면에서 동의해 주세요.');
+    return null;
+  }
+  return data?.error || fallback;
+}
+
+async function refreshBlockedUsers() {
+  if (!currentUser) return;
+  try {
+    const r = await fetch('/api/community/blocks', { credentials: 'include' });
+    if (!r.ok) return;
+    const data = await r.json();
+    const ids = (data.blocks || []).map((b) => Number(b.blocked_id)).filter((n) => Number.isInteger(n));
+    currentUserBlocks = new Set(ids);
+  } catch (_) {
+    // Ignore refresh failures.
+  }
+}
+
+function showReportPrompt() {
+  const labels = REPORT_REASON_OPTIONS.map((o) => `${o.code}: ${o.label}`).join('\n');
+  const reasonInput = window.prompt(`신고 사유 코드를 입력해 주세요.\n${labels}`, 'abuse');
+  if (reasonInput === null) return null;
+  const reasonCode = reasonInput.trim();
+  if (!REPORT_REASON_OPTIONS.some((o) => o.code === reasonCode)) {
+    showToast('신고 사유 코드가 올바르지 않아요');
+    return null;
+  }
+
+  const detailInput = window.prompt('상세 사유(선택, 최대 500자)', '');
+  if (detailInput === null) return null;
+  const detail = detailInput.trim();
+  if (detail.length > 500) {
+    showToast('상세 사유는 500자 이하로 입력해 주세요');
+    return null;
+  }
+
+  return { reason_code: reasonCode, detail };
 }
 
 /* ─── 유틸리티 ───────────────────────────────────────────── */

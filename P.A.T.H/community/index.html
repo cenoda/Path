@@ -16,6 +16,14 @@
   <meta name="twitter:description" content="입시 정보와 질문을 나누는 수험생 커뮤니티">
   <meta name="theme-color" content="#0D0D11" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#F6F8FC" media="(prefers-color-scheme: light)">
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="P.A.T.H">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
   <link rel="canonical" href="/community/">
   <title>입시 커뮤니티 - P.A.T.H</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -149,5 +157,6 @@
 
 <script src="/shared/nav.js?v=2"></script>
 <script type="module" src="community.js"></script>
+<script>if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{});</script>
 </body>
 </html>

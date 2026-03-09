@@ -98,7 +98,8 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
             imgSrc: ["'self'", "data:", "https:", "blob:"],
-            connectSrc: ["'self'", "wss:", "ws:"],
+            connectSrc: ["'self'", "wss:", "ws:", "https:"],
+            workerSrc: ["'self'"],
             frameSrc: ["'none'"],
             objectSrc: ["'none'"],
             upgradeInsecureRequests: isProduction ? [] : null,
@@ -220,6 +221,34 @@ const noCacheStaticOptions = {
         res.setHeader('Surrogate-Control', 'no-store');
     }
 };
+
+// ── PWA: Service Worker (must be at root scope, no-cache) ──────────────────
+app.get('/sw.js', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.setHeader('Content-Type', 'application/javascript');
+    res.sendFile(path.join(projectRoot, 'P.A.T.H', 'sw.js'));
+});
+
+// ── PWA: Manifest (short-lived cache) ──────────────────────────────────────
+app.get('/manifest.json', (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.sendFile(path.join(projectRoot, 'P.A.T.H', 'manifest.json'));
+});
+
+// ── PWA: Icons (long-lived cache) ──────────────────────────────────────────
+app.use('/icons', express.static(path.join(projectRoot, 'P.A.T.H', 'icons'), {
+    maxAge: '30d',
+    etag: true,
+}));
+
+// ── PWA: Install helper script (no-cache) ──────────────────────────────────
+app.get('/pwa-install.js', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Content-Type', 'application/javascript');
+    res.sendFile(path.join(projectRoot, 'P.A.T.H', 'pwa-install.js'));
+});
 
 // Public URL mounts (hide internal folder structure from browser address bar)
 app.use('/assets', express.static(path.join(projectRoot, 'P.A.T.H', 'assets'), staticOptions));

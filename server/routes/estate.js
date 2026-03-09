@@ -8,6 +8,17 @@ const { getActiveStreakFromUser, getStreakMultiplier, STREAK_BONUS_RATE } = requ
 const router = express.Router();
 
 const MAX_HOURS = 24;
+
+const UI_THEMES = [
+    { id: 'default',  name: '기본 다크',    priceGold: 0,    preview: ['#0F1117','#1B2130','#3182F6'], description: 'P.A.T.H 기본 다크 테마' },
+    { id: 'light',    name: '라이트',       priceGold: 0,    preview: ['#F5F6FA','#FFFFFF','#3182F6'], description: '밝고 깔끔한 라이트 모드' },
+    { id: 'rose',     name: '로즈 골드',    priceGold: 500,  preview: ['#120910','#1E1018','#E07B9B'], description: '따뜻한 핑크 & 골드 감성' },
+    { id: 'emerald',  name: '에메랄드',     priceGold: 800,  preview: ['#0A130F','#111E17','#00C471'], description: '싱그러운 에메랄드 그린' },
+    { id: 'purple',   name: '퍼플 드림',    priceGold: 1000, preview: ['#0D0A1A','#171030','#9B6DFF'], description: '몽환적인 딥 퍼플' },
+    { id: 'sunset',   name: '선셋',         priceGold: 1200, preview: ['#140A06','#211208','#FF6B35'], description: '노을빛 따뜻한 감성' },
+    { id: 'midnight', name: '미드나잇',     priceGold: 1500, preview: ['#080D18','#0E1628','#4A90D9'], description: '깊고 고요한 미드나잇 블루' },
+    { id: 'sakura',   name: '사쿠라',       priceGold: 2000, preview: ['#150C12','#221018','#FF9EC4'], description: '벚꽃 핑크 파스텔 테마' },
+];
 const NSU_BONUS_RATE = 0.15;
 const GPA_BONUS_MAX = 0.5;
 const DIAMOND_PACKAGES = [

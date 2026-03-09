@@ -225,6 +225,14 @@ router.get('/posts', async (req, res) => {
         params.push(`%${q}%`);
         conds.push(`title ILIKE $${params.length}`);
     }
+
+    const viewerId = req.session?.userId ? parseInt(req.session.userId, 10) : null;
+    const blockedCond = makeBlockedPostCondition(viewerId, params.length + 1, 'p');
+    if (blockedCond.sql) {
+        conds.push(blockedCond.sql);
+        params.push(...blockedCond.params);
+    }
+
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
 
     try {
@@ -274,6 +282,14 @@ router.get('/posts/hot', async (req, res) => {
         params.push(cat);
         conds.push(`category = $${params.length}`);
     }
+
+    const viewerId = req.session?.userId ? parseInt(req.session.userId, 10) : null;
+    const blockedCond = makeBlockedPostCondition(viewerId, params.length + 1, 'p');
+    if (blockedCond.sql) {
+        conds.push(blockedCond.sql);
+        params.push(...blockedCond.params);
+    }
+
     const where = `WHERE ${conds.join(' AND ')}`;
 
     try {

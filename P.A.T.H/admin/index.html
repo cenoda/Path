@@ -151,7 +151,7 @@
 
         .stats {
             display: grid;
-            grid-template-columns: repeat(5, minmax(140px, 1fr));
+            grid-template-columns: repeat(6, minmax(140px, 1fr));
             gap: 10px;
             margin-bottom: 14px;
         }
@@ -359,11 +359,13 @@
             <div class="stat-card"><p class="stat-label">검수 대기(총)</p><p class="stat-value" id="stat-pending-total">-</p></div>
             <div class="stat-card"><p class="stat-label">평가원 대기</p><p class="stat-value" id="stat-pending-score">-</p></div>
             <div class="stat-card"><p class="stat-label">내신 대기</p><p class="stat-value" id="stat-pending-gpa">-</p></div>
+            <div class="stat-card"><p class="stat-label">신고 대기</p><p class="stat-value" id="stat-report-pending">-</p></div>
             <div class="stat-card"><p class="stat-label">관리자 계정</p><p class="stat-value" id="stat-admin">-</p></div>
         </section>
 
         <nav class="tabs">
             <button class="tab-btn active" data-tab="pending" type="button">검수 대기</button>
+            <button class="tab-btn" data-tab="reports" type="button">신고 큐</button>
             <button class="tab-btn" data-tab="users" type="button">사용자 관리</button>
         </nav>
 
@@ -401,12 +403,30 @@
                 <div class="empty">사용자 데이터를 불러오는 중입니다.</div>
             </div>
         </section>
+
+        <section class="panel" id="panel-reports">
+            <div class="filter-row" style="grid-template-columns: 1fr 2fr auto;">
+                <select id="report-status-filter" class="field">
+                    <option value="pending">대기만</option>
+                    <option value="reviewed">처리 완료</option>
+                    <option value="dismissed">기각</option>
+                    <option value="all">전체</option>
+                </select>
+                <input id="report-search-input" class="field" type="text" placeholder="게시글 제목/신고자/대상자 검색">
+                <button class="btn" id="report-refresh-btn" type="button">신고 새로고침</button>
+            </div>
+            <p class="result-meta" id="reports-result-meta"></p>
+            <div class="list" id="reports-list">
+                <div class="empty">신고 데이터를 불러오는 중입니다.</div>
+            </div>
+        </section>
     </div>
 
     <script>
         const state = {
             pending: [],
             users: [],
+            reports: [],
             loading: false,
             autoRefreshId: null,
             activeTab: 'pending'
@@ -470,12 +490,84 @@
         function updateStats() {
             const pendingScore = state.pending.filter((item) => item.score_status === 'pending').length;
             const pendingGpa = state.pending.filter((item) => item.gpa_status === 'pending').length;
+            const pendingReports = state.reports.filter((item) => item.status === 'pending').length;
 
             document.getElementById('stat-users').textContent = state.users.length;
             document.getElementById('stat-pending-total').textContent = pendingScore + pendingGpa;
             document.getElementById('stat-pending-score').textContent = pendingScore;
             document.getElementById('stat-pending-gpa').textContent = pendingGpa;
+            document.getElementById('stat-report-pending').textContent = pendingReports;
             document.getElementById('stat-admin').textContent = state.users.filter((u) => !!u.is_admin).length;
+        }
+
+        function reportStatusClass(status) {
+            if (status === 'pending') return 'pending';
+            if (status === 'reviewed') return 'approved';
+            if (status === 'dismissed') return 'rejected';
+            return 'none';
+        }
+
+        function reportStatusText(status) {
+            return {
+                pending: '대기',
+                reviewed: '처리 완료',
+                dismissed: '기각'
+            }[status] || '-';
+        }
+
+        function getFilteredReports() {
+            const keyword = document.getElementById('report-search-input').value.trim().toLowerCase();
+            const status = document.getElementById('report-status-filter').value;
+            return state.reports.filter((report) => {
+                if (status !== 'all' && report.status !== status) return false;
+                if (!keyword) return true;
+                const target = `${report.post_title || ''} ${report.reporter_nickname || ''} ${report.target_nickname || ''}`.toLowerCase();
+                return target.includes(keyword);
+            });
+        }
+
+        function renderReports() {
+            const listEl = document.getElementById('reports-list');
+            const filtered = getFilteredReports();
+            document.getElementById('reports-result-meta').textContent = `검색 결과 ${filtered.length}건 / 전체 ${state.reports.length}건`;
+
+            if (!filtered.length) {
+                listEl.innerHTML = '<div class="empty">조건에 맞는 신고가 없습니다.</div>';
+                return;
+            }
+
+            listEl.innerHTML = filtered.map((report) => {
+                const statusClass = reportStatusClass(report.status);
+                const decisionButtons = report.status === 'pending'
+                    ? `
+                        <button class="btn primary" type="button" onclick="reviewReport(${report.id}, 'reviewed', this)">처리 완료</button>
+                        <button class="btn danger" type="button" onclick="reviewReport(${report.id}, 'dismiss', this)">기각</button>
+                    `
+                    : '';
+
+                return `
+                    <article class="card">
+                        <div class="card-head">
+                            <h3 class="name">신고 #${report.id} · 게시글 #${report.post_id}</h3>
+                            <span class="badge ${statusClass}">${reportStatusText(report.status)}</span>
+                        </div>
+                        <p class="meta">
+                            <strong>게시글:</strong> ${esc(report.post_title || '(삭제되었거나 비공개)')}<br>
+                            <strong>신고자:</strong> ${esc(report.reporter_nickname || '-')} (ID ${report.reporter_id})<br>
+                            <strong>대상자:</strong> ${esc(report.target_nickname || '-')} ${report.reported_user_id ? `(ID ${report.reported_user_id})` : ''}<br>
+                            <strong>사유 코드:</strong> ${esc(report.reason_code || '-')}<br>
+                            <strong>상세:</strong> ${esc(report.detail || '-')}<br>
+                            <strong>접수 시각:</strong> ${formatDate(report.created_at)}<br>
+                            ${report.reviewed_at ? `<strong>검토 시각:</strong> ${formatDate(report.reviewed_at)}<br>` : ''}
+                            ${report.reviewed_by_nickname ? `<strong>검토자:</strong> ${esc(report.reviewed_by_nickname)}` : ''}
+                        </p>
+                        <div class="action-row">
+                            <button class="btn" type="button" onclick="window.open('/community/post/${report.post_id}', '_blank')">게시글 열기</button>
+                            ${decisionButtons}
+                        </div>
+                    </article>
+                `;
+            }).join('');
         }
 
         function renderPending() {
@@ -606,6 +698,13 @@
             renderUsers();
         }
 
+        async function loadReports() {
+            const status = document.getElementById('report-status-filter')?.value || 'pending';
+            const data = await apiFetch(`/api/admin/community-reports?status=${encodeURIComponent(status)}&limit=100&page=0`);
+            state.reports = data.reports || [];
+            renderReports();
+        }
+
         function setLastUpdated() {
             document.getElementById('last-updated').textContent = `마지막 동기화: ${new Date().toLocaleString('ko-KR', { hour12: false })}`;
         }
@@ -616,13 +715,14 @@
             setNotice('', 'ok');
 
             try {
-                await Promise.all([loadPending(), loadUsers()]);
+                await Promise.all([loadPending(), loadUsers(), loadReports()]);
                 updateStats();
                 setLastUpdated();
                 if (showMessage) setNotice('데이터를 최신 상태로 반영했습니다.', 'ok');
             } catch (error) {
                 const pendingEl = document.getElementById('pending-list');
                 const usersEl = document.getElementById('user-list');
+                const reportsEl = document.getElementById('reports-list');
                 const blocked = error.status === 401 || error.status === 403;
                 const guide = blocked
                     ? '관리자 권한이 필요합니다. 관리자 계정으로 로그인 후 다시 시도해주세요.'
@@ -630,11 +730,30 @@
 
                 pendingEl.innerHTML = `<div class="empty">${esc(guide)}</div>`;
                 usersEl.innerHTML = `<div class="empty">${esc(guide)}</div>`;
+                reportsEl.innerHTML = `<div class="empty">${esc(guide)}</div>`;
                 document.getElementById('users-result-meta').textContent = '';
+                document.getElementById('reports-result-meta').textContent = '';
                 setNotice(guide, 'error');
             } finally {
                 state.loading = false;
             }
+        }
+
+        async function reviewReport(reportId, decision, button) {
+            const label = decision === 'dismiss' ? '기각' : '처리 완료';
+            if (!window.confirm(`신고 #${reportId}을(를) ${label} 처리할까요?`)) return;
+
+            await withActionLock(button, async () => {
+                await apiFetch(`/api/admin/community-reports/${reportId}/review`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ decision })
+                });
+                setNotice(`신고 #${reportId} ${label} 처리 완료`, 'ok');
+                await refreshAll(false);
+            }).catch((error) => {
+                setNotice(error.message, 'error');
+            });
         }
 
         function withActionLock(button, task) {
@@ -742,6 +861,29 @@
                 document.getElementById(id).addEventListener('change', renderUsers);
             });
 
+            ['report-search-input', 'report-status-filter'].forEach((id) => {
+                document.getElementById(id).addEventListener('input', renderReports);
+                document.getElementById(id).addEventListener('change', async () => {
+                    if (id === 'report-status-filter') {
+                        await loadReports();
+                        updateStats();
+                    } else {
+                        renderReports();
+                    }
+                });
+            });
+
+            document.getElementById('report-refresh-btn').addEventListener('click', async () => {
+                try {
+                    await loadReports();
+                    updateStats();
+                    setLastUpdated();
+                    setNotice('신고 데이터를 갱신했습니다.', 'ok');
+                } catch (error) {
+                    setNotice(error.message, 'error');
+                }
+            });
+
             document.getElementById('auto-refresh').addEventListener('change', (event) => {
                 if (event.target.checked) {
                     state.autoRefreshId = setInterval(() => refreshAll(false), 30000);
@@ -755,6 +897,8 @@
         bindEvents();
         refreshAll(false);
         state.autoRefreshId = setInterval(() => refreshAll(false), 30000);
+
+        window.reviewReport = reviewReport;
     </script>
 </body>
 </html>

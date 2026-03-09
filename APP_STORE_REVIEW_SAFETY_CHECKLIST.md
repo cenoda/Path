@@ -9,14 +9,14 @@
 ## 2) Content Moderation Workflow
 - [x] Admin can list reports: `GET /api/admin/community-reports`
 - [x] Admin can review/dismiss report: `POST /api/admin/community-reports/:id/review`
-- [ ] Admin panel UI should expose report queue clearly (if not yet built).
+- [x] Admin panel UI exposes report queue with review/dismiss actions.
 - [ ] Document moderation SLA internally (example: within 24-72h).
 
 ## 3) Legal / Policy Surfaces
 - [x] EULA versioned fields stored per user (`eula_version`, `eula_agreed_at`).
 - [x] Register flow includes explicit EULA consent.
 - [x] Main app shows mandatory EULA modal for users without latest consent.
-- [ ] Publish full legal text URL (Privacy Policy + Terms) in app and store listing.
+- [x] Publish full legal text URL (Privacy Policy + Terms) in app and store listing.
 - [ ] Add in-app contact channel for abuse/legal requests.
 
 ## 4) Recommended Store Submission Notes

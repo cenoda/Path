@@ -259,6 +259,7 @@ app.use('/timer', express.static(path.join(projectRoot, 'P.A.T.H', 'mainPageDev'
 app.use('/community', express.static(path.join(projectRoot, 'P.A.T.H', 'community'), noCacheStaticOptions));
 app.use('/setup-profile', express.static(path.join(projectRoot, 'P.A.T.H', 'setup-profile'), noCacheStaticOptions));
 app.use('/admin', express.static(path.join(projectRoot, 'P.A.T.H', 'admin'), noCacheStaticOptions));
+app.use('/legal', express.static(path.join(projectRoot, 'P.A.T.H', 'legal'), staticOptions));
 
 app.get('/community/post/:id', async (req, res) => {
     const postId = parseInt(req.params.id, 10);

@@ -157,6 +157,7 @@ const UI = {
         this.elements.tabCalendarBtn.onclick = () => this.switchTab('calendar');
         this.elements.tabScoreCalcBtn.onclick = () => this.switchTab('scorecalc');
         this.elements.tabBalloonBtn.onclick = () => this.switchTab('balloon');
+        document.getElementById('tab-rooms-btn')?.addEventListener('click', () => this.switchTab('rooms'));
 
         this.elements.scoreCalcUniversity?.addEventListener('change', () => {
             this.handleScoreCalcUniversityChange().catch(() => {});
@@ -251,6 +252,11 @@ const UI = {
 
             try {
                 await TimerEngine.start(hr, min, subjectId);
+                // Notify group room about timer start
+                if (typeof GroupRooms !== 'undefined') {
+                    const subjectName = this.elements.subjectSelect?.options[this.elements.subjectSelect.selectedIndex]?.text || '공부';
+                    GroupRooms.notifyTimerStart(subjectName);
+                }
             } catch (e) {
                 // 서버 실패 시 UI 롤백
                 this.elements.body.classList.remove('active');
@@ -326,19 +332,23 @@ const UI = {
     },
 
     switchTab(tab) {
-        const nextTab = tab === 'calendar' || tab === 'balloon' || tab === 'scorecalc' ? tab : 'study';
+        const validTabs = ['calendar', 'balloon', 'scorecalc', 'rooms'];
+        const nextTab = validTabs.includes(tab) ? tab : 'study';
         this.currentTab = nextTab;
         const isCalendar = this.currentTab === 'calendar';
+        const isRooms = this.currentTab === 'rooms';
 
         this.elements.tabStudyBtn.classList.toggle('active', this.currentTab === 'study');
         this.elements.tabCalendarBtn.classList.toggle('active', this.currentTab === 'calendar');
         this.elements.tabScoreCalcBtn.classList.toggle('active', this.currentTab === 'scorecalc');
         this.elements.tabBalloonBtn.classList.toggle('active', this.currentTab === 'balloon');
+        document.getElementById('tab-rooms-btn')?.classList.toggle('active', isRooms);
 
         this.elements.tabStudy.classList.toggle('active', this.currentTab === 'study');
         this.elements.tabCalendar.classList.toggle('active', this.currentTab === 'calendar');
         this.elements.tabScoreCalc.classList.toggle('active', this.currentTab === 'scorecalc');
         this.elements.tabBalloon.classList.toggle('active', this.currentTab === 'balloon');
+        document.getElementById('tab-rooms')?.classList.toggle('active', isRooms);
 
         this.elements.body.classList.remove('active');
         this.elements.body.classList.toggle('tab-calendar-active', isCalendar);
@@ -355,6 +365,9 @@ const UI = {
         }
         if (this.currentTab === 'balloon') {
             this.loadBalloonMetrics().catch(() => {});
+        }
+        if (isRooms) {
+            if (typeof GroupRooms !== 'undefined') GroupRooms.loadMyRooms().catch(() => {});
         }
     },
 
@@ -1419,6 +1432,12 @@ const UI = {
         }
         this.elements.overlay.classList.remove('hidden');
         this.lastStudyRecordId = studyRecordId;
+
+        // Notify group room about timer stop
+        // Duration is approximate at this point; the authoritative value is in the leaderboard
+        if (typeof GroupRooms !== 'undefined') {
+            GroupRooms.notifyTimerStop(0);
+        }
 
         if (this.elements.proofSection) {
             this.elements.proofSection.classList.add('hidden');

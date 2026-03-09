@@ -128,6 +128,7 @@ function toggleTheme() {
             <button id="tab-calendar-btn" class="page-tab-btn" type="button">캘린더</button>
             <button id="tab-scorecalc-btn" class="page-tab-btn" type="button">환산점수</button>
             <button id="tab-balloon-btn" class="page-tab-btn" type="button">열기구</button>
+            <button id="tab-rooms-btn" class="page-tab-btn" type="button">그룹 🔥</button>
         </div>
 
         <section id="tab-study" class="tab-panel active">
@@ -326,6 +327,99 @@ function toggleTheme() {
         </section>
     </main>
 
+    <!-- Group timer rooms section -->
+    <section id="tab-rooms" class="tab-panel">
+
+        <!-- Create Room Modal -->
+        <div id="room-create-modal" class="room-modal hidden">
+            <div class="room-modal-inner">
+                <h2 class="room-modal-title">방 만들기 🏠</h2>
+                <form onsubmit="GroupRooms.submitCreateRoom(event)" class="room-form">
+                    <input id="room-create-name" class="room-input" type="text" maxlength="60" placeholder="방 이름 (예: 의대 목표 새벽반)" required>
+                    <input id="room-create-goal" class="room-input" type="text" maxlength="100" placeholder="목표 대학 / 목표 (선택)">
+                    <label class="room-label">최대 인원
+                        <input id="room-create-max" class="room-input" type="number" min="2" max="50" value="10">
+                    </label>
+                    <div class="room-modal-actions">
+                        <button type="submit" class="room-btn-primary">방 만들기</button>
+                        <button type="button" class="room-btn-ghost" onclick="GroupRooms.hideCreateModal()">취소</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Join Room Modal -->
+        <div id="room-join-modal" class="room-modal hidden">
+            <div class="room-modal-inner">
+                <h2 class="room-modal-title">초대 코드로 입장 ⚔️</h2>
+                <form onsubmit="GroupRooms.submitJoinRoom(event)" class="room-form">
+                    <input id="room-join-code" class="room-input" type="text" maxlength="12" placeholder="초대 코드 12자리 입력" required>
+                    <div class="room-modal-actions">
+                        <button type="submit" class="room-btn-primary">합류하기</button>
+                        <button type="button" class="room-btn-ghost" onclick="GroupRooms.hideJoinModal()">취소</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Room List View -->
+        <div id="rooms-list-view">
+            <div class="rooms-header">
+                <h2 class="rooms-title">그룹 타이머</h2>
+                <p class="rooms-subtitle">함께 공부하고, 서로를 자극하세요</p>
+            </div>
+            <div class="rooms-actions">
+                <button class="room-btn-primary" onclick="GroupRooms.showCreateModal()">+ 방 만들기</button>
+                <button class="room-btn-ghost" onclick="GroupRooms.showJoinModal()">코드로 입장</button>
+            </div>
+            <div id="rooms-list" class="rooms-list"></div>
+        </div>
+
+        <!-- Room Detail View -->
+        <div id="rooms-room-view" class="hidden">
+            <div class="room-view-header">
+                <button class="room-back-btn" onclick="GroupRooms.backToList()">← 목록</button>
+                <div class="room-view-meta">
+                    <span id="room-view-name" class="room-view-name"></span>
+                    <span id="room-view-goal" class="room-view-goal"></span>
+                </div>
+                <button class="room-leave-btn" onclick="GroupRooms.leaveCurrentRoom()">나가기</button>
+            </div>
+
+            <div class="room-invite-row">
+                <span class="room-invite-label">초대 링크</span>
+                <code id="room-view-code" class="room-invite-code"></code>
+                <button class="room-copy-btn" onclick="GroupRooms.copyInviteLink()">📋 복사</button>
+            </div>
+
+            <div class="room-panels">
+                <!-- Leaderboard -->
+                <div class="room-panel room-panel-lb">
+                    <div class="room-panel-title">🏆 오늘의 순위</div>
+                    <div id="room-leaderboard" class="room-leaderboard"></div>
+                </div>
+
+                <!-- Activity feed -->
+                <div class="room-panel room-panel-activity">
+                    <div class="room-panel-title">⚡ 실시간 활동</div>
+                    <div id="room-activity-feed" class="room-activity-feed"></div>
+                </div>
+            </div>
+
+            <!-- Chat -->
+            <div class="room-chat">
+                <div class="room-panel-title">💬 그룹 채팅</div>
+                <div id="room-chat-messages" class="room-chat-messages"></div>
+                <div class="room-chat-input-row">
+                    <input id="room-chat-input" class="room-chat-input" type="text" maxlength="500"
+                           placeholder="메시지 입력..."
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();GroupRooms.sendMessage();}">
+                    <button class="room-btn-primary" onclick="GroupRooms.sendMessage()">전송</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Result Overlay -->
     <div id="overlay" class="result-overlay hidden">
         <div class="result-card">
@@ -347,5 +441,7 @@ function toggleTheme() {
     <script src="core.js?v=3"></script>
     <script src="cam.js?v=3"></script>
     <script src="ui.js?v=4"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="rooms.js?v=1"></script>
 </body>
 </html>

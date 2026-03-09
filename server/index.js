@@ -6,6 +6,7 @@ const pgSession = require('connect-pg-simple')(session);
 const cors = require('cors');
 const compression = require('compression');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const path = require('path');
 const pool = require('./db');
@@ -184,6 +185,7 @@ app.use('/api/cam', require('./routes/cam'));
 app.use('/api/friends', require('./routes/friends'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/community', require('./routes/community'));
+app.use('/api/rooms', require('./routes/rooms'));
 
 app.use('/uploads/scores/:filename', (req, res) => {
     res.redirect(`/api/auth/score-image/${req.params.filename}`);
@@ -422,6 +424,127 @@ app.get('/community/post/:id', async (req, res) => {
     }
 });
 
+// ── Group timer room invite page with OG tags ────────────────────────────────
+const roomInviteLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.get('/room/:code', roomInviteLimiter, async (req, res) => {
+    const code = String(req.params.code || '').trim().toLowerCase().slice(0, 12);
+    if (!code) return res.status(400).type('text/html').send('<h1>잘못된 요청</h1>');
+
+    try {
+        const result = await pool.query(
+            `SELECT r.id, r.name, r.goal, r.invite_code, r.max_members,
+                    u.nickname AS creator_nickname,
+                    (SELECT COUNT(*) FROM study_room_members m WHERE m.room_id = r.id) AS member_count,
+                    (SELECT COUNT(*) FROM study_room_members m2
+                     JOIN users u2 ON u2.id = m2.user_id
+                     WHERE m2.room_id = r.id AND u2.is_studying = TRUE) AS active_count
+             FROM study_rooms r
+             JOIN users u ON u.id = r.creator_id
+             WHERE r.invite_code = $1 AND r.is_active = TRUE`,
+            [code]
+        );
+
+        const baseUrl = getSiteBaseUrl(req);
+        const canonical = `${baseUrl}/room/${code}`;
+
+        if (!result.rows.length) {
+            const html = `<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8"><title>방을 찾을 수 없습니다 - P.A.T.H</title>
+<meta name="robots" content="noindex">
+<style>body{font-family:sans-serif;text-align:center;padding:60px 20px;background:#0d0d0d;color:#fff}</style>
+</head><body><h1>방을 찾을 수 없습니다</h1><p>초대 링크가 만료되었거나 잘못된 링크입니다.</p>
+<a href="/timer/" style="color:#d4af37">타이머 페이지로 이동 →</a></body></html>`;
+            return res.status(404).type('text/html').send(html);
+        }
+
+        const room = result.rows[0];
+        const memberCount = parseInt(room.member_count, 10);
+        const activeCount = parseInt(room.active_count, 10);
+        const maxMembers = room.max_members;
+        const roomName = room.name;
+        const goal = room.goal || '';
+
+        const fireEmoji = activeCount > 0 ? '🔥' : '📚';
+        const statusText = activeCount > 0 ? `[${fireEmoji}불타는 중]` : '[📚준비 중]';
+        const ogTitle = `${statusText} ${escapeHtml(roomName)} (${memberCount}/${maxMembers}명)`;
+        const ogDescription = activeCount > 0
+            ? `지금 ${activeCount}명이 실시간으로 달리고 있습니다. 합류하시겠습니까?`
+            : `${goal ? escapeHtml(goal) : '목표를 향해 함께 공부하는 방'} - P.A.T.H 그룹 타이머`;
+        const ogImage = `${baseUrl}/icons/icon-512.png`;
+
+        const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${ogTitle} | P.A.T.H</title>
+  <meta name="description" content="${escapeHtml(ogDescription)}">
+  <meta name="robots" content="noindex">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${escapeHtml(ogTitle)}">
+  <meta property="og:description" content="${escapeHtml(ogDescription)}">
+  <meta property="og:url" content="${escapeHtml(canonical)}">
+  <meta property="og:site_name" content="P.A.T.H">
+  <meta property="og:image" content="${escapeHtml(ogImage)}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${escapeHtml(ogTitle)}">
+  <meta name="twitter:description" content="${escapeHtml(ogDescription)}">
+  <meta name="twitter:image" content="${escapeHtml(ogImage)}">
+  <link rel="canonical" href="${escapeHtml(canonical)}">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:#0d0d0d;color:#f0f0f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{background:#151515;border:1px solid #2a2a2a;border-radius:20px;padding:36px 28px;max-width:440px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+    .badge{display:inline-block;background:#1a1a2e;color:#d4af37;border:1px solid #d4af37;border-radius:999px;padding:4px 14px;font-size:12px;font-weight:700;letter-spacing:1px;margin-bottom:16px}
+    h1{font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.4}
+    .goal{color:#888;font-size:14px;margin-bottom:20px;line-height:1.5}
+    .stats{display:flex;gap:12px;justify-content:center;margin-bottom:24px}
+    .stat{background:#1e1e1e;border-radius:12px;padding:12px 18px;flex:1}
+    .stat-val{font-size:22px;font-weight:800;color:#d4af37}
+    .stat-label{font-size:11px;color:#666;margin-top:2px}
+    .active-pill{display:inline-flex;align-items:center;gap:6px;background:#1a2e1a;color:#4caf50;border:1px solid #4caf50;border-radius:999px;padding:5px 14px;font-size:13px;font-weight:600;margin-bottom:24px}
+    .active-dot{width:8px;height:8px;background:#4caf50;border-radius:50%;animation:pulse 1.2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .join-btn{display:block;width:100%;background:linear-gradient(135deg,#d4af37,#f0c040);color:#000;border:none;border-radius:12px;padding:16px;font-size:17px;font-weight:800;cursor:pointer;text-decoration:none;margin-bottom:12px;transition:opacity .2s}
+    .join-btn:hover{opacity:.9}
+    .login-note{font-size:12px;color:#555}
+    .creator{font-size:12px;color:#555;margin-top:16px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">P.A.T.H 그룹 타이머</div>
+    <h1>${escapeHtml(roomName)}</h1>
+    ${goal ? `<p class="goal">${escapeHtml(goal)}</p>` : ''}
+    <div class="stats">
+      <div class="stat"><div class="stat-val">${memberCount}</div><div class="stat-label">참여 중</div></div>
+      <div class="stat"><div class="stat-val">${maxMembers}</div><div class="stat-label">최대 인원</div></div>
+      <div class="stat"><div class="stat-val">${activeCount}</div><div class="stat-label">지금 공부 중</div></div>
+    </div>
+    ${activeCount > 0 ? `<div class="active-pill"><span class="active-dot"></span>${activeCount}명 실시간으로 달리는 중</div>` : ''}
+    <a class="join-btn" href="/timer/?join=${encodeURIComponent(code)}">⚔️ 방 합류하기</a>
+    <div class="login-note">로그인이 필요합니다. 계정이 없으면 회원가입 후 이용하세요.</div>
+    <div class="creator">방장: ${escapeHtml(room.creator_nickname)}</div>
+  </div>
+  <script>
+    // If user lands here from KakaoTalk/external, redirect to timer join page
+    // This allows the page to serve OG tags while still functioning as a join gateway
+  </script>
+</body>
+</html>`;
+
+        return res.type('text/html').send(html);
+    } catch (err) {
+        console.error('[room] GET /room/:code', err.message);
+        return res.status(500).type('text/html').send('<h1>서버 오류</h1>');
+    }
+});
+
 app.get('/robots.txt', (req, res) => {
     const baseUrl = getSiteBaseUrl(req);
 
@@ -519,6 +642,7 @@ initSchema()
             },
             transports: ['websocket', 'polling'],
         });
+        app.set('io', io);
         worldManager.setup(io);
 
         httpServer.listen(PORT, '0.0.0.0', () => {

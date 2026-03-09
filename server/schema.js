@@ -373,67 +373,41 @@ async function initSchema() {
             CREATE INDEX IF NOT EXISTS idx_cc_post_created_at ON community_comments(post_id, created_at DESC);
         `);
 
+        // ── 그룹 타이머 방 ─────────────────────────────────────────────────
         await client.query(`
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS eula_version VARCHAR(20) DEFAULT NULL;
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS eula_agreed_at TIMESTAMP DEFAULT NULL;
-        `);
-
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS user_blocks (
-                blocker_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                blocked_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-                PRIMARY KEY (blocker_id, blocked_id),
-                CONSTRAINT user_blocks_no_self_block CHECK (blocker_id <> blocked_id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker ON user_blocks(blocker_id);
-            CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks(blocked_id);
-        `);
-
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS community_post_reports (
+            CREATE TABLE IF NOT EXISTS study_rooms (
                 id              SERIAL PRIMARY KEY,
-                post_id         INTEGER NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
-                reporter_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                reported_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-                reason_code     VARCHAR(30) NOT NULL,
-                detail          VARCHAR(500),
-                status          VARCHAR(20) NOT NULL DEFAULT 'pending',
-                created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
-                reviewed_at     TIMESTAMP NULL,
-                reviewed_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
-                UNIQUE(post_id, reporter_id)
+                name            VARCHAR(60) NOT NULL,
+                goal            VARCHAR(100),
+                creator_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                invite_code     VARCHAR(12) UNIQUE NOT NULL,
+                max_members     INTEGER NOT NULL DEFAULT 10,
+                is_active       BOOLEAN DEFAULT TRUE,
+                created_at      TIMESTAMP DEFAULT NOW()
             );
-            CREATE INDEX IF NOT EXISTS idx_community_post_reports_post ON community_post_reports(post_id);
-            CREATE INDEX IF NOT EXISTS idx_community_post_reports_reporter ON community_post_reports(reporter_id);
-            CREATE INDEX IF NOT EXISTS idx_community_post_reports_status_created ON community_post_reports(status, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_study_rooms_invite_code ON study_rooms(invite_code);
+            CREATE INDEX IF NOT EXISTS idx_study_rooms_creator ON study_rooms(creator_id);
         `);
 
         await client.query(`
-            ALTER TABLE community_post_reports
-                DROP CONSTRAINT IF EXISTS community_post_reports_reason_code_check;
-            ALTER TABLE community_post_reports
-                ADD CONSTRAINT community_post_reports_reason_code_check
-                CHECK (reason_code IN (
-                    'spam',
-                    'abuse',
-                    'sexual',
-                    'hate',
-                    'personal_info',
-                    'illegal',
-                    'other'
-                )) NOT VALID;
-
-            ALTER TABLE community_post_reports
-                DROP CONSTRAINT IF EXISTS community_post_reports_status_check;
-            ALTER TABLE community_post_reports
-                ADD CONSTRAINT community_post_reports_status_check
-                CHECK (status IN ('pending', 'reviewed', 'dismissed')) NOT VALID;
+            CREATE TABLE IF NOT EXISTS study_room_members (
+                room_id     INTEGER NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,
+                user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                joined_at   TIMESTAMP DEFAULT NOW(),
+                PRIMARY KEY (room_id, user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_study_room_members_user ON study_room_members(user_id);
         `);
 
         await client.query(`
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS ui_theme VARCHAR(30) DEFAULT 'default';
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_themes TEXT DEFAULT 'default';
+            CREATE TABLE IF NOT EXISTS study_room_messages (
+                id          SERIAL PRIMARY KEY,
+                room_id     INTEGER NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,
+                user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                content     VARCHAR(500) NOT NULL,
+                created_at  TIMESTAMP DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_study_room_messages_room ON study_room_messages(room_id, created_at);
         `);
 
         console.log('DB 스키마 초기화 완료');

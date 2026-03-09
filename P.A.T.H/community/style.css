@@ -12,6 +12,7 @@
   --accent-green: #30D158;
   --accent-blue:  #3B82F6;
   --accent-red:   #FF453A;
+  --accent-gold:  #F6A623;
 
   --text-1:  #EDEDF0;
   --text-2:  #9191A0;
@@ -49,6 +50,7 @@ body.light {
   --accent-green: #0EA968;
   --accent-blue:  #2563EB;
   --accent-red:   #E23434;
+  --accent-gold:  #D6901A;
 
   --text-1: #182033;
   --text-2: #4A556E;

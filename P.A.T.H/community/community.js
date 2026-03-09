@@ -55,6 +55,39 @@ const writeFab       = document.getElementById('write-fab');
 const writeHeaderBtn = document.getElementById('write-header-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
 
+const REQUIRED_DOM = {
+  categoryBar,
+  hotList,
+  hotSection,
+  postList,
+  sentinel,
+  postCountBadge,
+};
+
+function hasRequiredDom() {
+  const missing = Object.entries(REQUIRED_DOM)
+    .filter(([, el]) => !el)
+    .map(([name]) => name);
+
+  if (missing.length === 0) return true;
+
+  console.error('[community] missing required DOM nodes:', missing.join(', '));
+
+  const root = document.querySelector('.c-main') || document.body;
+  if (root && !document.getElementById('community-init-error')) {
+    const box = document.createElement('div');
+    box.id = 'community-init-error';
+    box.className = 'c-empty';
+    box.innerHTML = `
+      <div class="c-empty__icon">⚠️</div>
+      <p class="c-empty__title">페이지를 불러오는 중 문제가 발생했어요</p>
+      <p class="c-empty__desc">잠시 후 새로고침해 주세요</p>`;
+    root.appendChild(box);
+  }
+
+  return false;
+}
+
 /* ─── 테마(다크/라이트) ───────────────────────────────────── */
 function applyThemeFromStorage() {
   const savedTheme = localStorage.getItem('path_theme');
@@ -83,6 +116,8 @@ function syncThemeButton() {
 
 /* ─── 초기화 ──────────────────────────────────────────────── */
 async function init() {
+  if (!hasRequiredDom()) return;
+
   applyThemeFromStorage();
     buildCategoryBar();
     bindEvents();
@@ -132,6 +167,7 @@ function onCatChange(key) {
     const title = blocked ? '베스트 게시판에는 직접 글을 작성할 수 없어요' : '글쓰기';
 
     [writeFab, writeHeaderBtn].forEach((btn) => {
+      if (!btn) return;
       btn.disabled = blocked;
       btn.title = title;
       btn.style.opacity = blocked ? '0.45' : '';
@@ -604,7 +640,7 @@ function bindEvents() {
   }
 
     // 검색 토글
-    searchToggle.addEventListener('click', () => {
+    searchToggle?.addEventListener('click', () => {
         const open = searchWrap.classList.toggle('open');
         searchToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (open) { searchInput.focus(); }
@@ -617,7 +653,7 @@ function bindEvents() {
 
     // 검색 입력 (디바운스)
     let searchTimer;
-    searchInput.addEventListener('input', () => {
+    searchInput?.addEventListener('input', () => {
         const val = searchInput.value.trim();
         searchClear.classList.toggle('hidden', !val);
         clearTimeout(searchTimer);
@@ -627,12 +663,12 @@ function bindEvents() {
         }, 320);
     });
 
-    searchInput.addEventListener('keydown', e => {
+    searchInput?.addEventListener('keydown', e => {
         if (e.key === 'Enter') { clearTimeout(searchTimer); searchQuery = searchInput.value.trim(); resetAndLoad(); }
         if (e.key === 'Escape') searchToggle.click();
     });
 
-    searchClear.addEventListener('click', () => {
+    searchClear?.addEventListener('click', () => {
         searchInput.value = '';
         searchClear.classList.add('hidden');
         searchInput.focus();
@@ -642,8 +678,8 @@ function bindEvents() {
     });
 
     // 글쓰기
-    writeFab.addEventListener('click', handleWriteClick);
-    writeHeaderBtn.addEventListener('click', handleWriteClick);
+    writeFab?.addEventListener('click', handleWriteClick);
+    writeHeaderBtn?.addEventListener('click', handleWriteClick);
 }
 
 function handleWriteClick() {

@@ -2472,6 +2472,28 @@ document.addEventListener('DOMContentLoaded', () => {
             openTeleportDialog();
         });
     }
+
+    // Explicitly bind settings button to prevent double-invocation on touch browsers
+    // where nav.js fallback + native onclick can both fire togglePanel.
+    const settingsBtn = document.getElementById('tutorial-btn-settings');
+    if (settingsBtn) {
+        settingsBtn.removeAttribute('onclick');
+        let _settingsLastTap = 0;
+        settingsBtn.addEventListener('pointerup', (e) => {
+            if (e.pointerType !== 'touch') return;
+            const now = Date.now();
+            if (now - _settingsLastTap < 250) return;
+            _settingsLastTap = now;
+            e.preventDefault();
+            e.stopPropagation();
+            togglePanel('panel-settings');
+        }, { passive: false });
+        settingsBtn.addEventListener('click', (e) => {
+            const now = Date.now();
+            if (now - _settingsLastTap < 350) { e.preventDefault(); e.stopPropagation(); return; }
+            togglePanel('panel-settings');
+        });
+    }
 });
 
 document.addEventListener('click', (e) => {
@@ -2501,6 +2523,7 @@ async function saveStatusMsg(e) {
 }
 
 // Keep inline handlers stable for all browsers/build modes.
+window.togglePanel = togglePanel;
 window.goToCommunity = goToCommunity;
 window.goToTimer = goToTimer;
 

@@ -40,6 +40,17 @@ let searchQuery  = '';
 let scrollHook   = null;
 let isLoading    = false;
 let currentUser  = null;  // { id, nickname, is_admin, admin_role } | null
+let currentUserBlocks = new Set();
+
+const REPORT_REASON_OPTIONS = [
+  { code: 'spam', label: '도배/광고' },
+  { code: 'abuse', label: '욕설/괴롭힘' },
+  { code: 'sexual', label: '성적/음란 콘텐츠' },
+  { code: 'hate', label: '혐오/차별 표현' },
+  { code: 'personal_info', label: '개인정보 노출' },
+  { code: 'illegal', label: '불법 정보' },
+  { code: 'other', label: '기타' },
+];
 
 /* ─── DOM ───────────────────────────────────────────────────── */
 const categoryBar    = document.getElementById('category-bar');
@@ -129,6 +140,13 @@ async function init() {
       if (res.ok) {
         const me = await res.json();
         currentUser = me.user || me;
+
+        const blocksRes = await fetch('/api/community/blocks', { credentials: 'include' });
+        if (blocksRes.ok) {
+          const blocksData = await blocksRes.json();
+          const ids = (blocksData.blocks || []).map((b) => Number(b.blocked_id)).filter((n) => Number.isInteger(n));
+          currentUserBlocks = new Set(ids);
+        }
       }
     } catch (_) { /* 무시 */ }
 
@@ -397,6 +415,9 @@ function renderDetailBody(container, { post, postId, comments }) {
     const canModerate = currentUserIsAdmin();
     const safeImageUrl = safeHttpUrl(post.image_url);
     const safeLinkUrl = safeHttpUrl(post.link_url);
+  const authorUserId = Number(post.user_id || 0);
+  const canBlockAuthor = !!currentUser && authorUserId > 0 && authorUserId !== Number(currentUser.id || 0);
+  const alreadyBlocked = canBlockAuthor && currentUserBlocks.has(authorUserId);
     const cmtHtml = comments.map(c => `
       <li class="cmt-item" data-comment-id="${c.id}">
         <div class="cmt-meta">
@@ -436,6 +457,8 @@ function renderDetailBody(container, { post, postId, comments }) {
         <span class="detail-gold-balance" id="detail-gold-balance">
           보유 골드 ${Number(currentUser?.gold || 0).toLocaleString()}G
         </span>
+        ${currentUser ? '<button class="detail-report-btn" id="detail-report-btn">게시물 신고</button>' : ''}
+        ${canBlockAuthor ? `<button class="detail-block-btn" id="detail-block-btn">${alreadyBlocked ? '차단 해제' : '작성자 차단'}</button>` : ''}
         ${canModerate ? '<button class="detail-admin-del-btn" id="detail-admin-del-btn">게시글 삭제</button>' : ''}
       </div>
       <div class="detail-comments">
@@ -456,18 +479,22 @@ function renderDetailBody(container, { post, postId, comments }) {
             const r = await fetch(`/api/community/posts/${postId}/like`, {
                 method: 'POST', credentials: 'include',
             });
-            if (r.ok) {
-                const { liked, likes } = await r.json();
-                const btn = container.querySelector('#detail-like-btn');
-                btn.style.color = liked ? 'var(--accent-red)' : '';
-                btn.querySelector('svg').style.fill = liked ? 'var(--accent-red)' : '';
-                const countSpan = container.querySelector('#like-count');
-                if (countSpan) countSpan.textContent = likes;
-                showToast(liked ? `추천 ${likes}` : '추천을 취소했어요');
-                // 목록 카운트 갱신
-                const likeEl = postList.querySelector(`[data-id="${postId}"] .post-row__likes`);
-                if (likeEl) likeEl.lastChild.textContent = likes;
-            }
+          if (!r.ok) {
+            const errorMsg = await readApiError(r, '오류가 발생했어요');
+            if (errorMsg) showToast(errorMsg);
+            return;
+          }
+
+          const { liked, likes } = await r.json();
+          const btn = container.querySelector('#detail-like-btn');
+          btn.style.color = liked ? 'var(--accent-red)' : '';
+          btn.querySelector('svg').style.fill = liked ? 'var(--accent-red)' : '';
+          const countSpan = container.querySelector('#like-count');
+          if (countSpan) countSpan.textContent = likes;
+          showToast(liked ? `추천 ${likes}` : '추천을 취소했어요');
+          // 목록 카운트 갱신
+          const likeEl = postList.querySelector(`[data-id="${postId}"] .post-row__likes`);
+          if (likeEl) likeEl.lastChild.textContent = likes;
         } catch (_) { showToast('오류가 발생했어요'); }
     });
 
@@ -492,7 +519,11 @@ function renderDetailBody(container, { post, postId, comments }) {
 
           const data = await r.json().catch(() => ({}));
           if (!r.ok) {
-            showToast(data.error || '오류가 발생했어요');
+            if (data?.code === 'EULA_REQUIRED') {
+              showToast('최신 이용약관 동의 후 이용할 수 있어요. 메인 화면에서 동의해 주세요.');
+            } else {
+              showToast(data.error || '오류가 발생했어요');
+            }
             return;
           }
 
@@ -519,6 +550,79 @@ function renderDetailBody(container, { post, postId, comments }) {
       });
     }
 
+    const reportBtn = container.querySelector('#detail-report-btn');
+    if (reportBtn) {
+      reportBtn.addEventListener('click', async () => {
+        if (!currentUser) {
+          showToast('로그인 후 이용할 수 있어요');
+          return;
+        }
+
+        const payload = await openReportModal();
+        if (!payload) return;
+
+        reportBtn.disabled = true;
+        try {
+          const r = await fetch(`/api/community/posts/${postId}/report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+          });
+          if (!r.ok) {
+            const errorMsg = await readApiError(r, '신고 처리에 실패했어요');
+            if (errorMsg) showToast(errorMsg);
+            return;
+          }
+          showToast('신고가 접수되었습니다. 운영팀이 검토할 예정입니다.');
+        } catch (_) {
+          showToast('신고 처리 중 오류가 발생했어요');
+        } finally {
+          reportBtn.disabled = false;
+        }
+      });
+    }
+
+    const blockBtn = container.querySelector('#detail-block-btn');
+    if (blockBtn && canBlockAuthor) {
+      blockBtn.addEventListener('click', async () => {
+        const targetUserId = Number(post.user_id || 0);
+        if (!targetUserId) return;
+
+        const currentlyBlocked = currentUserBlocks.has(targetUserId);
+        const confirmed = window.confirm(
+          currentlyBlocked
+            ? '작성자 차단을 해제할까요?'
+            : '작성자를 차단하면 해당 사용자의 게시글/댓글이 숨겨집니다. 계속할까요?'
+        );
+        if (!confirmed) return;
+
+        blockBtn.disabled = true;
+        try {
+          const r = await fetch(`/api/community/blocks/${targetUserId}`, {
+            method: currentlyBlocked ? 'DELETE' : 'POST',
+            credentials: 'include',
+          });
+          if (!r.ok) {
+            const errorMsg = await readApiError(r, '차단 설정에 실패했어요');
+            if (errorMsg) showToast(errorMsg);
+            return;
+          }
+
+          await refreshBlockedUsers();
+          showToast(currentlyBlocked ? '차단을 해제했어요' : '작성자를 차단했어요');
+
+          const modal = document.querySelector('.modal-backdrop.visible');
+          if (modal) modal.remove();
+          await Promise.all([renderHotPosts(), resetAndLoad()]);
+        } catch (_) {
+          showToast('차단 처리 중 오류가 발생했어요');
+        } finally {
+          blockBtn.disabled = false;
+        }
+      });
+    }
+
     // 댓글 등록
     container.querySelector('#cmt-submit').addEventListener('click', async () => {
         if (!currentUser) { showToast('로그인 후 댓글을 달 수 있어요'); return; }
@@ -534,8 +638,8 @@ function renderDetailBody(container, { post, postId, comments }) {
                 body: JSON.stringify({ body }),
             });
             if (!r.ok) {
-                const { error } = await r.json();
-                showToast(error || '오류가 발생했어요');
+              const errorMsg = await readApiError(r, '오류가 발생했어요');
+              if (errorMsg) showToast(errorMsg);
                 return;
             }
             const { comment } = await r.json();
@@ -1142,6 +1246,107 @@ function showToast(msg) {
     }, 2400);
 }
 
+async function readApiError(response, fallback) {
+  const data = await response.json().catch(() => ({}));
+  if (data?.code === 'EULA_REQUIRED') {
+    showToast('최신 이용약관 동의 후 이용할 수 있어요. 메인 화면에서 동의해 주세요.');
+    return null;
+  }
+  return data?.error || fallback;
+}
+
+async function refreshBlockedUsers() {
+  if (!currentUser) return;
+  try {
+    const r = await fetch('/api/community/blocks', { credentials: 'include' });
+    if (!r.ok) return;
+    const data = await r.json();
+    const ids = (data.blocks || []).map((b) => Number(b.blocked_id)).filter((n) => Number.isInteger(n));
+    currentUserBlocks = new Set(ids);
+  } catch (_) {
+    // Ignore refresh failures.
+  }
+}
+
+function openReportModal() {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="write-modal" role="dialog" aria-modal="true" aria-label="게시물 신고" style="max-width:540px;">
+        <div class="write-modal-handle"></div>
+        <div class="write-modal-header">
+          <h2 class="write-modal-title">게시물 신고</h2>
+          <button class="write-modal-close" aria-label="닫기" id="report-close-btn">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/>
+            </svg>
+          </button>
+        </div>
+        <div class="write-modal-body">
+          <div class="write-field">
+            <label class="write-label" for="report-reason-select">신고 사유</label>
+            <select id="report-reason-select" class="write-input">
+              ${REPORT_REASON_OPTIONS.map((o) => `<option value="${o.code}">${o.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="write-field">
+            <div class="write-label-row">
+              <label class="write-label" for="report-detail-text">상세 사유(선택)</label>
+              <span class="write-inline-count" id="report-detail-count">0 / 500</span>
+            </div>
+            <textarea id="report-detail-text" class="write-textarea" rows="4" maxlength="500" placeholder="운영팀 검토에 도움이 되는 내용을 입력해 주세요."></textarea>
+          </div>
+          <p style="font-size:11px;color:var(--text-3);line-height:1.5;">허위 신고 또는 반복 악용 시 이용이 제한될 수 있습니다.</p>
+        </div>
+        <div class="write-modal-footer">
+          <button class="write-cancel-btn" id="report-cancel-btn">취소</button>
+          <button class="write-submit-btn" id="report-submit-btn">신고하기</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(() => backdrop.classList.add('visible'));
+
+    const close = (payload) => {
+      backdrop.classList.remove('visible');
+      backdrop.addEventListener('transitionend', () => backdrop.remove(), { once: true });
+      resolve(payload);
+    };
+
+    const closeBtn = backdrop.querySelector('#report-close-btn');
+    const cancelBtn = backdrop.querySelector('#report-cancel-btn');
+    const submitBtn = backdrop.querySelector('#report-submit-btn');
+    const reasonSelect = backdrop.querySelector('#report-reason-select');
+    const detailText = backdrop.querySelector('#report-detail-text');
+    const detailCount = backdrop.querySelector('#report-detail-count');
+
+    detailText.addEventListener('input', () => {
+      detailCount.textContent = `${detailText.value.length.toLocaleString('ko-KR')} / 500`;
+    });
+
+    closeBtn.addEventListener('click', () => close(null));
+    cancelBtn.addEventListener('click', () => close(null));
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) close(null);
+    });
+
+    submitBtn.addEventListener('click', () => {
+      const reasonCode = String(reasonSelect.value || '').trim();
+      const detail = String(detailText.value || '').trim();
+      if (!REPORT_REASON_OPTIONS.some((o) => o.code === reasonCode)) {
+        showToast('신고 사유를 선택해 주세요');
+        return;
+      }
+      if (detail.length > 500) {
+        showToast('상세 사유는 500자 이하로 입력해 주세요');
+        return;
+      }
+      close({ reason_code: reasonCode, detail });
+    });
+  });
+}
+
 /* ─── 유틸리티 ───────────────────────────────────────────── */
 function fmtRelative(iso) {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -1263,6 +1468,16 @@ detailStyle.textContent = `
   display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 14px;
   background:rgba(255,69,58,0.14); border-radius:var(--radius-pill); font-size:12px; font-weight:700;
   color:var(--accent-red); border:1px solid rgba(255,69,58,0.35);
+}
+.detail-report-btn {
+  display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 14px;
+  background:rgba(59,130,246,0.12); border-radius:var(--radius-pill); font-size:12px; font-weight:700;
+  color:var(--accent-blue); border:1px solid rgba(59,130,246,0.3);
+}
+.detail-block-btn {
+  display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 14px;
+  background:rgba(255,69,58,0.1); border-radius:var(--radius-pill); font-size:12px; font-weight:700;
+  color:var(--accent-red); border:1px solid rgba(255,69,58,0.25);
 }
 .cmt-admin-del {
   margin-left:8px; font-size:11px; color:var(--accent-red); font-weight:700;

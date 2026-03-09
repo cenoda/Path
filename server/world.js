@@ -172,9 +172,12 @@ function setup(io) {
                 const newRooms = new Set(nearbyChunkKeys(cx, cy).map(chunkRoomName));
                 oldRooms.forEach(r => { if (!newRooms.has(r)) socket.leave(r); });
                 newRooms.forEach(r => { if (!oldRooms.has(r)) socket.join(r); });
-                // Deliver updated nearby player list after chunk transition.
-                socket.emit('players:nearby', getNearbyPlayers(socket.id));
             }
+
+            // Keep client-side nearby roster fresh while moving, even when the
+            // player stays in the same chunk. This avoids stale world positions
+            // and premature client-side culling artifacts.
+            socket.emit('players:nearby', getNearbyPlayers(socket.id));
 
             // Fan out position update to peers in the new chunk.
             socket.to(chunkRoomName(`${cx},${cy}`)).emit('player:moved', {

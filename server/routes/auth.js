@@ -37,7 +37,17 @@ const verificationLimiter = rateLimit({
     message: { error: '인증번호 요청이 너무 많습니다. 1시간 후 다시 시도해주세요.' }
 });
 
-const USER_FIELDS = 'id, nickname, university, gold, diamond, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, profile_image_url, balloon_skin, owned_skins, status_emoji, status_message, phone_verified, phone_verified_at, auth_provider, google_email, is_admin, admin_role, active_title, streak_count, streak_last_date';
+const EULA_VERSION = process.env.EULA_VERSION || '2026-03-09';
+const EULA_TITLE = 'P.A.T.H 서비스 이용약관';
+const EULA_SUMMARY = [
+    '1) 본 서비스는 학습 기록/커뮤니티 기능을 제공하며, 이용자는 관련 법령과 약관을 준수해야 합니다.',
+    '2) 혐오, 성적, 폭력, 불법 정보, 개인정보 노출, 도배/광고 등 유해 게시물은 제한될 수 있습니다.',
+    '3) 이용자는 자신의 계정 활동에 대한 책임이 있으며, 위반 시 게시물 삭제/서비스 이용 제한이 가능합니다.',
+    '4) 신고된 콘텐츠는 운영 정책에 따라 검토되며, 필요 시 법적 의무에 따라 조치될 수 있습니다.',
+    '5) 본 약관 동의가 없으면 커뮤니티 작성/상호작용 등 주요 기능 이용이 제한될 수 있습니다.'
+].join('\n');
+
+const USER_FIELDS = 'id, nickname, university, gold, diamond, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, profile_image_url, balloon_skin, owned_skins, status_emoji, status_message, phone_verified, phone_verified_at, auth_provider, google_email, is_admin, admin_role, active_title, streak_count, streak_last_date, eula_version, eula_agreed_at, ui_theme, owned_themes';
 
 function escapeHtml(str) {
     if (!str) return str;
@@ -182,12 +192,13 @@ async function makeUniqueNickname(base) {
 }
 
 router.post('/register', registerLimiter, async (req, res) => {
-    const { real_name, nickname, password, university, is_n_su, prev_university, privacy_agreed } = req.body;
+    const { real_name, nickname, password, university, is_n_su, prev_university, privacy_agreed, eula_agreed } = req.body;
     if (!nickname || !password || !university) {
         return res.status(400).json({ error: '닉네임, 비밀번호, 대학교를 모두 입력해주세요.' });
     }
     if (!real_name) return res.status(400).json({ error: '실명을 입력해주세요.' });
     if (!privacy_agreed) return res.status(400).json({ error: '개인정보 수집·이용에 동의해주세요.' });
+    if (!eula_agreed) return res.status(400).json({ error: '이용약관에 동의해주세요.' });
     if (nickname.length < 2 || nickname.length > 20) return res.status(400).json({ error: '닉네임은 2~20자 사이여야 합니다.' });
     if (password.length < 8) return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다.' });
     if (is_n_su && !prev_university) return res.status(400).json({ error: 'N수생은 전적 대학교를 입력해주세요.' });
@@ -227,10 +238,10 @@ router.post('/register', registerLimiter, async (req, res) => {
         const initialEstate = null;
 
         const result = await pool.query(
-            `INSERT INTO users (nickname, password_hash, university, real_name, privacy_agreed, is_n_su, prev_university, phone_hash, phone_verified, phone_verified_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            `INSERT INTO users (nickname, password_hash, university, real_name, privacy_agreed, is_n_su, prev_university, phone_hash, phone_verified, phone_verified_at, eula_version, eula_agreed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
              RETURNING ${USER_FIELDS}`,
-            [nickname, hash, initialEstate, real_name, !!privacy_agreed, !!is_n_su, prev_university || null, phoneHash, phoneVerified, phoneVerified ? new Date() : null]
+            [nickname, hash, initialEstate, real_name, !!privacy_agreed, !!is_n_su, prev_university || null, phoneHash, phoneVerified, phoneVerified ? new Date() : null, EULA_VERSION]
         );
         const user = result.rows[0];
         
@@ -294,6 +305,44 @@ router.get('/me', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('me error:', err);
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+router.get('/eula', (_req, res) => {
+    res.json({
+        version: EULA_VERSION,
+        title: EULA_TITLE,
+        content: EULA_SUMMARY,
+    });
+});
+
+router.post('/eula/agree', requireAuth, async (req, res) => {
+    const { version } = req.body || {};
+    if (version && String(version) !== EULA_VERSION) {
+        return res.status(400).json({ error: '최신 약관 버전이 아닙니다. 화면을 새로고침 후 다시 시도해주세요.' });
+    }
+
+    try {
+        const result = await pool.query(
+            `UPDATE users
+             SET eula_version = $1,
+                 eula_agreed_at = NOW()
+             WHERE id = $2
+             RETURNING eula_version, eula_agreed_at`,
+            [EULA_VERSION, req.session.userId]
+        );
+        if (!result.rows.length) {
+            return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
+        }
+
+        return res.json({
+            ok: true,
+            eula_version: result.rows[0].eula_version,
+            eula_agreed_at: result.rows[0].eula_agreed_at,
+        });
+    } catch (err) {
+        console.error('eula agree error:', err);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     }
 });
 

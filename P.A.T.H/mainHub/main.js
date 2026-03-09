@@ -470,14 +470,9 @@ async function loadUniversitiesCache() {
 }
 
 function renderOtherUsers(users) {
-    // Once realtime socket is active, world players are controlled by
-    // players:nearby / player:enter / player:moved events.
-    if (worldSocket) return;
-
-    const isLight = document.body.classList.contains('light');
-    if (window.WorldScene && window.WorldScene.isReady) {
-        window.WorldScene.setUsers(users, currentUser, isLight);
-    }
+    // World balloons are now driven only by realtime socket nearby snapshots.
+    // Ranking/search data is kept for UI panels, not scene placement.
+    return;
 }
 
 function _normalizeUserId(value) {

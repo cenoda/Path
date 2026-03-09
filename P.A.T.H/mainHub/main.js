@@ -407,7 +407,23 @@ function secToHour(sec) {
 }
 
 function updateHUD(user) {
-    document.getElementById('badge-char').textContent = (user.nickname || '?').charAt(0).toUpperCase();
+    const initial = (user.nickname || '?').charAt(0).toUpperCase();
+    const photoEl = document.getElementById('badge-photo');
+    const initialEl = document.getElementById('badge-initial');
+    if (photoEl && initialEl) {
+        if (user.profile_image_url) {
+            photoEl.src = user.profile_image_url;
+            photoEl.classList.remove('hidden');
+            initialEl.classList.add('hidden');
+        } else {
+            photoEl.classList.add('hidden');
+            initialEl.classList.remove('hidden');
+            initialEl.textContent = initial;
+        }
+    } else {
+        const charEl = document.getElementById('badge-char');
+        if (charEl) charEl.textContent = initial;
+    }
     document.getElementById('hud-univ').textContent = user.university || '-';
     document.getElementById('hud-gold').textContent = (user.gold || 0).toLocaleString();
     document.getElementById('hud-hours').textContent = secToHour(myTotalSec);
@@ -2785,7 +2801,166 @@ async function saveStatusMsg(e) {
     } catch (err) {}
 }
 
+// ── 프로필 커스터마이저 ────────────────────────────────────────────
+let pendingProfileImageFile = null;
+let profileModalOpenedAt = 0;
+
+function getNicknameInitial(nick) {
+    return (nick || '?').charAt(0).toUpperCase();
+}
+
+function getProfileImageSrc(user) {
+    return user?.profile_image_url || null;
+}
+
+function updateProfilePreview(imgSrc, nick) {
+    const preview = document.getElementById('profile-avatar-preview');
+    if (!preview) return;
+    const initial = getNicknameInitial(nick || (currentUser && currentUser.nickname));
+    if (imgSrc) {
+        preview.innerHTML = `<img src="${esc(imgSrc)}" alt="preview">`;
+    } else {
+        preview.textContent = initial;
+    }
+}
+
+function openProfileCustomizer() {
+    if (!currentUser) return;
+    profileModalOpenedAt = Date.now();
+    pendingProfileImageFile = null;
+    const modal = document.getElementById('modal-profile-custom');
+    if (!modal) return;
+    const nickInput = document.getElementById('profile-nick-input');
+    if (nickInput) nickInput.value = currentUser.nickname || '';
+    updateProfilePreview(getProfileImageSrc(currentUser), currentUser.nickname);
+    modal.classList.remove('hidden');
+}
+window.openProfileCustomizer = openProfileCustomizer;
+
+function closeProfileCustomizer() {
+    const modal = document.getElementById('modal-profile-custom');
+    if (modal) modal.classList.add('hidden');
+    pendingProfileImageFile = null;
+}
+window.closeProfileCustomizer = closeProfileCustomizer;
+
+function onProfileImageSelected(input) {
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    pendingProfileImageFile = file;
+    const reader = new FileReader();
+    reader.onload = (ev) => updateProfilePreview(ev.target.result, null);
+    reader.readAsDataURL(file);
+}
+window.onProfileImageSelected = onProfileImageSelected;
+
+async function saveProfileCustomizer() {
+    const nickInput = document.getElementById('profile-nick-input');
+    const errEl = document.getElementById('profile-save-err');
+    const saveBtn = document.getElementById('profile-save-btn');
+    const nick = (nickInput ? nickInput.value : '').trim();
+    if (!nick) { if (errEl) errEl.textContent = '닉네임을 입력해주세요.'; return; }
+    if (errEl) errEl.textContent = '';
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+        const fd = new FormData();
+        fd.append('nickname', nick);
+        if (pendingProfileImageFile) fd.append('profileImage', pendingProfileImageFile);
+        const r = await fetch('/api/auth/profile-custom', { method: 'POST', body: fd, credentials: 'include' });
+        const data = r.ok ? await r.json() : null;
+        if (!data || !data.ok) {
+            if (errEl) errEl.textContent = data?.error || '저장 중 오류가 발생했습니다.';
+            return;
+        }
+        currentUser = data.user;
+        updateHUD(currentUser);
+        closeProfileCustomizer();
+    } catch (e) {
+        if (errEl) errEl.textContent = '저장 중 오류가 발생했습니다.';
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+window.saveProfileCustomizer = saveProfileCustomizer;
+
+// ── 버튼 바인딩 (터치/WebView 이중 호출 방지) ─────────────────────
+function bindBtn(el, handler) {
+    if (!el) return;
+    el.removeAttribute('onclick');
+    let _lastTap = 0;
+    el.addEventListener('pointerup', (e) => {
+        if (e.pointerType !== 'touch') return;
+        const now = Date.now();
+        if (now - _lastTap < 250) return;
+        _lastTap = now;
+        e.preventDefault();
+        e.stopPropagation();
+        handler();
+    }, { passive: false });
+    el.addEventListener('click', (e) => {
+        const now = Date.now();
+        if (now - _lastTap < 350) { e.preventDefault(); e.stopPropagation(); return; }
+        handler();
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 헤더: 설정 버튼
+    bindBtn(document.getElementById('tutorial-btn-settings'), () => togglePanel('panel-settings'));
+
+    // 프로필 버튼
+    bindBtn(document.getElementById('tutorial-profile'), () => openProfileCustomizer());
+
+    // 설정 패널 내 버튼
+    const settingsPanel = document.getElementById('panel-settings');
+    if (settingsPanel) {
+        bindBtn(settingsPanel.querySelector('.close-btn'), () => togglePanel('panel-settings'));
+        bindBtn(settingsPanel.querySelector('.settings-action-btn'), () => doLogout());
+    }
+
+    // 설정 패널 토글/셀렉트 (onchange → 직접 이벤트 리스너)
+    ['theme-toggle', 'minimap-toggle', 'keyboard-guide-toggle', 'coordinates-toggle'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.removeAttribute('onchange');
+        el.addEventListener('change', () => saveUiSettings());
+    });
+    const camToggle = document.getElementById('cam-enabled-toggle');
+    if (camToggle) { camToggle.removeAttribute('onchange'); camToggle.addEventListener('change', () => saveCamSettings()); }
+    const camSelect = document.getElementById('cam-visibility-select');
+    if (camSelect) { camSelect.removeAttribute('onchange'); camSelect.addEventListener('change', () => saveCamSettings()); }
+});
+
 // Keep inline handlers stable for all browsers/build modes.
+window.togglePanel = togglePanel;
+window.doLogout = doLogout;
+window.closeModal = closeModal;
+window.saveCamSettings = saveCamSettings;
+window.onSearch = onSearch;
+window.toggleApplyPanel = toggleApplyPanel;
+window.openFriendPanel = openFriendPanel;
+window.closeFriendPanel = closeFriendPanel;
+window.switchAllyTab = switchAllyTab;
+window.openMessengerPanel = openMessengerPanel;
+window.closeMessengerPanel = closeMessengerPanel;
+window.messengerBack = messengerBack;
+window.sendMessage = sendMessage;
+window.handleFileSelect = handleFileSelect;
+window.cancelFileUpload = cancelFileUpload;
+window.returnToHome = returnToHome;
+window.toggleWeather = toggleWeather;
+window.switchRankTab = switchRankTab;
+window.switchShopTab = switchShopTab;
+window.doFriendAction = doFriendAction;
+window.openChatFromModal = openChatFromModal;
+window.doInvade = doInvade;
+window.closeInterior = closeInterior;
+window.openUserModal = openUserModal;
+window.openEstate = openEstate;
+window.focusUser = focusUser;
+window.openTeleportDialog = openTeleportDialog;
+window.doTeleport = doTeleport;
+window.saveStatusMsg = saveStatusMsg;
 window.goToCommunity = goToCommunity;
 window.goToTimer = goToTimer;
 window.openAccountSecurityModal = openAccountSecurityModal;

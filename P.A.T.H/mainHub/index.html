@@ -30,8 +30,11 @@
     <div id="ui-overlay">
         <header class="hud-header">
             <div class="hud-left">
-                <div class="profile-unit" onclick="openAccountSecurityModal()" role="button" tabindex="0" title="계정 보안">
-                    <div id="badge-char" class="char-avatar">U</div>
+                <div id="tutorial-profile" class="profile-unit" role="button" tabindex="0" title="프로필 설정">
+                    <div id="badge-char" class="char-avatar">
+                        <img id="badge-photo" class="char-photo hidden" src="" alt="profile">
+                        <span id="badge-initial" class="char-initial">U</span>
+                    </div>
                     <div class="char-info">
                         <div id="hud-univ" class="info-univ">YONSEI UNIV.</div>
                         <div id="hud-pct" class="info-rank" title="Study Time Percentile">TIME TOP 0.00%</div>
@@ -395,7 +398,32 @@
         </div>
     </div>
 
+    <!-- 프로필 커스터마이저 모달 -->
+    <div class="modal-backdrop hidden" id="modal-profile-custom">
+        <div class="modal-card profile-modal-card">
+            <h3 style="font-size:14px;margin-bottom:4px;">프로필 설정</h3>
+            <div class="profile-modal-content">
+                <div class="profile-avatar-editor">
+                    <div class="profile-avatar-preview" id="profile-avatar-preview">U</div>
+                    <label style="font-size:11px;color:var(--accent);cursor:pointer;">
+                        사진 변경
+                        <input type="file" accept="image/*" style="display:none;" onchange="onProfileImageSelected(this)">
+                    </label>
+                </div>
+                <div class="profile-field">
+                    <label for="profile-nick-input">닉네임</label>
+                    <input id="profile-nick-input" type="text" class="chat-input" placeholder="닉네임 입력" maxlength="20">
+                </div>
+                <div id="profile-save-err" style="font-size:11px;color:var(--red);min-height:16px;"></div>
+            </div>
+            <div class="modal-foot">
+                <button id="profile-save-btn" class="shop-btn" onclick="saveProfileCustomizer()" style="padding:8px 16px;font-size:11px;">저장</button>
+                <button class="cancel-btn" onclick="closeProfileCustomizer()">취소</button>
+            </div>
+        </div>
+    </div>
+
     <script src="bg.js?v=5"></script>
-    <script src="main.js?v=8"></script>
+    <script src="main.js?v=9"></script>
 </body>
 </html>

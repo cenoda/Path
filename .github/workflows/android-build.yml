@@ -17,7 +17,7 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     env:
-      ICON_SOURCE: IMG_0188.png
+      ICON_SOURCE: IMG_0203.png
 
     steps:
       - name: Checkout

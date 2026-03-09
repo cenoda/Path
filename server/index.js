@@ -33,6 +33,7 @@ if (isProduction && !process.env.ALIGO_API_KEY) {
 }
 
 const projectRoot = path.join(__dirname, '..');
+const appIconSourcePath = path.join(projectRoot, 'IMG_0203.png');
 
 function escapeHtml(value) {
     return String(value || '')
@@ -237,6 +238,24 @@ app.get('/manifest.json', (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.setHeader('Content-Type', 'application/manifest+json');
     res.sendFile(path.join(projectRoot, 'P.A.T.H', 'manifest.json'));
+});
+
+// Use a single master image for PWA icon aliases.
+app.get('/app-icon.png', (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+    res.type('png');
+    res.sendFile(appIconSourcePath);
+});
+
+app.get('/icons/:filename', (req, res, next) => {
+    const filename = String(req.params.filename || '');
+    if (!/^icon-(72|96|128|144|152|192|384|512)\.png$/.test(filename)) {
+        return next();
+    }
+
+    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+    res.type('png');
+    return res.sendFile(appIconSourcePath);
 });
 
 // ── PWA: Icons (long-lived cache) ──────────────────────────────────────────

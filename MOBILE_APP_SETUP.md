@@ -170,7 +170,7 @@ npm run cap:sync
 참고:
 - 현재 AAB는 기본 release 빌드 산출물입니다.
 - Play 스토어 정식 배포 전에는 서명/버전코드 정책을 최종 점검하세요.
-- APK/AAB 런처 아이콘은 `.github/workflows/android-build.yml`의 `ICON_SOURCE` 파일(현재 `IMG_0188.png`)로 자동 생성됩니다.
+- APK/AAB 런처 아이콘은 `.github/workflows/android-build.yml`의 `ICON_SOURCE` 파일(현재 `IMG_0203.png`)로 자동 생성됩니다.
 
 ## 7) main 커밋마다 앱 자동 업데이트 반영
 현재 앱은 `capacitor.config.json`에서 원격 URL(`https://path.sdij.cloud/login/`)을 로드합니다.

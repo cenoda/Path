@@ -30,7 +30,7 @@
     <div id="ui-overlay">
         <header class="hud-header">
             <div class="hud-left">
-                <div class="profile-unit">
+                <div class="profile-unit" onclick="openAccountSecurityModal()" role="button" tabindex="0" title="계정 보안">
                     <div id="badge-char" class="char-avatar">U</div>
                     <div class="char-info">
                         <div id="hud-univ" class="info-univ">YONSEI UNIV.</div>
@@ -226,6 +226,8 @@
 
             <div class="settings-section">
                 <div class="settings-section-title">계정 (ACCOUNT)</div>
+                <div class="settings-note" style="margin-bottom:10px;">내 식별코드: <strong id="settings-user-code">-</strong></div>
+                <button class="settings-action-btn" onclick="openAccountSecurityModal()" style="margin-bottom:8px;">비밀번호 변경</button>
                 <button class="settings-action-btn" onclick="doLogout()">로그아웃</button>
             </div>
 
@@ -350,6 +352,32 @@
                 <button class="shop-btn" id="btn-send-msg" onclick="openChatFromModal()" style="padding:8px 16px;font-size:11px;display:none;border-color:#4a9eff;color:#4a9eff;">메시지</button>
                 <button class="shop-btn" id="btn-invade" onclick="doInvade()" style="padding:8px 16px;font-size:11px;border-color:var(--accent-gold);color:var(--accent-gold);">도전하기</button>
                 <button class="cancel-btn" onclick="closeModal('modal-user')">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="modal-account-security">
+        <div class="modal-card" style="max-width:400px;">
+            <h3>계정 보안</h3>
+            <div class="modal-content">
+                <div class="settings-note" style="margin-bottom:10px;">내 식별코드: <strong id="account-user-code">-</strong> <button class="inline-btn" style="margin-left:6px;padding:4px 8px;font-size:10px;" onclick="copyMyUserCode()">복사</button></div>
+                <div class="profile-field">
+                    <label for="pw-current">현재 비밀번호</label>
+                    <input id="pw-current" type="password" class="chat-input" placeholder="현재 비밀번호" autocomplete="current-password">
+                </div>
+                <div class="profile-field" style="margin-top:8px;">
+                    <label for="pw-next">새 비밀번호 (8자 이상)</label>
+                    <input id="pw-next" type="password" class="chat-input" placeholder="새 비밀번호" autocomplete="new-password">
+                </div>
+                <div class="profile-field" style="margin-top:8px;">
+                    <label for="pw-next-confirm">새 비밀번호 확인</label>
+                    <input id="pw-next-confirm" type="password" class="chat-input" placeholder="새 비밀번호 확인" autocomplete="new-password">
+                </div>
+                <div id="account-security-msg" class="settings-note" style="margin-top:10px;"></div>
+            </div>
+            <div class="modal-foot">
+                <button class="shop-btn" onclick="submitPasswordChange()">변경</button>
+                <button class="cancel-btn" onclick="closeModal('modal-account-security')">취소</button>
             </div>
         </div>
     </div>

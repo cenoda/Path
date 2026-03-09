@@ -144,6 +144,14 @@ let mapOffsetX = 0, mapOffsetY = 0;
 let scale = 1.0;
 let currentRankTab = 'total';
 
+function refreshUserIdentifierUI() {
+    const code = currentUser?.user_code || '-';
+    const settingsCode = document.getElementById('settings-user-code');
+    const accountCode = document.getElementById('account-user-code');
+    if (settingsCode) settingsCode.textContent = code;
+    if (accountCode) accountCode.textContent = code;
+}
+
 function getOnboardingDoneKey(userId) {
     return `${ONBOARDING_DONE_PREFIX}${userId}`;
 }
@@ -352,6 +360,7 @@ async function initHub() {
 
         const meData = await meRes.json();
         currentUser = meData.user;
+        refreshUserIdentifierUI();
 
         let topPct = 100;
         if (rankMeRes.ok) {
@@ -1910,6 +1919,84 @@ async function saveCamSettings() {
 function loadSettingsPanel() {
     loadUiSettings();
     loadCamSettings();
+    refreshUserIdentifierUI();
+}
+
+function setAccountSecurityMessage(text, isError) {
+    const el = document.getElementById('account-security-msg');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.color = isError ? 'var(--red)' : 'var(--accent-gold)';
+}
+
+function openAccountSecurityModal() {
+    refreshUserIdentifierUI();
+    const currentEl = document.getElementById('pw-current');
+    const nextEl = document.getElementById('pw-next');
+    const confirmEl = document.getElementById('pw-next-confirm');
+    if (currentEl) currentEl.value = '';
+    if (nextEl) nextEl.value = '';
+    if (confirmEl) confirmEl.value = '';
+    setAccountSecurityMessage('', false);
+    document.getElementById('modal-account-security')?.classList.remove('hidden');
+}
+
+async function copyMyUserCode() {
+    const code = currentUser?.user_code;
+    if (!code) {
+        setAccountSecurityMessage('식별코드를 찾을 수 없습니다.', true);
+        return;
+    }
+    try {
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(code);
+            setAccountSecurityMessage('식별코드를 복사했습니다.', false);
+            return;
+        }
+    } catch (e) {}
+    setAccountSecurityMessage('브라우저에서 클립보드 복사를 지원하지 않습니다.', true);
+}
+
+async function submitPasswordChange() {
+    const currentPassword = document.getElementById('pw-current')?.value || '';
+    const newPassword = document.getElementById('pw-next')?.value || '';
+    const newPasswordConfirm = document.getElementById('pw-next-confirm')?.value || '';
+
+    if (!newPassword || newPassword.length < 8) {
+        setAccountSecurityMessage('새 비밀번호는 8자 이상이어야 합니다.', true);
+        return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+        setAccountSecurityMessage('새 비밀번호 확인이 일치하지 않습니다.', true);
+        return;
+    }
+
+    try {
+        const r = await fetch('/api/auth/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                current_password: currentPassword,
+                new_password: newPassword
+            })
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            setAccountSecurityMessage(data.error || '비밀번호 변경에 실패했습니다.', true);
+            return;
+        }
+
+        setAccountSecurityMessage('비밀번호가 변경되었습니다.', false);
+        const currentEl = document.getElementById('pw-current');
+        const nextEl = document.getElementById('pw-next');
+        const confirmEl = document.getElementById('pw-next-confirm');
+        if (currentEl) currentEl.value = '';
+        if (nextEl) nextEl.value = '';
+        if (confirmEl) confirmEl.value = '';
+    } catch (e) {
+        setAccountSecurityMessage('네트워크 오류가 발생했습니다.', true);
+    }
 }
 
 window.loadSettingsPanel = loadSettingsPanel;
@@ -2644,6 +2731,7 @@ startCoordinateSyncLoop();
 
 document.addEventListener('DOMContentLoaded', () => {
     const teleportBtn = document.getElementById('btn-teleport');
+    const profileUnit = document.querySelector('.profile-unit');
 
     if (teleportBtn) {
         teleportBtn.addEventListener('pointerup', (e) => {
@@ -2655,6 +2743,15 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             e.stopPropagation();
             openTeleportDialog();
+        });
+    }
+
+    if (profileUnit) {
+        profileUnit.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openAccountSecurityModal();
+            }
         });
     }
 });
@@ -2691,4 +2788,7 @@ async function saveStatusMsg(e) {
 // Keep inline handlers stable for all browsers/build modes.
 window.goToCommunity = goToCommunity;
 window.goToTimer = goToTimer;
+window.openAccountSecurityModal = openAccountSecurityModal;
+window.submitPasswordChange = submitPasswordChange;
+window.copyMyUserCode = copyMyUserCode;
 

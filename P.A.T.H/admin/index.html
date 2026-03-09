@@ -645,7 +645,7 @@
                 if (gpaFilter !== 'all' && (u.gpa_status || 'none') !== gpaFilter) return false;
 
                 if (!keyword) return true;
-                const target = `${u.nickname || ''} ${u.real_name || ''} ${u.university || ''}`.toLowerCase();
+                const target = `${u.nickname || ''} ${u.real_name || ''} ${u.university || ''} ${u.user_code || ''}`.toLowerCase();
                 return target.includes(keyword);
             });
         }
@@ -678,6 +678,7 @@
                             / <strong>티켓:</strong> ${u.tickets || 0}<br>
                             <strong>평가원 점수:</strong> ${u.mock_exam_score || '-'} / <strong>내신:</strong> ${u.gpa_score ? `${u.gpa_score}등급` : '-'}
                             ${u.gpa_public ? ' (공개)' : ''}<br>
+                            <strong>식별코드:</strong> ${esc(u.user_code || '-')}<br>
                             ${u.is_n_su ? `<strong>N수:</strong> 예 (전적대 ${esc(u.prev_university || '-')})<br>` : ''}
                             <strong>계정 권한:</strong> ${u.is_admin ? '관리자' : '일반 사용자'} / <strong>가입일:</strong> ${formatDate(u.created_at)}
                         </p>

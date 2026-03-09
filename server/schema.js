@@ -305,6 +305,55 @@ async function initSchema() {
             CREATE INDEX IF NOT EXISTS idx_cc_post_created_at ON community_comments(post_id, created_at DESC);
         `);
 
+        // ── 결제 / 수익 모델 테이블 ────────────────────────────────────────
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS is_premium BOOLEAN DEFAULT FALSE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_expires_at TIMESTAMP;
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS payments (
+                id            SERIAL PRIMARY KEY,
+                user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                platform      VARCHAR(10) NOT NULL DEFAULT 'web',
+                payment_key   VARCHAR(300) UNIQUE,
+                order_id      VARCHAR(200) UNIQUE NOT NULL,
+                amount        INTEGER NOT NULL,
+                gold_amount   INTEGER NOT NULL,
+                item_type     VARCHAR(20) DEFAULT 'gold_pack',
+                status        VARCHAR(20) DEFAULT 'pending',
+                created_at    TIMESTAMP DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+            CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
+            CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id            SERIAL PRIMARY KEY,
+                user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+                platform      VARCHAR(10) NOT NULL DEFAULT 'web',
+                billing_key   VARCHAR(300),
+                plan_id       VARCHAR(50) NOT NULL DEFAULT 'premium_monthly',
+                started_at    TIMESTAMP DEFAULT NOW(),
+                expires_at    TIMESTAMP NOT NULL,
+                status        VARCHAR(20) DEFAULT 'active',
+                created_at    TIMESTAMP DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+            CREATE INDEX IF NOT EXISTS idx_subscriptions_expires_at ON subscriptions(expires_at);
+        `);
+
+        // ── 코스메틱 확장: 프로필 뱃지, 닉네임 색상 ──────────────────────
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname_color VARCHAR(30) DEFAULT 'default';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_nickname_colors TEXT DEFAULT 'default';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_badge VARCHAR(50) DEFAULT 'none';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_badges TEXT DEFAULT '';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS last_daily_bonus_at TIMESTAMP;
+        `);
+
         console.log('DB 스키마 초기화 완료');
     } catch (err) {
         console.error('DB 스키마 초기화 오류:', err.message);

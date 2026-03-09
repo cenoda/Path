@@ -237,4 +237,166 @@ router.post('/equip-skin', async (req, res) => {
     }
 });
 
+// ── 프로필 뱃지 ──────────────────────────────────────────────────────────────
+const PROFILE_BADGES = {
+    'none':      { id: 'none',      name: '없음',          price: 0,    desc: '뱃지 없음', emoji: '' },
+    'studyking': { id: 'studyking', name: '공부왕',         price: 1500, desc: '공부를 열심히 하는 수험생', emoji: '👑' },
+    'streak7':   { id: 'streak7',   name: '7일 연속',       price: 2000, desc: '7일 연속 공부 달성', emoji: '🔥' },
+    'streak30':  { id: 'streak30',  name: '30일 연속',      price: 5000, desc: '30일 연속 공부 달성', emoji: '💎' },
+    'nsu':       { id: 'nsu',       name: 'N수생',          price: 1000, desc: 'N수생 전용 뱃지', emoji: '📚' },
+    'top1':      { id: 'top1',      name: '상위 1%',        price: 8000, desc: '랭킹 상위 1% 달성', emoji: '🏆' },
+    'medical':   { id: 'medical',   name: '의대 지망',      price: 4000, desc: '의대 지망생 뱃지', emoji: '⚕️' },
+    'cat':       { id: 'cat',       name: '고양이',         price: 2000, desc: '귀여운 고양이', emoji: '🐱' },
+    'coffee':    { id: 'coffee',    name: '카공족',         price: 1500, desc: '카페에서 공부하는 수험생', emoji: '☕' },
+    'moon':      { id: 'moon',      name: '밤새 공부',      price: 3000, desc: '새벽까지 공부하는 수험생', emoji: '🌙' },
+};
+
+// ── 닉네임 색상 ──────────────────────────────────────────────────────────────
+const NICKNAME_COLORS = {
+    'default':  { id: 'default',  name: '기본',      price: 0,    color: null,      desc: '기본 흰색' },
+    'gold':     { id: 'gold',     name: '골드',      price: 3000, color: '#FFD700', desc: '황금빛 닉네임' },
+    'silver':   { id: 'silver',   name: '실버',      price: 1500, color: '#C0C0C0', desc: '은빛 닉네임' },
+    'sky':      { id: 'sky',      name: '하늘색',    price: 2000, color: '#87CEEB', desc: '하늘빛 닉네임' },
+    'pink':     { id: 'pink',     name: '핑크',      price: 2000, color: '#FFB6C1', desc: '핑크 닉네임' },
+    'lime':     { id: 'lime',     name: '라임',      price: 2000, color: '#98FB98', desc: '라임 닉네임' },
+    'orange':   { id: 'orange',   name: '오렌지',    price: 2500, color: '#FFA07A', desc: '오렌지 닉네임' },
+    'purple':   { id: 'purple',   name: '보라',      price: 2500, color: '#DDA0DD', desc: '보라 닉네임' },
+    'rainbow':  { id: 'rainbow',  name: '무지개',    price: 8000, color: 'rainbow', desc: '무지개 그라데이션 닉네임' },
+};
+
+router.get('/cosmetics', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    try {
+        const userRes = await pool.query(
+            'SELECT nickname_color, owned_nickname_colors, profile_badge, owned_badges FROM users WHERE id = $1',
+            [req.session.userId]
+        );
+        const user = userRes.rows[0];
+        const ownedColors = (user.owned_nickname_colors || 'default').split(',').map(s => s.trim()).filter(Boolean);
+        const ownedBadges = ['none', ...(user.owned_badges || '').split(',').map(s => s.trim()).filter(Boolean)];
+        res.json({
+            badges: Object.values(PROFILE_BADGES),
+            nicknameColors: Object.values(NICKNAME_COLORS),
+            ownedBadges,
+            ownedColors,
+            equippedBadge: user.profile_badge || 'none',
+            equippedColor: user.nickname_color || 'default',
+        });
+    } catch (err) {
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/buy-badge', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { badge_id } = req.body;
+    const badge = PROFILE_BADGES[badge_id];
+    if (!badge || badge_id === 'none') return res.status(400).json({ error: '존재하지 않는 뱃지입니다.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const userRes = await client.query('SELECT gold, owned_badges FROM users WHERE id = $1 FOR UPDATE', [req.session.userId]);
+        const user = userRes.rows[0];
+        const owned = ['none', ...(user.owned_badges || '').split(',').map(s => s.trim()).filter(Boolean)];
+
+        if (owned.includes(badge_id)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '이미 보유한 뱃지입니다.' });
+        }
+        if (user.gold < badge.price) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `골드가 부족합니다. 필요: ${badge.price.toLocaleString()}G` });
+        }
+
+        const newOwned = [...owned.filter(b => b !== 'none'), badge_id].join(',');
+        const final = await client.query(
+            'UPDATE users SET gold = gold - $1, owned_badges = $2 WHERE id = $3 RETURNING id, gold',
+            [badge.price, newOwned, req.session.userId]
+        );
+        await client.query('COMMIT');
+        res.json({ ok: true, spent: badge.price, user: final.rows[0] });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/equip-badge', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { badge_id } = req.body;
+    if (!PROFILE_BADGES[badge_id]) return res.status(400).json({ error: '존재하지 않는 뱃지입니다.' });
+
+    try {
+        if (badge_id !== 'none') {
+            const userRes = await pool.query('SELECT owned_badges FROM users WHERE id = $1', [req.session.userId]);
+            const owned = ['none', ...(userRes.rows[0].owned_badges || '').split(',').map(s => s.trim()).filter(Boolean)];
+            if (!owned.includes(badge_id)) return res.status(400).json({ error: '보유하지 않은 뱃지입니다.' });
+        }
+        await pool.query('UPDATE users SET profile_badge = $1 WHERE id = $2', [badge_id, req.session.userId]);
+        res.json({ ok: true, equipped: badge_id });
+    } catch (err) {
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/buy-nickname-color', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { color_id } = req.body;
+    const colorItem = NICKNAME_COLORS[color_id];
+    if (!colorItem || color_id === 'default') return res.status(400).json({ error: '존재하지 않는 색상입니다.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const userRes = await client.query('SELECT gold, owned_nickname_colors FROM users WHERE id = $1 FOR UPDATE', [req.session.userId]);
+        const user = userRes.rows[0];
+        const owned = (user.owned_nickname_colors || 'default').split(',').map(s => s.trim()).filter(Boolean);
+
+        if (owned.includes(color_id)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '이미 보유한 색상입니다.' });
+        }
+        if (user.gold < colorItem.price) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `골드가 부족합니다. 필요: ${colorItem.price.toLocaleString()}G` });
+        }
+
+        owned.push(color_id);
+        const final = await client.query(
+            'UPDATE users SET gold = gold - $1, owned_nickname_colors = $2 WHERE id = $3 RETURNING id, gold',
+            [colorItem.price, owned.join(','), req.session.userId]
+        );
+        await client.query('COMMIT');
+        res.json({ ok: true, spent: colorItem.price, user: final.rows[0] });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/equip-nickname-color', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { color_id } = req.body;
+    if (!NICKNAME_COLORS[color_id]) return res.status(400).json({ error: '존재하지 않는 색상입니다.' });
+
+    try {
+        if (color_id !== 'default') {
+            const userRes = await pool.query('SELECT owned_nickname_colors FROM users WHERE id = $1', [req.session.userId]);
+            const owned = (userRes.rows[0].owned_nickname_colors || 'default').split(',').map(s => s.trim()).filter(Boolean);
+            if (!owned.includes(color_id)) return res.status(400).json({ error: '보유하지 않은 색상입니다.' });
+        }
+        await pool.query('UPDATE users SET nickname_color = $1 WHERE id = $2', [color_id, req.session.userId]);
+        res.json({ ok: true, equipped: color_id });
+    } catch (err) {
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
 module.exports = router;
+module.exports.PROFILE_BADGES = PROFILE_BADGES;
+module.exports.NICKNAME_COLORS = NICKNAME_COLORS;

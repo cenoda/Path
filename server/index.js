@@ -183,6 +183,7 @@ app.use('/api/cam', require('./routes/cam'));
 app.use('/api/friends', require('./routes/friends'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/community', require('./routes/community'));
+app.use('/api/payment', require('./routes/payment'));
 
 app.use('/uploads/scores/:filename', (req, res) => {
     res.redirect(`/api/auth/score-image/${req.params.filename}`);

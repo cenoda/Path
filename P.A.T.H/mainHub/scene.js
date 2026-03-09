@@ -15,6 +15,15 @@ const DRAG_SENSITIVITY  = 0.55;    // 0..1 – lower = less sensitive mouse/touc
 const WORLD_HALF        = WORLD_SIZE / 2;   // convenience: max |world coord|
 const REMOTE_POS_LERP   = 0.12;    // lerp factor for remote player position interpolation
 
+const AURA_COLORS = {
+    none: null,
+    sun: 0xffc44d,
+    frost: 0x7fd9ff,
+    forest: 0x67d57a,
+    cosmic: 0x9e8dff,
+    royal: 0xe08bff
+};
+
 function worldToScene(value) {
     return -value * WORLD_SCALE;
 }
@@ -943,6 +952,7 @@ const WorldScene = {
 
         // Get color scheme from skin
         const skinId = user.balloon_skin || 'default';
+        const auraId = user.balloon_aura || 'none';
 
         // Create 3D balloon instead of 2D plane
         const scale = isMe ? 2.0 : 1.25;
@@ -1004,7 +1014,10 @@ const WorldScene = {
             bubbleMesh,
             isMe,
             baseY: 0,
-            isLowDetail: false
+            isLowDetail: false,
+            auraId,
+            auraGroup: null,
+            auraMats: []
         };
 
         if (isMe) {
@@ -1021,6 +1034,8 @@ const WorldScene = {
             group.userData.glowMat = glowMat;
             group.add(glowMesh);
         }
+
+        this._updateBalloonAura(group, auraId, isMe);
 
         this.scene.add(group);
         this.balloons.set(user.id, { group, user, isMe });

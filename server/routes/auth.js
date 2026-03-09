@@ -12,6 +12,7 @@ const aligoService = require('../utils/aligo');
 const { getActiveStreakFromUser, formatDisplayName } = require('../utils/progression');
 
 const router = express.Router();
+const ALWAYS_MAIN_ADMIN_NICKNAME = '낭만화1';
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15분
@@ -65,6 +66,33 @@ function addPercentile(user) {
 function requireAuth(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     next();
+}
+
+async function enforceAlwaysMainAdminByNickname(userId) {
+    const result = await pool.query(
+        'SELECT id, nickname, is_admin, admin_role FROM users WHERE id = $1',
+        [userId]
+    );
+    const user = result.rows[0];
+    if (!user) return null;
+
+    if (user.nickname !== ALWAYS_MAIN_ADMIN_NICKNAME) return user;
+
+    if (user.is_admin === true && user.admin_role === 'main') return user;
+
+    await pool.query(
+        `UPDATE users
+         SET is_admin = TRUE,
+             admin_role = 'main'
+         WHERE id = $1`,
+        [user.id]
+    );
+
+    return {
+        ...user,
+        is_admin: true,
+        admin_role: 'main',
+    };
 }
 
 const scoreStorage = multer.diskStorage({
@@ -271,8 +299,12 @@ router.post('/login', loginLimiter, async (req, res) => {
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) return res.status(401).json({ error: '닉네임 또는 비밀번호가 올바르지 않습니다.' });
 
+        const enforced = await enforceAlwaysMainAdminByNickname(user.id);
         req.session.userId = user.id;
         const { password_hash, ...safeUser } = user;
+
+        if (enforced?.is_admin === true) safeUser.is_admin = true;
+        if (enforced?.admin_role) safeUser.admin_role = enforced.admin_role;
         
         // 휴대폰 미인증 계정 경고 (기존 계정 호환)
         if (!user.phone_verified) {
@@ -293,6 +325,7 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', requireAuth, async (req, res) => {
     try {
+        await enforceAlwaysMainAdminByNickname(req.session.userId);
         const result = await pool.query(
             `SELECT ${USER_FIELDS} FROM users WHERE id = $1`,
             [req.session.userId]

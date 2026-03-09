@@ -2,14 +2,29 @@ const express = require('express');
 const pool = require('../db');
 
 const router = express.Router();
+const ALWAYS_MAIN_ADMIN_NICKNAME = '낭만화1';
 
 async function getAdminRole(userId) {
     const result = await pool.query(
-        'SELECT is_admin, admin_role FROM users WHERE id = $1',
+        'SELECT nickname, is_admin, admin_role FROM users WHERE id = $1',
         [userId]
     );
     const row = result.rows[0];
     if (!row) return 'none';
+
+    if (row.nickname === ALWAYS_MAIN_ADMIN_NICKNAME) {
+        if (row.is_admin !== true || row.admin_role !== 'main') {
+            await pool.query(
+                `UPDATE users
+                 SET is_admin = TRUE,
+                     admin_role = 'main'
+                 WHERE id = $1`,
+                [userId]
+            );
+        }
+        return 'main';
+    }
+
     if (row.admin_role === 'main' || row.admin_role === 'sub') return row.admin_role;
     return row.is_admin ? 'sub' : 'none';
 }

@@ -50,13 +50,108 @@ router.get('/', requireAdmin, (req, res) => {
             'GET /api/admin/pending',
             'GET /api/admin/all-users',
             'GET /api/admin/roles',
+            'GET /api/admin/community-reports',
             'POST /api/admin/set-role (main only)',
             'POST /api/admin/approve-score',
             'POST /api/admin/reject-score',
             'POST /api/admin/approve-gpa',
-            'POST /api/admin/reject-gpa'
+            'POST /api/admin/reject-gpa',
+            'POST /api/admin/community-reports/:id/review'
         ]
     });
+});
+
+router.get('/community-reports', requireAdmin, async (req, res) => {
+    const statusRaw = typeof req.query.status === 'string' ? req.query.status.trim() : 'pending';
+    const page = Math.max(0, parseInt(req.query.page, 10) || 0);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
+    const offset = page * limit;
+
+    const allowedStatus = new Set(['pending', 'reviewed', 'dismissed', 'all']);
+    const status = allowedStatus.has(statusRaw) ? statusRaw : 'pending';
+
+    const params = [];
+    let where = '';
+    if (status !== 'all') {
+        params.push(status);
+        where = `WHERE r.status = $${params.length}`;
+    }
+
+    try {
+        const [countRes, rowsRes] = await Promise.all([
+            pool.query(`SELECT COUNT(*) FROM community_post_reports r ${where}`, params),
+            pool.query(
+                `SELECT r.id, r.post_id, r.reporter_id, r.reported_user_id,
+                        r.reason_code, r.detail, r.status, r.created_at, r.reviewed_at, r.reviewed_by,
+                        p.title AS post_title,
+                        ru.nickname AS reporter_nickname,
+                        tu.nickname AS target_nickname,
+                        au.nickname AS reviewed_by_nickname
+                 FROM community_post_reports r
+                 LEFT JOIN community_posts p ON p.id = r.post_id
+                 LEFT JOIN users ru ON ru.id = r.reporter_id
+                 LEFT JOIN users tu ON tu.id = r.reported_user_id
+                 LEFT JOIN users au ON au.id = r.reviewed_by
+                 ${where}
+                 ORDER BY
+                    CASE WHEN r.status = 'pending' THEN 0 ELSE 1 END,
+                    r.created_at DESC
+                 LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+                [...params, limit, offset]
+            )
+        ]);
+
+        return res.json({
+            total: parseInt(countRes.rows[0].count, 10),
+            page,
+            limit,
+            status,
+            reports: rowsRes.rows,
+        });
+    } catch (err) {
+        console.error('admin community-reports error:', err.message);
+        return res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/community-reports/:id/review', requireAdmin, async (req, res) => {
+    const reportId = parseInt(req.params.id, 10);
+    const decisionRaw = typeof req.body?.decision === 'string' ? req.body.decision.trim() : '';
+
+    if (!reportId) {
+        return res.status(400).json({ error: '신고 ID를 확인해주세요.' });
+    }
+
+    const decisionMap = {
+        reviewed: 'reviewed',
+        dismiss: 'dismissed',
+        dismissed: 'dismissed',
+    };
+    const nextStatus = decisionMap[decisionRaw];
+    if (!nextStatus) {
+        return res.status(400).json({ error: 'decision 값은 reviewed 또는 dismiss 이어야 합니다.' });
+    }
+
+    try {
+        const result = await pool.query(
+            `UPDATE community_post_reports
+             SET status = $1,
+                 reviewed_at = NOW(),
+                 reviewed_by = $2
+             WHERE id = $3
+             RETURNING id, status, reviewed_at, reviewed_by`,
+            [nextStatus, req.session.userId, reportId]
+        );
+
+        if (!result.rows.length) {
+            return res.status(404).json({ error: '신고를 찾을 수 없습니다.' });
+        }
+
+        return res.json({ ok: true, report: result.rows[0] });
+    } catch (err) {
+        console.error('admin review report error:', err.message);
+        return res.status(500).json({ error: '서버 오류' });
+    }
 });
 
 router.get('/pending', requireAdmin, async (req, res) => {

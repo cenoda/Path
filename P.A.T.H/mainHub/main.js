@@ -3026,6 +3026,10 @@ function initWorldSocket(user) {
     });
 
     // ── Announce ourselves to the server ────────────────────────────
+    const initialPos = (window.WorldScene && window.WorldScene.isReady)
+        ? window.WorldScene.getWorldPosition()
+        : { x: 0, y: 0 };
+
     worldSocket.emit('player:join', {
         userId:         user.id,
         nickname:       user.nickname       || '',
@@ -3034,8 +3038,8 @@ function initWorldSocket(user) {
         university:     user.university     || '',
         balloon_skin:   user.balloon_skin   || 'default',
         status_message: user.status_message || null,
-        worldX: 0,
-        worldY: 0,
+        worldX: initialPos.x,
+        worldY: initialPos.y,
     });
 
     // Wire up WorldScene's interaction callback so local clicks are emitted.

@@ -558,7 +558,7 @@ function renderDetailBody(container, { post, postId, comments }) {
           return;
         }
 
-        const payload = showReportPrompt();
+        const payload = await openReportModal();
         if (!payload) return;
 
         reportBtn.disabled = true;
@@ -1268,25 +1268,83 @@ async function refreshBlockedUsers() {
   }
 }
 
-function showReportPrompt() {
-  const labels = REPORT_REASON_OPTIONS.map((o) => `${o.code}: ${o.label}`).join('\n');
-  const reasonInput = window.prompt(`신고 사유 코드를 입력해 주세요.\n${labels}`, 'abuse');
-  if (reasonInput === null) return null;
-  const reasonCode = reasonInput.trim();
-  if (!REPORT_REASON_OPTIONS.some((o) => o.code === reasonCode)) {
-    showToast('신고 사유 코드가 올바르지 않아요');
-    return null;
-  }
+function openReportModal() {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="write-modal" role="dialog" aria-modal="true" aria-label="게시물 신고" style="max-width:540px;">
+        <div class="write-modal-handle"></div>
+        <div class="write-modal-header">
+          <h2 class="write-modal-title">게시물 신고</h2>
+          <button class="write-modal-close" aria-label="닫기" id="report-close-btn">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/>
+            </svg>
+          </button>
+        </div>
+        <div class="write-modal-body">
+          <div class="write-field">
+            <label class="write-label" for="report-reason-select">신고 사유</label>
+            <select id="report-reason-select" class="write-input">
+              ${REPORT_REASON_OPTIONS.map((o) => `<option value="${o.code}">${o.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="write-field">
+            <div class="write-label-row">
+              <label class="write-label" for="report-detail-text">상세 사유(선택)</label>
+              <span class="write-inline-count" id="report-detail-count">0 / 500</span>
+            </div>
+            <textarea id="report-detail-text" class="write-textarea" rows="4" maxlength="500" placeholder="운영팀 검토에 도움이 되는 내용을 입력해 주세요."></textarea>
+          </div>
+          <p style="font-size:11px;color:var(--text-3);line-height:1.5;">허위 신고 또는 반복 악용 시 이용이 제한될 수 있습니다.</p>
+        </div>
+        <div class="write-modal-footer">
+          <button class="write-cancel-btn" id="report-cancel-btn">취소</button>
+          <button class="write-submit-btn" id="report-submit-btn">신고하기</button>
+        </div>
+      </div>`;
 
-  const detailInput = window.prompt('상세 사유(선택, 최대 500자)', '');
-  if (detailInput === null) return null;
-  const detail = detailInput.trim();
-  if (detail.length > 500) {
-    showToast('상세 사유는 500자 이하로 입력해 주세요');
-    return null;
-  }
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(() => backdrop.classList.add('visible'));
 
-  return { reason_code: reasonCode, detail };
+    const close = (payload) => {
+      backdrop.classList.remove('visible');
+      backdrop.addEventListener('transitionend', () => backdrop.remove(), { once: true });
+      resolve(payload);
+    };
+
+    const closeBtn = backdrop.querySelector('#report-close-btn');
+    const cancelBtn = backdrop.querySelector('#report-cancel-btn');
+    const submitBtn = backdrop.querySelector('#report-submit-btn');
+    const reasonSelect = backdrop.querySelector('#report-reason-select');
+    const detailText = backdrop.querySelector('#report-detail-text');
+    const detailCount = backdrop.querySelector('#report-detail-count');
+
+    detailText.addEventListener('input', () => {
+      detailCount.textContent = `${detailText.value.length.toLocaleString('ko-KR')} / 500`;
+    });
+
+    closeBtn.addEventListener('click', () => close(null));
+    cancelBtn.addEventListener('click', () => close(null));
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) close(null);
+    });
+
+    submitBtn.addEventListener('click', () => {
+      const reasonCode = String(reasonSelect.value || '').trim();
+      const detail = String(detailText.value || '').trim();
+      if (!REPORT_REASON_OPTIONS.some((o) => o.code === reasonCode)) {
+        showToast('신고 사유를 선택해 주세요');
+        return;
+      }
+      if (detail.length > 500) {
+        showToast('상세 사유는 500자 이하로 입력해 주세요');
+        return;
+      }
+      close({ reason_code: reasonCode, detail });
+    });
+  });
 }
 
 /* ─── 유틸리티 ───────────────────────────────────────────── */

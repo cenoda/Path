@@ -234,10 +234,14 @@ router.get('/posts', async (req, res) => {
     }
 
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const whereWithAlias = where
+        .replace(/\btitle\b/g, 'p.title')
+        .replace(/\blikes\b/g, 'p.likes')
+        .replace(/\bcategory\b/g, 'p.category');
 
     try {
         const [cntRes, postsRes] = await Promise.all([
-            pool.query(`SELECT COUNT(*) FROM community_posts ${where}`, params),
+            pool.query(`SELECT COUNT(*) FROM community_posts p ${whereWithAlias}`, params),
             pool.query(
                 `SELECT p.id, p.category, p.title, p.nickname, p.ip_prefix,
                         u.nickname AS user_nickname, u.active_title,
@@ -247,7 +251,7 @@ router.get('/posts', async (req, res) => {
                         (p.image_url IS NOT NULL AND p.image_url <> '') AS has_image
                  FROM community_posts p
                  LEFT JOIN users u ON u.id = p.user_id
-                 ${where.replace(/\btitle\b/g, 'p.title').replace(/\blikes\b/g, 'p.likes').replace(/\bcategory\b/g, 'p.category')}
+                 ${whereWithAlias}
                  ORDER BY p.created_at DESC
                  LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
                 [...params, limit, offset]

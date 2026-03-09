@@ -2911,6 +2911,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // 프로필 버튼
     bindBtn(document.getElementById('tutorial-profile'), () => openProfileCustomizer());
 
+    // AGENT MESSAGE 패널 버튼
+    const agentPanel = document.getElementById('panel-agent-notice');
+    if (agentPanel) {
+        agentPanel.querySelectorAll('button').forEach(btn => {
+            bindBtn(btn, () => togglePanel('panel-agent-notice'));
+        });
+    }
+
     // 설정 패널 내 버튼
     const settingsPanel = document.getElementById('panel-settings');
     if (settingsPanel) {

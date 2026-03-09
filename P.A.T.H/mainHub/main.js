@@ -14,6 +14,15 @@ const BALLOON_SKINS = {
     'diamond': { id: 'diamond', name: '다이아몬드 열기구', price: 15000, darkImg: 'assets/balloon_diamond.png', lightImg: 'assets/balloon_diamond.png', desc: '최고급 다이아몬드 열기구' }
 };
 
+const BALLOON_AURAS = {
+    'none': { id: 'none', name: '없음', price: 0, desc: '기본 상태' },
+    'sun': { id: 'sun', name: '태양 후광', price: 2500, desc: '따뜻한 황금빛 후광' },
+    'frost': { id: 'frost', name: '서리 오오라', price: 4200, desc: '차가운 푸른빛 기류' },
+    'forest': { id: 'forest', name: '숲의 숨결', price: 5200, desc: '초록빛 생명 에너지' },
+    'cosmic': { id: 'cosmic', name: '코스믹 링', price: 6800, desc: '우주 먼지 같은 잔광' },
+    'royal': { id: 'royal', name: '로열 크라운', price: 9000, desc: '보랏빛 왕관형 오오라' }
+};
+
 function getBalloonSrc(skinId, isLight) {
     const skin = BALLOON_SKINS[skinId] || BALLOON_SKINS['default'];
     return isLight ? skin.lightImg : skin.darkImg;
@@ -1518,6 +1527,79 @@ async function renderShopContent(tab) {
         } catch (e) {
             container.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;font-size:12px">로드 실패</div>';
         }
+    } else if (tab === 'aura') {
+        try {
+            const auraRes = await fetch('/api/estate/auras', { credentials: 'include' });
+            const auraData = auraRes.ok ? await auraRes.json() : { auras: [], owned: ['none'], equipped: 'none' };
+            const { auras, owned, equipped } = auraData;
+            const myGold = currentUser?.gold || 0;
+
+            container.innerHTML = `
+                <div style="padding:10px 0 6px;">
+                    <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:12px;">
+                        보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
+                    </div>
+                    <div id="aura-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+                </div>
+            `;
+
+            const grid = container.querySelector('#aura-grid');
+            auras.forEach(aura => {
+                const isOwned = owned.includes(aura.id);
+                const isEquipped = equipped === aura.id;
+
+                const card = document.createElement('div');
+                card.style.cssText = `border:1px solid ${isEquipped ? 'var(--accent-gold)' : 'var(--border)'};border-radius:6px;padding:10px;text-align:center;background:${isEquipped ? 'rgba(255,193,7,0.07)' : 'transparent'};position:relative;`;
+
+                const preview = document.createElement('div');
+                const auraColor = {
+                    none: '#7f8798',
+                    sun: '#ffc44d',
+                    frost: '#7fd9ff',
+                    forest: '#67d57a',
+                    cosmic: '#9e8dff',
+                    royal: '#e08bff'
+                }[aura.id] || '#8aa1ff';
+                preview.style.cssText = `width:54px;height:54px;margin:0 auto 8px;border-radius:50%;border:2px solid ${auraColor};box-shadow:0 0 0 4px ${auraColor}22, 0 0 16px ${auraColor}66 inset;`;
+                card.appendChild(preview);
+
+                const nameDiv = document.createElement('div');
+                nameDiv.style.cssText = 'font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px;';
+                nameDiv.textContent = aura.name;
+                card.appendChild(nameDiv);
+
+                const descDiv = document.createElement('div');
+                descDiv.style.cssText = 'font-size:9px;color:#7b8498;margin-bottom:6px;min-height:24px;';
+                descDiv.textContent = aura.desc || '';
+                card.appendChild(descDiv);
+
+                const priceDiv = document.createElement('div');
+                priceDiv.style.cssText = 'font-size:10px;color:#666;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:3px;';
+                if (aura.price === 0) {
+                    priceDiv.textContent = '무료';
+                } else {
+                    priceDiv.innerHTML = `<img src="assets/coin.png" style="width:10px;height:10px;">${aura.price.toLocaleString()}G`;
+                }
+                card.appendChild(priceDiv);
+
+                const btnDiv = document.createElement('div');
+                if (isEquipped) {
+                    btnDiv.style.cssText = 'font-size:10px;color:var(--accent-gold);letter-spacing:1px;';
+                    btnDiv.innerHTML = '✓ 장착 중';
+                } else if (isOwned) {
+                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="equipAura('${aura.id}')">장착</button>`;
+                } else if (aura.price === 0) {
+                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buyAura('${aura.id}', 0)">획득</button>`;
+                } else {
+                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buyAura('${aura.id}', ${aura.price})">${aura.price.toLocaleString()}G 구매</button>`;
+                }
+                card.appendChild(btnDiv);
+
+                grid.appendChild(card);
+            });
+        } catch (e) {
+            container.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;font-size:12px">로드 실패</div>';
+        }
     } else {
         container.innerHTML = `
             <div style="text-align:center;padding:30px 0;color:#555;font-size:12px;letter-spacing:1px;">
@@ -1627,8 +1709,50 @@ async function equipSkin(skinId) {
         if (currentUser) {
             currentUser.balloon_skin = skinId;
             updateMyBuilding(currentUser);
+            if (window.WorldScene) window.WorldScene.updateMyBalloon(skinId);
         }
         renderShopContent('skin');
+    } catch (e) { alert('오류 발생'); }
+}
+
+async function buyAura(auraId, price) {
+    const aura = BALLOON_AURAS[auraId];
+    if (!aura) return;
+    if (price > 0 && !confirm(`[${aura.name}]을 ${price.toLocaleString()}G에 구매하시겠습니까?`)) return;
+    try {
+        const r = await fetch('/api/estate/buy-aura', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ aura_id: auraId })
+        });
+        const data = await r.json();
+        if (!r.ok) { alert(data.error || '구매 실패'); return; }
+        if (currentUser) {
+            currentUser.gold = data.user.gold;
+            currentUser.owned_auras = data.user.owned_auras;
+            updateHUD(currentUser);
+        }
+        alert(`[${aura.name}] 획득 완료!`);
+        renderShopContent('aura');
+    } catch (e) { alert('오류 발생'); }
+}
+
+async function equipAura(auraId) {
+    try {
+        const r = await fetch('/api/estate/equip-aura', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ aura_id: auraId })
+        });
+        const data = await r.json();
+        if (!r.ok) { alert(data.error || '장착 실패'); return; }
+        if (currentUser) {
+            currentUser.balloon_aura = auraId;
+            if (window.WorldScene) window.WorldScene.updateMyAura(auraId);
+        }
+        renderShopContent('aura');
     } catch (e) { alert('오류 발생'); }
 }
 
@@ -2444,6 +2568,7 @@ function initWorldSocket(user) {
         nickname:       user.nickname       || '',
         university:     user.university     || '',
         balloon_skin:   user.balloon_skin   || 'default',
+        balloon_aura:   user.balloon_aura   || 'none',
         status_message: user.status_message || null,
         worldX: pos.x,
         worldY: pos.y,

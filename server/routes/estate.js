@@ -250,6 +250,15 @@ const BALLOON_SKINS = {
     'diamond': { id: 'diamond', name: '다이아몬드 열기구', price: 15000, darkImg: 'balloon_diamond.png', lightImg: 'balloon_diamond.png', desc: '최고급 다이아몬드 열기구' }
 };
 
+const BALLOON_AURAS = {
+    'none': { id: 'none', name: '없음', price: 0, desc: '기본 상태' },
+    'sun': { id: 'sun', name: '태양 후광', price: 2500, desc: '따뜻한 황금빛 후광' },
+    'frost': { id: 'frost', name: '서리 오오라', price: 4200, desc: '차가운 푸른빛 기류' },
+    'forest': { id: 'forest', name: '숲의 숨결', price: 5200, desc: '초록빛 생명 에너지' },
+    'cosmic': { id: 'cosmic', name: '코스믹 링', price: 6800, desc: '우주 먼지 같은 잔광' },
+    'royal': { id: 'royal', name: '로열 크라운', price: 9000, desc: '보랏빛 왕관형 오오라' }
+};
+
 router.get('/skins', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     try {
@@ -257,6 +266,18 @@ router.get('/skins', async (req, res) => {
         const user = userRes.rows[0];
         const owned = (user.owned_skins || 'default').split(',').map(s => s.trim()).filter(Boolean);
         res.json({ skins: Object.values(BALLOON_SKINS), owned, equipped: user.balloon_skin || 'default' });
+    } catch (err) {
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.get('/auras', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    try {
+        const userRes = await pool.query('SELECT balloon_aura, owned_auras FROM users WHERE id = $1', [req.session.userId]);
+        const user = userRes.rows[0];
+        const owned = (user.owned_auras || 'none').split(',').map(s => s.trim()).filter(Boolean);
+        res.json({ auras: Object.values(BALLOON_AURAS), owned, equipped: user.balloon_aura || 'none' });
     } catch (err) {
         res.status(500).json({ error: '서버 오류' });
     }
@@ -313,6 +334,62 @@ router.post('/equip-skin', async (req, res) => {
 
         await pool.query('UPDATE users SET balloon_skin = $1 WHERE id = $2', [skin_id, req.session.userId]);
         res.json({ ok: true, equipped: skin_id });
+    } catch (err) {
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/buy-aura', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { aura_id } = req.body;
+    const aura = BALLOON_AURAS[aura_id];
+    if (!aura) return res.status(400).json({ error: '존재하지 않는 오오라입니다.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const userRes = await client.query('SELECT gold, owned_auras FROM users WHERE id = $1 FOR UPDATE', [req.session.userId]);
+        const user = userRes.rows[0];
+        const owned = (user.owned_auras || 'none').split(',').map(s => s.trim()).filter(Boolean);
+
+        if (owned.includes(aura_id)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '이미 보유한 오오라입니다.' });
+        }
+        if (user.gold < aura.price) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `골드가 부족합니다. 필요: ${aura.price.toLocaleString()}G` });
+        }
+
+        owned.push(aura_id);
+        const newOwned = owned.join(',');
+        const final = await client.query(
+            `UPDATE users SET gold = gold - $1, owned_auras = $2 WHERE id = $3
+             RETURNING id, gold, diamond, balloon_aura, owned_auras`,
+            [aura.price, newOwned, req.session.userId]
+        );
+        await client.query('COMMIT');
+        res.json({ ok: true, spent: aura.price, user: final.rows[0] });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/equip-aura', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { aura_id } = req.body;
+    if (!BALLOON_AURAS[aura_id]) return res.status(400).json({ error: '존재하지 않는 오오라입니다.' });
+
+    try {
+        const userRes = await pool.query('SELECT owned_auras FROM users WHERE id = $1', [req.session.userId]);
+        const owned = (userRes.rows[0].owned_auras || 'none').split(',').map(s => s.trim()).filter(Boolean);
+        if (!owned.includes(aura_id)) return res.status(400).json({ error: '보유하지 않은 오오라입니다.' });
+
+        await pool.query('UPDATE users SET balloon_aura = $1 WHERE id = $2', [aura_id, req.session.userId]);
+        res.json({ ok: true, equipped: aura_id });
     } catch (err) {
         res.status(500).json({ error: '서버 오류' });
     }

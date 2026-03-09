@@ -28,7 +28,7 @@ const WORLD_SEED       = 777;     // fixed seed distributed to every client
 const MAX_PROP_ID_LEN  = 64;      // maximum length of a prop identifier string
 
 // In-memory player registry
-// key: socket.id  →  { userId, nickname, university, balloon_skin,
+// key: socket.id  →  { userId, nickname, university, balloon_skin, balloon_aura,
 //                      status_message, worldX, worldY, cx, cy }
 const players = new Map();
 
@@ -80,6 +80,7 @@ function playerPublic(p) {
         active_streak: Number(p.active_streak || 0),
         university: p.university,
         balloon_skin: p.balloon_skin,
+        balloon_aura: p.balloon_aura || 'none',
         status_message: p.status_message || null,
         worldX: p.worldX,
         worldY: p.worldY,
@@ -119,7 +120,7 @@ function setup(io) {
             const {
                 nickname = '', university = '',
                 display_nickname = '', active_streak = 0,
-                balloon_skin = 'default', status_message = null,
+                balloon_skin = 'default', balloon_aura = 'none', status_message = null,
                 worldX = 0, worldY = 0,
             } = data;
 
@@ -136,6 +137,7 @@ function setup(io) {
                 active_streak: Number(active_streak || 0),
                 university,
                 balloon_skin,
+                balloon_aura,
                 status_message,
                 worldX: clamped.worldX, worldY: clamped.worldY, cx, cy,
             });

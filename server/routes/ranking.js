@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
     try {
         await refreshBountyBoard(pool);
         const result = await pool.query(
-                `SELECT u.id, u.nickname, u.university, u.gold, u.exp, u.tier, u.is_studying, u.balloon_skin, u.profile_image_url, u.status_emoji, u.status_message,
+                `SELECT u.id, u.nickname, u.university, u.gold, u.exp, u.tier, u.is_studying, u.balloon_skin, u.balloon_aura, u.profile_image_url, u.status_emoji, u.status_message,
                     u.active_title, u.streak_count, u.streak_last_date,
                     u.mock_exam_score, u.score_status,
                     COALESCE(SUM(sr.duration_sec),0) as total_sec,
@@ -44,7 +44,7 @@ router.get('/today', async (req, res) => {
     try {
         await refreshBountyBoard(pool);
         const result = await pool.query(
-                `SELECT u.id, u.nickname, u.university, u.tier, u.is_studying, u.balloon_skin, u.profile_image_url, u.status_emoji, u.status_message,
+                `SELECT u.id, u.nickname, u.university, u.tier, u.is_studying, u.balloon_skin, u.balloon_aura, u.profile_image_url, u.status_emoji, u.status_message,
                     u.active_title, u.streak_count, u.streak_last_date,
                     COALESCE(SUM(sr.duration_sec),0) as today_sec,
                     RANK() OVER (ORDER BY COALESCE(SUM(sr.duration_sec),0) DESC) as rank

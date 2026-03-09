@@ -259,7 +259,7 @@ function setup(io) {
             if (!data || !data.roomId) return;
             const roomId = String(data.roomId);
             const nickname = player ? (player.display_nickname || player.nickname) : (data.nickname || '누군가');
-            const durationSec = Math.max(0, parseInt(data.duration_sec, 10) || 0);
+            const durationSec = parseInt(data.duration_sec, 10) || 0;
             io.to(`room:${roomId}`).emit('room:activity', {
                 type: 'timer_stop',
                 userId: player ? player.userId : null,

@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const pool = require('../db');
 
 function requireAuth(req, res, next) {
@@ -13,8 +14,32 @@ function generateInviteCode() {
     return crypto.randomBytes(6).toString('hex'); // 12-char hex
 }
 
+const roomsReadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' }
+});
+
+const roomsWriteLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' }
+});
+
+const chatLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '채팅 메시지를 너무 빠르게 보내고 있습니다. 잠시 기다려주세요.' }
+});
+
 // GET /api/rooms/my — list rooms I have joined
-router.get('/my', requireAuth, async (req, res) => {
+router.get('/my', roomsReadLimiter, requireAuth, async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT r.id, r.name, r.goal, r.invite_code, r.max_members, r.is_active, r.created_at,
@@ -37,7 +62,7 @@ router.get('/my', requireAuth, async (req, res) => {
 });
 
 // POST /api/rooms — create a new room
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', roomsWriteLimiter, requireAuth, async (req, res) => {
     const name = String(req.body.name || '').trim().slice(0, 60);
     const goal = String(req.body.goal || '').trim().slice(0, 100);
     const maxMembers = Math.max(2, Math.min(50, parseInt(req.body.max_members, 10) || 10));
@@ -73,7 +98,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // GET /api/rooms/by-invite/:code — get room info by invite code (for OG + join flow)
-router.get('/by-invite/:code', async (req, res) => {
+router.get('/by-invite/:code', roomsReadLimiter, async (req, res) => {
     const code = String(req.params.code || '').trim().toLowerCase().slice(0, 12);
     if (!code) return res.status(400).json({ error: '유효하지 않은 코드입니다.' });
     try {
@@ -98,7 +123,7 @@ router.get('/by-invite/:code', async (req, res) => {
 });
 
 // GET /api/rooms/:id — get room details (members only)
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', roomsReadLimiter, requireAuth, async (req, res) => {
     const roomId = parseInt(req.params.id, 10);
     if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
 
@@ -142,7 +167,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // POST /api/rooms/join/:code — join by invite code
-router.post('/join/:code', requireAuth, async (req, res) => {
+router.post('/join/:code', roomsWriteLimiter, requireAuth, async (req, res) => {
     const code = String(req.params.code || '').trim().toLowerCase().slice(0, 12);
     if (!code) return res.status(400).json({ error: '유효하지 않은 코드입니다.' });
 
@@ -176,7 +201,7 @@ router.post('/join/:code', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/rooms/:id/leave — leave a room
-router.delete('/:id/leave', requireAuth, async (req, res) => {
+router.delete('/:id/leave', roomsWriteLimiter, requireAuth, async (req, res) => {
     const roomId = parseInt(req.params.id, 10);
     if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
 
@@ -193,7 +218,7 @@ router.delete('/:id/leave', requireAuth, async (req, res) => {
 });
 
 // GET /api/rooms/:id/leaderboard — daily leaderboard
-router.get('/:id/leaderboard', requireAuth, async (req, res) => {
+router.get('/:id/leaderboard', roomsReadLimiter, requireAuth, async (req, res) => {
     const roomId = parseInt(req.params.id, 10);
     if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
 
@@ -226,7 +251,7 @@ router.get('/:id/leaderboard', requireAuth, async (req, res) => {
 });
 
 // GET /api/rooms/:id/messages — recent chat (last 50)
-router.get('/:id/messages', requireAuth, async (req, res) => {
+router.get('/:id/messages', roomsReadLimiter, requireAuth, async (req, res) => {
     const roomId = parseInt(req.params.id, 10);
     if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
 
@@ -254,7 +279,7 @@ router.get('/:id/messages', requireAuth, async (req, res) => {
 });
 
 // POST /api/rooms/:id/messages — send chat message
-router.post('/:id/messages', requireAuth, async (req, res) => {
+router.post('/:id/messages', chatLimiter, requireAuth, async (req, res) => {
     const roomId = parseInt(req.params.id, 10);
     if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
 
@@ -276,7 +301,8 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
         );
 
         const userRes = await pool.query(`SELECT nickname FROM users WHERE id = $1`, [req.session.userId]);
-        const msg = { ...result.rows[0], user_id: req.session.userId, nickname: userRes.rows[0]?.nickname };
+        if (!userRes.rows.length) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+        const msg = { ...result.rows[0], user_id: req.session.userId, nickname: userRes.rows[0].nickname };
 
         // Broadcast via io if available
         if (req.app.get('io')) {

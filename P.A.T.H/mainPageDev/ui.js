@@ -1434,9 +1434,9 @@ const UI = {
         this.lastStudyRecordId = studyRecordId;
 
         // Notify group room about timer stop
+        // Duration is approximate at this point; the authoritative value is in the leaderboard
         if (typeof GroupRooms !== 'undefined') {
-            const durationSec = studyRecordId ? undefined : 0;
-            GroupRooms.notifyTimerStop(durationSec);
+            GroupRooms.notifyTimerStop(0);
         }
 
         if (this.elements.proofSection) {

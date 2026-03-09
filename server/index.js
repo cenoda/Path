@@ -6,6 +6,7 @@ const pgSession = require('connect-pg-simple')(session);
 const cors = require('cors');
 const compression = require('compression');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const path = require('path');
 const pool = require('./db');
@@ -423,7 +424,13 @@ app.get('/community/post/:id', async (req, res) => {
 });
 
 // ── Group timer room invite page with OG tags ────────────────────────────────
-app.get('/room/:code', async (req, res) => {
+const roomInviteLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.get('/room/:code', roomInviteLimiter, async (req, res) => {
     const code = String(req.params.code || '').trim().toLowerCase().slice(0, 12);
     if (!code) return res.status(400).type('text/html').send('<h1>잘못된 요청</h1>');
 
@@ -466,7 +473,7 @@ app.get('/room/:code', async (req, res) => {
         const ogTitle = `${statusText} ${escapeHtml(roomName)} (${memberCount}/${maxMembers}명)`;
         const ogDescription = activeCount > 0
             ? `지금 ${activeCount}명이 실시간으로 달리고 있습니다. 합류하시겠습니까?`
-            : `${escapeHtml(goal || '목표를 향해 함께 공부하는 방')} - P.A.T.H 그룹 타이머`;
+            : `${goal ? escapeHtml(goal) : '목표를 향해 함께 공부하는 방'} - P.A.T.H 그룹 타이머`;
         const ogImage = `${baseUrl}/icons/icon-512.png`;
 
         const html = `<!DOCTYPE html>

@@ -347,13 +347,71 @@ function buildPostech() {
 
 function buildSkku() {
   const g = new THREE.Group();
-  add(g, new THREE.BoxGeometry(7.0, 2.2, 3.6), MAT_STONE, 0, 1.1, 0);
-  add(g, new THREE.CylinderGeometry(3.6, 3.2, 0.8, 10), MAT_ROOF, 0, 4.6, 0);
-  add(g, new THREE.CylinderGeometry(3.0, 2.7, 0.8, 10), MAT_ROOF, 0, 6.0, 0);
-  add(g, new THREE.CylinderGeometry(2.4, 2.1, 0.8, 10), MAT_ROOF, 0, 7.4, 0);
-  for (let i = -2; i <= 2; i += 1) {
-    add(g, new THREE.CylinderGeometry(0.25, 0.25, 1.8, 8), MAT_STONE, i * 1.1, 1.0, 1.9);
+  const stonePodium = new THREE.MeshStandardMaterial({ color: 0x8e8a80, roughness: 0.9, metalness: 0.02 });
+  const woodDark = new THREE.MeshStandardMaterial({ color: 0x5a3e2a, roughness: 0.86, metalness: 0.02 });
+  const woodMid = new THREE.MeshStandardMaterial({ color: 0x7a5637, roughness: 0.82, metalness: 0.03 });
+  const roofTile = new THREE.MeshStandardMaterial({ color: 0x3f444a, roughness: 0.9, metalness: 0.04 });
+  const trimGreen = new THREE.MeshStandardMaterial({ color: 0x2f6a4d, roughness: 0.7, metalness: 0.06 });
+  const boardGold = new THREE.MeshStandardMaterial({ color: 0xb58d4b, roughness: 0.45, metalness: 0.28 });
+
+  // Stone podium + stair.
+  add(g, new THREE.BoxGeometry(13.0, 1.0, 7.8), stonePodium, 0, 0.5, 0.4);
+  add(g, new THREE.BoxGeometry(10.8, 0.6, 6.4), stonePodium, 0, 1.3, 0.8);
+  for (let s = 0; s < 5; s += 1) {
+    add(g, new THREE.BoxGeometry(4.6 - s * 0.38, 0.16, 0.48), stonePodium, 0, 0.17 + s * 0.16, 3.35 + s * 0.11);
   }
+
+  // Main timber hall body.
+  add(g, new THREE.BoxGeometry(8.4, 3.2, 4.6), woodMid, 0, 3.1, 0.2);
+  add(g, new THREE.BoxGeometry(8.8, 0.4, 4.9), woodDark, 0, 4.9, 0.2); // beam band
+
+  // Front colonnade.
+  for (let i = -3; i <= 3; i += 1) {
+    add(g, new THREE.CylinderGeometry(0.24, 0.26, 2.6, 10), woodDark, i * 1.15, 3.05, 2.35);
+  }
+  add(g, new THREE.BoxGeometry(8.6, 0.35, 0.4), woodDark, 0, 4.25, 2.4);
+  add(g, new THREE.BoxGeometry(8.6, 0.3, 0.35), woodDark, 0, 2.0, 2.4);
+
+  // Side and rear structural posts.
+  const sidePostZ = [-1.7, 0, 1.7];
+  sidePostZ.forEach((z) => {
+    add(g, new THREE.CylinderGeometry(0.2, 0.22, 2.5, 10), woodDark, -3.9, 3.0, z);
+    add(g, new THREE.CylinderGeometry(0.2, 0.22, 2.5, 10), woodDark, 3.9, 3.0, z);
+  });
+
+  // Layered traditional roof (hip-and-gable inspired silhouette).
+  const roofBase = add(g, new THREE.ConeGeometry(5.2, 1.45, 4), roofTile, 0, 6.0, 0.2);
+  roofBase.rotation.y = Math.PI * 0.25;
+  const roofMidLayer = add(g, new THREE.ConeGeometry(4.2, 1.1, 4), roofTile, 0, 7.0, 0.2);
+  roofMidLayer.rotation.y = Math.PI * 0.25;
+  const roofTop = add(g, new THREE.ConeGeometry(2.8, 0.85, 4), roofTile, 0, 7.8, 0.2);
+  roofTop.rotation.y = Math.PI * 0.25;
+
+  // Eaves trim to avoid low-detail cone look.
+  const eave1 = add(g, new THREE.TorusGeometry(3.95, 0.16, 8, 28), trimGreen, 0, 6.45, 0.2);
+  eave1.rotation.x = Math.PI / 2;
+  const eave2 = add(g, new THREE.TorusGeometry(2.55, 0.13, 8, 24), trimGreen, 0, 7.45, 0.2);
+  eave2.rotation.x = Math.PI / 2;
+
+  // Ridge ornaments and finial.
+  add(g, new THREE.BoxGeometry(0.32, 1.0, 0.32), boardGold, 0, 8.55, 0.2);
+  add(g, new THREE.SphereGeometry(0.26, 10, 8), boardGold, 0, 9.1, 0.2);
+
+  // Front signboard axis (명륜당 상징 현판 느낌).
+  add(g, new THREE.BoxGeometry(3.2, 0.85, 0.14), woodDark, 0, 4.0, 2.58);
+  add(g, new THREE.BoxGeometry(2.7, 0.55, 0.08), boardGold, 0, 4.0, 2.66);
+
+  // Lattice-like window rhythm.
+  addWindowGrid(g, 0, 3.2, 2.02, 6, 2, 1.0, 0.9, 0xbc9f7c);
+  addWindowGrid(g, -3.15, 3.0, 0.0, 1, 3, 0.7, 0.95, 0xae9473);
+  addWindowGrid(g, 3.15, 3.0, 0.0, 1, 3, 0.7, 0.95, 0xae9473);
+
+  // Stone railing at front terrace.
+  add(g, new THREE.BoxGeometry(7.4, 0.35, 0.3), stonePodium, 0, 1.85, 3.02);
+  for (let i = -3; i <= 3; i += 1) {
+    add(g, new THREE.BoxGeometry(0.22, 0.7, 0.22), stonePodium, i * 1.05, 1.55, 3.0);
+  }
+
   return g;
 }
 

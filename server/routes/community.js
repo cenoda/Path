@@ -183,9 +183,9 @@ router.get('/posts', async (req, res) => {
             pool.query(
                 `SELECT p.id, p.category, p.title, p.nickname, p.ip_prefix,
                         u.nickname AS user_nickname, u.active_title,
-                        views, likes, comments_count, created_at,
-                        image_url,
-                        (image_url IS NOT NULL AND image_url <> '') AS has_image
+                        p.views, p.likes, p.comments_count, p.created_at,
+                        p.image_url,
+                        (p.image_url IS NOT NULL AND p.image_url <> '') AS has_image
                  FROM community_posts p
                  LEFT JOIN users u ON u.id = p.user_id
                  ${where.replace(/\btitle\b/g, 'p.title').replace(/\blikes\b/g, 'p.likes').replace(/\bcategory\b/g, 'p.category')}
@@ -229,9 +229,9 @@ router.get('/posts/hot', async (req, res) => {
         const result = await pool.query(
             `SELECT p.id, p.category, p.title, p.nickname, p.ip_prefix,
                     u.nickname AS user_nickname, u.active_title,
-                    views, likes, comments_count, created_at,
-                    image_url,
-                    (image_url IS NOT NULL AND image_url <> '') AS has_image
+                    p.views, p.likes, p.comments_count, p.created_at,
+                    p.image_url,
+                    (p.image_url IS NOT NULL AND p.image_url <> '') AS has_image
              FROM community_posts p
              LEFT JOIN users u ON u.id = p.user_id
              ${where.replace(/\blikes\b/g, 'p.likes').replace(/\bcategory\b/g, 'p.category')}
@@ -263,7 +263,7 @@ router.get('/posts/:id', async (req, res) => {
         const result = await pool.query(
             `SELECT p.id, p.category, p.title, p.body, p.image_url, p.link_url, p.nickname, p.ip_prefix,
                     u.nickname AS user_nickname, u.active_title,
-                    views, likes, comments_count, created_at
+                    p.views, p.likes, p.comments_count, p.created_at
              FROM community_posts p
              LEFT JOIN users u ON u.id = p.user_id
              WHERE p.id = $1`,

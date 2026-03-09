@@ -1298,6 +1298,18 @@ async function doLogout() {
 let currentShopTab = 'item';
 let shopBalloonRenderers = []; // Track 3D renderers for cleanup
 
+function getClientPlatform() {
+    const isNativeApp = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+    return isNativeApp ? 'app' : 'web';
+}
+
+function getAppStoreProvider() {
+    const ua = (navigator.userAgent || '').toLowerCase();
+    if (ua.includes('android')) return 'googleplay';
+    if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod') || ua.includes('ios')) return 'appstore';
+    return '';
+}
+
 function switchShopTab(tab, btn) {
     currentShopTab = tab;
     const parent = btn.parentElement;
@@ -1653,6 +1665,15 @@ async function renderShopContent(tab) {
 
             const packages = pkgData.packages || [];
             const myDiamond = currentUser?.diamond || 0;
+            const platform = getClientPlatform();
+            const appStoreProvider = getAppStoreProvider();
+
+            let channelHint = '웹 결제: 토스(Toss)만 지원';
+            if (platform === 'app') {
+                if (appStoreProvider === 'googleplay') channelHint = '앱 결제: 구글플레이 결제 사용';
+                else if (appStoreProvider === 'appstore') channelHint = '앱 결제: 앱스토어 결제 사용';
+                else channelHint = '앱 결제: 구글플레이/앱스토어 지원';
+            }
 
             container.innerHTML = `
                 <div style="padding:10px 0 6px;">
@@ -1661,6 +1682,7 @@ async function renderShopContent(tab) {
                     </div>
                     <div style="font-size:10px;color:#666;margin-bottom:10px;line-height:1.45;">
                         다이아는 유료 결제로만 충전됩니다.<br>
+                        ${channelHint}<br>
                         결제 서버에서 발급한 서명(signature)으로만 지급됩니다.
                     </div>
                     <div id="diamond-package-list" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -1675,15 +1697,29 @@ async function renderShopContent(tab) {
                 return;
             }
 
-            listEl.innerHTML = packages.map((pkg) => `
+            listEl.innerHTML = packages.map((pkg) => {
+                const buttons = [];
+                if (platform === 'web') {
+                    buttons.push(`<button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)}, 'toss')">토스 결제 반영</button>`);
+                } else if (appStoreProvider === 'googleplay') {
+                    buttons.push(`<button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)}, 'googleplay')">구글플레이 반영</button>`);
+                } else if (appStoreProvider === 'appstore') {
+                    buttons.push(`<button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)}, 'appstore')">앱스토어 반영</button>`);
+                } else {
+                    buttons.push(`<button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)}, 'googleplay')">구글플레이 반영</button>`);
+                    buttons.push(`<button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)}, 'appstore')">앱스토어 반영</button>`);
+                }
+
+                return `
                 <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);border-radius:8px;padding:10px;background:rgba(120,215,255,0.04)">
                     <div>
                         <div style="font-size:13px;color:#bfeaff;font-weight:700;">${Number(pkg.diamonds || 0).toLocaleString()}D</div>
                         <div style="font-size:11px;color:#aaa;">${Number(pkg.priceKrw || 0).toLocaleString()}원</div>
                     </div>
-                    <button class="shop-btn" style="padding:6px 12px;font-size:11px;" onclick="purchaseDiamondPackage('${pkg.id}', ${Number(pkg.priceKrw || 0)})">결제 반영</button>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">${buttons.join('')}</div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         } catch (e) {
             container.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;font-size:12px">다이아 정보를 불러오지 못했습니다.</div>';
         }
@@ -1784,9 +1820,9 @@ async function buySkin(skinId, price) {
     } catch (e) { alert('오류 발생'); }
 }
 
-async function purchaseDiamondPackage(packageId, priceKrw) {
-    const provider = prompt('결제 수단(provider)을 입력하세요. 예: toss, appstore, googleplay');
-    if (!provider) return;
+async function purchaseDiamondPackage(packageId, priceKrw, provider) {
+    const providerName = String(provider || '').trim().toLowerCase();
+    if (!providerName) return;
 
     const providerTxId = prompt('결제 거래번호(provider_tx_id)를 입력하세요.');
     if (!providerTxId) return;
@@ -1801,10 +1837,11 @@ async function purchaseDiamondPackage(packageId, priceKrw) {
             credentials: 'include',
             body: JSON.stringify({
                 package_id: packageId,
-                provider,
+                provider: providerName,
                 provider_tx_id: providerTxId,
                 paid_amount_krw: priceKrw,
-                payment_signature: paymentSignature
+                payment_signature: paymentSignature,
+                client_platform: getClientPlatform()
             })
         });
         const data = await r.json();

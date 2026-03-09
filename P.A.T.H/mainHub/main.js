@@ -630,8 +630,20 @@ async function loadNotifPanel() {
 // ── 성 내부 화면 ─────────────────────────────────────────────────────
 async function openEstate() {
     try {
-        const r = await fetch('/api/estate/tax', { credentials: 'include' });
-        const data = await r.json();
+        const [taxRes, titleRes] = await Promise.all([
+            fetch('/api/estate/tax', { credentials: 'include' }),
+            fetch('/api/auth/titles', { credentials: 'include' })
+        ]);
+        const data = await taxRes.json();
+        const titleData = titleRes.ok ? await titleRes.json() : { titles: [], active_title: currentUser?.active_title || null };
+        const titleRows = Array.isArray(titleData.titles) ? titleData.titles : [];
+        const activeTitle = titleData.active_title || currentUser?.active_title || null;
+        const titleOptions = [`<option value="">칭호 없음</option>`]
+            .concat(titleRows.map((t) => {
+                const selected = activeTitle && t.title === activeTitle ? ' selected' : '';
+                return `<option value="${esc(t.code)}"${selected}>[${esc(t.title)}]</option>`;
+            }))
+            .join('');
         const score = currentUser?.mock_exam_score || 0;
         const scoreStatus = currentUser?.score_status || 'none';
 
@@ -689,6 +701,13 @@ async function openEstate() {
                             <button class="inline-btn" style="color:#888;background:rgba(255,255,255,0.05);" onclick="document.getElementById('status-msg-input').value='';saveStatusMsg(event)">지우기</button>
                         </div>
                         <div style="margin-top:5px;font-size:10px;color:#555;">최대 30자 · 내 열기구 위에 말풍선으로 표시됩니다</div>
+                        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+                            <select id="active-title-select" class="interior-input" style="max-width:260px;">
+                                ${titleOptions}
+                            </select>
+                            <button id="active-title-save-btn" class="inline-btn" onclick="saveActiveTitle(event)">칭호 적용</button>
+                            <span style="font-size:10px;color:#777;">획득한 칭호만 선택 가능</span>
+                        </div>
                     </div>
                 </div>
                 <div class="interior-card">
@@ -2665,9 +2684,44 @@ async function saveStatusMsg(e) {
     } catch (err) {}
 }
 
+async function saveActiveTitle(e) {
+    const select = document.getElementById('active-title-select');
+    if (!select) return;
+    const code = (select.value || '').trim();
+    try {
+        const r = await fetch('/api/auth/active-title', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ code })
+        });
+        const data = await r.json();
+        if (!r.ok || !data?.ok) {
+            alert(data?.error || '칭호 적용에 실패했습니다.');
+            return;
+        }
+
+        currentUser = data.user;
+        updateHUD(currentUser);
+        if (window.WorldScene && currentUser?.id) {
+            window.WorldScene.updateUserIdentity(currentUser.id, currentUser);
+        }
+
+        const btn = e?.target || document.getElementById('active-title-save-btn');
+        if (btn) {
+            const orig = btn.textContent;
+            btn.textContent = '✓ 적용됨';
+            setTimeout(() => { btn.textContent = orig; }, 1600);
+        }
+
+        loadRankingAndMap();
+    } catch (_) {}
+}
+
 // Keep inline handlers stable for all browsers/build modes.
 window.togglePanel = togglePanel;
 window.doLogout = doLogout;
 window.goToCommunity = goToCommunity;
 window.goToTimer = goToTimer;
+window.saveActiveTitle = saveActiveTitle;
 

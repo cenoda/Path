@@ -448,6 +448,81 @@ router.post('/status-message', requireAuth, async (req, res) => {
     }
 });
 
+router.get('/titles', requireAuth, async (req, res) => {
+    try {
+        const [titlesRes, userRes] = await Promise.all([
+            pool.query(
+                `SELECT code, title, is_active, achieved_at
+                 FROM user_titles
+                 WHERE user_id = $1
+                 ORDER BY achieved_at ASC`,
+                [req.session.userId]
+            ),
+            pool.query('SELECT active_title FROM users WHERE id = $1', [req.session.userId])
+        ]);
+
+        res.json({
+            titles: titlesRes.rows,
+            active_title: userRes.rows[0]?.active_title || null
+        });
+    } catch (err) {
+        console.error('titles error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/active-title', requireAuth, async (req, res) => {
+    const code = typeof req.body.code === 'string' ? req.body.code.trim() : '';
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        if (!code) {
+            await client.query('UPDATE user_titles SET is_active = FALSE WHERE user_id = $1', [req.session.userId]);
+            const userRes = await client.query(
+                `UPDATE users
+                 SET active_title = NULL
+                 WHERE id = $1
+                 RETURNING ${USER_FIELDS}`,
+                [req.session.userId]
+            );
+            await client.query('COMMIT');
+            return res.json({ ok: true, user: addPercentile(userRes.rows[0]) });
+        }
+
+        const ownedRes = await client.query(
+            `SELECT code, title
+             FROM user_titles
+             WHERE user_id = $1 AND code = $2`,
+            [req.session.userId, code]
+        );
+        if (!ownedRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '보유하지 않은 칭호입니다.' });
+        }
+
+        const titleText = ownedRes.rows[0].title;
+        await client.query('UPDATE user_titles SET is_active = FALSE WHERE user_id = $1', [req.session.userId]);
+        await client.query('UPDATE user_titles SET is_active = TRUE WHERE user_id = $1 AND code = $2', [req.session.userId, code]);
+        const userRes = await client.query(
+            `UPDATE users
+             SET active_title = $2
+             WHERE id = $1
+             RETURNING ${USER_FIELDS}`,
+            [req.session.userId, titleText]
+        );
+
+        await client.query('COMMIT');
+        res.json({ ok: true, user: addPercentile(userRes.rows[0]) });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('active-title error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
+    }
+});
+
 // ===== Google OAuth 로그인 =====
 
 router.get('/google', (req, res) => {

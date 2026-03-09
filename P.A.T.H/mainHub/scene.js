@@ -1320,6 +1320,31 @@ const WorldScene = {
         }
     },
 
+    updateUserIdentity(userId, patch) {
+        const b = this.balloons.get(userId);
+        if (!b) return;
+        b.user = { ...b.user, ...(patch || {}) };
+        b.group.userData.user = b.user;
+
+        const grp = b.group;
+        const oldLabel = grp.userData.label;
+        if (oldLabel) {
+            grp.remove(oldLabel);
+            oldLabel.geometry.dispose();
+            if (oldLabel.material?.map) oldLabel.material.map.dispose();
+            oldLabel.material.dispose();
+        }
+
+        const labelCanvas = this._makeLabel(b.user, b.isMe);
+        const labelTex = new THREE.CanvasTexture(labelCanvas);
+        const labelGeo = new THREE.PlaneGeometry(120, 38);
+        const labelMat = new THREE.MeshBasicMaterial({ map: labelTex, transparent: true, depthWrite: false });
+        const label = new THREE.Mesh(labelGeo, labelMat);
+        label.position.y = b.isMe ? -58 : -36;
+        grp.add(label);
+        grp.userData.label = label;
+    },
+
     _updateOffscreenIndicators() {
         if (!this._offscreenEl) {
             const el = document.createElement('div');

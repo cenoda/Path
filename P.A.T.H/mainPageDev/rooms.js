@@ -33,6 +33,7 @@
         messages: [],
         activityLog: [],
         refreshInterval: null,
+        creatingRoom: false,
 
         // ── Init ────────────────────────────────────────────────────────────
         async init() {
@@ -292,11 +293,21 @@
 
         async submitCreateRoom(e) {
             if (e) e.preventDefault();
+            if (this.creatingRoom) return;
+
             const name = document.getElementById('room-create-name')?.value.trim();
             const goal = document.getElementById('room-create-goal')?.value.trim();
             const maxMembers = parseInt(document.getElementById('room-create-max')?.value, 10) || 10;
             if (!name) { alert('방 이름을 입력해주세요.'); return; }
+
+            const submitBtn = document.querySelector('#room-create-modal button[type="submit"]');
             try {
+                this.creatingRoom = true;
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = '생성 중...';
+                }
+
                 const data = await this.apiPost('/api/rooms', { name, goal, max_members: maxMembers });
                 this.hideCreateModal();
                 document.getElementById('room-create-name').value = '';
@@ -305,7 +316,13 @@
                 this.openRoom(data.room.id);
                 showToast('방이 생성됐습니다! 🎉');
             } catch (err) {
-                alert(err.message);
+                alert(err && err.message ? err.message : '방 생성 중 오류가 발생했습니다.');
+            } finally {
+                this.creatingRoom = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '방 만들기';
+                }
             }
         },
 

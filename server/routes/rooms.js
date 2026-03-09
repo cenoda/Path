@@ -69,31 +69,51 @@ router.post('/', roomsWriteLimiter, requireAuth, async (req, res) => {
 
     if (!name) return res.status(400).json({ error: '방 이름을 입력해주세요.' });
 
-    const inviteCode = generateInviteCode();
-    const client = await pool.connect();
+    let client;
     try {
-        await client.query('BEGIN');
-        const roomRes = await client.query(
-            `INSERT INTO study_rooms (name, goal, creator_id, invite_code, max_members)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING *`,
-            [name, goal || null, req.session.userId, inviteCode, maxMembers]
-        );
-        const room = roomRes.rows[0];
-        // Creator auto-joins
-        await client.query(
-            `INSERT INTO study_room_members (room_id, user_id) VALUES ($1, $2)
-             ON CONFLICT DO NOTHING`,
-            [room.id, req.session.userId]
-        );
-        await client.query('COMMIT');
-        res.json({ ok: true, room });
+        client = await pool.connect();
+
+        // Extremely unlikely, but retry a few times if invite_code collides.
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+            const inviteCode = generateInviteCode();
+            try {
+                await client.query('BEGIN');
+                const roomRes = await client.query(
+                    `INSERT INTO study_rooms (name, goal, creator_id, invite_code, max_members)
+                     VALUES ($1, $2, $3, $4, $5)
+                     RETURNING *`,
+                    [name, goal || null, req.session.userId, inviteCode, maxMembers]
+                );
+
+                const room = roomRes.rows[0];
+                // Creator auto-joins.
+                await client.query(
+                    `INSERT INTO study_room_members (room_id, user_id) VALUES ($1, $2)
+                     ON CONFLICT DO NOTHING`,
+                    [room.id, req.session.userId]
+                );
+
+                await client.query('COMMIT');
+                return res.json({ ok: true, room });
+            } catch (err) {
+                await client.query('ROLLBACK');
+
+                // Retry only for invite_code unique collisions.
+                if (err && err.code === '23505' && String(err.constraint || '').includes('invite_code')) {
+                    continue;
+                }
+
+                console.error('rooms POST error:', err);
+                return res.status(500).json({ error: '방 생성 중 오류가 발생했습니다.' });
+            }
+        }
+
+        return res.status(500).json({ error: '초대 코드 생성에 실패했습니다. 잠시 후 다시 시도해주세요.' });
     } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('rooms POST error:', err);
-        res.status(500).json({ error: '서버 오류' });
+        console.error('rooms POST connect error:', err);
+        return res.status(500).json({ error: '서버 연결 오류' });
     } finally {
-        client.release();
+        if (client) client.release();
     }
 });
 

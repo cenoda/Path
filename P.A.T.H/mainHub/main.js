@@ -2905,38 +2905,50 @@ function bindBtn(el, handler) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 헤더: 설정 버튼
-    bindBtn(document.getElementById('tutorial-btn-settings'), () => togglePanel('panel-settings'));
-
-    // 프로필 버튼
-    bindBtn(document.getElementById('tutorial-profile'), () => openProfileCustomizer());
-
-    // AGENT MESSAGE 패널 버튼
-    const agentPanel = document.getElementById('panel-agent-notice');
-    if (agentPanel) {
-        agentPanel.querySelectorAll('button').forEach(btn => {
-            bindBtn(btn, () => togglePanel('panel-agent-notice'));
+    // ── 정적 HTML의 모든 onclick/onchange를 명시적 이벤트 리스너로 교체 ──
+    // inline onclick이 차단되는 환경(일부 WebView/모바일 브라우저) 대응
+    document.querySelectorAll('[onclick]').forEach(el => {
+        const fn = el.onclick;
+        if (typeof fn !== 'function') return;
+        el.removeAttribute('onclick');
+        el.onclick = null;
+        let _lastTap = 0;
+        el.addEventListener('pointerup', (e) => {
+            if (e.pointerType !== 'touch') return;
+            const now = Date.now();
+            if (now - _lastTap < 250) return;
+            _lastTap = now;
+            e.preventDefault();
+            e.stopPropagation();
+            fn.call(el, e);
+        }, { passive: false });
+        el.addEventListener('click', (e) => {
+            const now = Date.now();
+            if (now - _lastTap < 350) { e.preventDefault(); e.stopPropagation(); return; }
+            fn.call(el, e);
         });
-    }
-
-    // 설정 패널 내 버튼
-    const settingsPanel = document.getElementById('panel-settings');
-    if (settingsPanel) {
-        bindBtn(settingsPanel.querySelector('.close-btn'), () => togglePanel('panel-settings'));
-        bindBtn(settingsPanel.querySelector('.settings-action-btn'), () => doLogout());
-    }
-
-    // 설정 패널 토글/셀렉트 (onchange → 직접 이벤트 리스너)
-    ['theme-toggle', 'minimap-toggle', 'keyboard-guide-toggle', 'coordinates-toggle'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.removeAttribute('onchange');
-        el.addEventListener('change', () => saveUiSettings());
     });
-    const camToggle = document.getElementById('cam-enabled-toggle');
-    if (camToggle) { camToggle.removeAttribute('onchange'); camToggle.addEventListener('change', () => saveCamSettings()); }
-    const camSelect = document.getElementById('cam-visibility-select');
-    if (camSelect) { camSelect.removeAttribute('onchange'); camSelect.addEventListener('change', () => saveCamSettings()); }
+
+    // onchange 속성도 동일하게 교체
+    document.querySelectorAll('[onchange]').forEach(el => {
+        const fn = el.onchange;
+        if (typeof fn !== 'function') return;
+        el.removeAttribute('onchange');
+        el.onchange = null;
+        el.addEventListener('change', (e) => fn.call(el, e));
+    });
+
+    // oninput 속성도 교체 (검색 입력)
+    document.querySelectorAll('[oninput]').forEach(el => {
+        const fn = el.oninput;
+        if (typeof fn !== 'function') return;
+        el.removeAttribute('oninput');
+        el.oninput = null;
+        el.addEventListener('input', (e) => fn.call(el, e));
+    });
+
+    // 프로필 버튼 (onclick 없이 bindBtn으로 직접 연결)
+    bindBtn(document.getElementById('tutorial-profile'), () => openProfileCustomizer());
 });
 
 // Keep inline handlers stable for all browsers/build modes.

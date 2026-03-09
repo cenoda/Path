@@ -2573,6 +2573,20 @@ function initWorldSocket(user) {
         }
     });
 
+    // ── Remote player appearance changed (skin/aura/status) ──────────
+    worldSocket.on('player:appearance', ({ id, balloon_skin, balloon_aura, status_message }) => {
+        const userId = _normalizeUserId(id);
+        if (userId === null) return;
+        const p = _wsNearby.get(userId);
+        if (!p) return;
+        if (balloon_skin) p.balloon_skin = balloon_skin;
+        if (balloon_aura) p.balloon_aura = balloon_aura;
+        if (status_message !== undefined) p.status_message = status_message;
+        if (window.WorldScene && window.WorldScene.isReady) {
+            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], currentUser);
+        }
+    });
+
     // ── Interaction state snapshot on join ───────────────────────────
     worldSocket.on('interaction:state', (stateObj) => {
         if (!window.WorldScene || !window.WorldScene.isReady) return;
@@ -2666,6 +2680,9 @@ async function saveStatusMsg(e) {
         if (!data?.ok) return;
         if (currentUser) currentUser.status_message = msg || null;
         if (window.WorldScene) window.WorldScene.updateStatusMsg(currentUser.id, msg || null);
+        if (worldSocket?.connected) {
+            worldSocket.emit('player:appearance', { status_message: msg || null });
+        }
         const btn = e?.target || document.getElementById('status-msg-save-btn');
         if (btn) { const orig = btn.textContent; btn.textContent = '✓ 저장됨'; setTimeout(() => btn.textContent = orig, 1800); }
     } catch (err) {}

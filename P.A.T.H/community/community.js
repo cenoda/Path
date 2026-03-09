@@ -21,6 +21,7 @@ const PAGE_SIZE     = 25;
 const HOT_THRESHOLD = 15;  // 베스트 승격 기준(추천 15+)
 const WRITABLE_CATS = ['정보', '질문', '잡담'];
 const GOLD_LIKE_COST = 30;
+const WRITE_DRAFT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 
 /* ─── 카테고리 탭 ───────────────────────────────────────────── */
 const CATEGORIES = [
@@ -691,12 +692,54 @@ function handleWriteClick() {
     showWriteModal();
 }
 
+function getWriteDraftKey() {
+  const scope = currentUser?.id ? `u${currentUser.id}` : 'guest';
+  return `path.community.writeDraft.${scope}`;
+}
+
+function loadWriteDraft() {
+  try {
+    const raw = localStorage.getItem(getWriteDraftKey());
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const ts = Number(parsed.updatedAt || 0);
+    if (!ts || Date.now() - ts > WRITE_DRAFT_MAX_AGE_MS) {
+      localStorage.removeItem(getWriteDraftKey());
+      return null;
+    }
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveWriteDraft(draft) {
+  try {
+    localStorage.setItem(getWriteDraftKey(), JSON.stringify({ ...draft, updatedAt: Date.now() }));
+  } catch (_) {
+    // Ignore storage quota / privacy mode errors.
+  }
+}
+
+function clearWriteDraft() {
+  try {
+    localStorage.removeItem(getWriteDraftKey());
+  } catch (_) {
+    // Ignore storage removal errors.
+  }
+}
+
 /* ─── 글쓰기 모달 ─────────────────────────────────────────── */
 function showWriteModal() {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
   const cats = CATEGORIES.filter(c => WRITABLE_CATS.includes(c.key));
+  const draft = loadWriteDraft();
   let selectedCat = WRITABLE_CATS.includes(currentCat) ? currentCat : '정보';
+  if (draft && WRITABLE_CATS.includes(draft.category)) {
+    selectedCat = draft.category;
+  }
 
     backdrop.innerHTML = `
       <div class="write-modal" role="dialog" aria-modal="true" aria-label="게시글 작성">
@@ -709,6 +752,7 @@ function showWriteModal() {
             </svg>
           </button>
         </div>
+        <div class="write-modal-helper">자동 임시저장 · Ctrl/Cmd + Enter 등록 · Esc 닫기</div>
         <div class="write-modal-body">
           <div class="write-field">
             <label class="write-label">카테고리</label>
@@ -717,11 +761,17 @@ function showWriteModal() {
             </div>
           </div>
           <div class="write-field">
-            <label class="write-label" for="wt-anon-nick">익명 닉네임</label>
+            <div class="write-label-row">
+              <label class="write-label" for="wt-anon-nick">익명 닉네임</label>
+              <span class="write-inline-count" id="wt-nick-count">0 / 20</span>
+            </div>
             <input id="wt-anon-nick" class="write-input" type="text" placeholder="익명 닉네임 (2~20자, 기본: 익명)" maxlength="20" autocomplete="off">
           </div>
           <div class="write-field">
-            <label class="write-label" for="wt-title">제목</label>
+            <div class="write-label-row">
+              <label class="write-label" for="wt-title">제목</label>
+              <span class="write-inline-count" id="wt-title-count">0 / 200</span>
+            </div>
             <input id="wt-title" class="write-input" type="text" placeholder="제목을 입력하세요" maxlength="200" autocomplete="off">
           </div>
           <div class="write-field">
@@ -765,14 +815,69 @@ function showWriteModal() {
     document.body.appendChild(backdrop);
     requestAnimationFrame(() => backdrop.classList.add('visible'));
 
+    const nickInput = backdrop.querySelector('#wt-anon-nick');
+    const titleInput = backdrop.querySelector('#wt-title');
+    const textarea  = backdrop.querySelector('#wt-body');
+    const charCount = backdrop.querySelector('#wt-char');
+    const nickCount = backdrop.querySelector('#wt-nick-count');
+    const titleCount = backdrop.querySelector('#wt-title-count');
+    const imageInput = backdrop.querySelector('#wt-image-file');
+    const attachImageBtn = backdrop.querySelector('#wt-attach-image-btn');
+    const attachLinkBtn = backdrop.querySelector('#wt-attach-link-btn');
+    const linkEditor = backdrop.querySelector('#wt-link-editor');
+    const linkInput = backdrop.querySelector('#wt-link-input');
+    const linkApplyBtn = backdrop.querySelector('#wt-link-apply');
+    const attachmentsWrap = backdrop.querySelector('#wt-attachments');
+    const submitBtn = backdrop.querySelector('#wt-submit-btn');
+
     const closeModal = () => {
       if (selectedImagePreviewUrl) {
         URL.revokeObjectURL(selectedImagePreviewUrl);
         selectedImagePreviewUrl = '';
       }
+      document.removeEventListener('keydown', onModalKeydown);
         backdrop.classList.remove('visible');
         backdrop.addEventListener('transitionend', () => backdrop.remove(), { once: true });
     };
+
+    const persistDraft = () => {
+      saveWriteDraft({
+        category: selectedCat,
+        anonymousNickname: nickInput.value,
+        title: titleInput.value,
+        body: textarea.value,
+        linkUrl: selectedLinkUrl || linkInput.value || '',
+      });
+    };
+
+    const syncTextMeta = () => {
+      const nickLen = nickInput.value.length;
+      const titleLen = titleInput.value.length;
+      const bodyLen = textarea.value.length;
+      nickCount.textContent = `${nickLen.toLocaleString('ko-KR')} / 20`;
+      titleCount.textContent = `${titleLen.toLocaleString('ko-KR')} / 200`;
+      charCount.textContent = `${bodyLen.toLocaleString('ko-KR')} / 5,000`;
+      charCount.classList.toggle('warn', bodyLen > 4500);
+    };
+
+    const autoResizeBody = () => {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.max(130, textarea.scrollHeight)}px`;
+    };
+
+    const onModalKeydown = (e) => {
+      if (!document.body.contains(backdrop)) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeModal();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        submitBtn.click();
+      }
+    };
+    document.addEventListener('keydown', onModalKeydown);
 
     backdrop.querySelector('.write-modal-close').addEventListener('click', closeModal);
     backdrop.querySelector('.write-cancel-btn').addEventListener('click', closeModal);
@@ -784,28 +889,20 @@ function showWriteModal() {
             backdrop.querySelectorAll('.write-cat-chip').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             selectedCat = btn.dataset.cat;
+            persistDraft();
         });
     });
-
-    // 글자수
-    const textarea  = backdrop.querySelector('#wt-body');
-    const charCount = backdrop.querySelector('#wt-char');
-    const imageInput = backdrop.querySelector('#wt-image-file');
-    const attachImageBtn = backdrop.querySelector('#wt-attach-image-btn');
-    const attachLinkBtn = backdrop.querySelector('#wt-attach-link-btn');
-    const linkEditor = backdrop.querySelector('#wt-link-editor');
-    const linkInput = backdrop.querySelector('#wt-link-input');
-    const linkApplyBtn = backdrop.querySelector('#wt-link-apply');
-    const attachmentsWrap = backdrop.querySelector('#wt-attachments');
 
     let selectedImageFile = null;
     let selectedImagePreviewUrl = '';
     let selectedLinkUrl = '';
 
+    nickInput.addEventListener('input', () => { syncTextMeta(); persistDraft(); });
+    titleInput.addEventListener('input', () => { syncTextMeta(); persistDraft(); });
     textarea.addEventListener('input', () => {
-        const len = textarea.value.length;
-        charCount.textContent = `${len.toLocaleString('ko-KR')} / 5,000`;
-        charCount.classList.toggle('warn', len > 4500);
+      syncTextMeta();
+      autoResizeBody();
+      persistDraft();
     });
 
     const renderAttachments = () => {
@@ -858,6 +955,7 @@ function showWriteModal() {
             linkInput.value = '';
           }
           renderAttachments();
+          persistDraft();
         });
       });
     };
@@ -878,6 +976,7 @@ function showWriteModal() {
       }
       selectedImageFile = file;
       renderAttachments();
+      persistDraft();
     });
 
     attachLinkBtn.addEventListener('click', () => {
@@ -895,6 +994,7 @@ function showWriteModal() {
       selectedLinkUrl = normalized;
       if (normalized) linkEditor.classList.add('hidden');
       renderAttachments();
+      persistDraft();
     };
 
     linkApplyBtn.addEventListener('click', applyLinkAttachment);
@@ -905,13 +1005,11 @@ function showWriteModal() {
       }
     });
 
-    // 제출
-    const submitBtn = backdrop.querySelector('#wt-submit-btn');
     submitBtn.addEventListener('click', async () => {
-      const anonymousNickname = backdrop.querySelector('#wt-anon-nick').value.trim();
-        const title = backdrop.querySelector('#wt-title').value.trim();
+      const anonymousNickname = nickInput.value.trim();
+        const title = titleInput.value.trim();
         const body  = textarea.value.trim();
-        if (!title) { backdrop.querySelector('#wt-title').focus(); return; }
+        if (!title) { titleInput.focus(); return; }
 
         const pendingLinkUrl = normalizeUserHttpUrl(linkInput.value);
         if (linkInput.value.trim() && !pendingLinkUrl) {
@@ -969,6 +1067,7 @@ function showWriteModal() {
                 return;
             }
             closeModal();
+            clearWriteDraft();
             showToast('게시글이 등록됐어요 ✓');
             // 최신 글이 맨 위: 카테고리 전체로 리셋 후 리로드
             if (currentCat !== '전체' && currentCat !== selectedCat) {
@@ -983,7 +1082,22 @@ function showWriteModal() {
         }
     });
 
-    setTimeout(() => backdrop.querySelector('#wt-title')?.focus(), 260);
+    if (draft) {
+      nickInput.value = draft.anonymousNickname || '';
+      titleInput.value = draft.title || '';
+      textarea.value = draft.body || '';
+      linkInput.value = draft.linkUrl || '';
+      selectedLinkUrl = normalizeUserHttpUrl(linkInput.value);
+      if (selectedLinkUrl) renderAttachments();
+      if (draft.title || draft.body || draft.anonymousNickname) {
+        showToast('임시저장 글을 불러왔어요');
+      }
+    }
+
+    syncTextMeta();
+    autoResizeBody();
+
+    setTimeout(() => titleInput?.focus(), 260);
 
 }
 
@@ -1050,7 +1164,7 @@ function escHtml(s) {
 
 function renderNicknameWithBadge(nickname, isVerifiedNickname) {
   const badge = isVerifiedNickname
-    ? '<span class="user-verified-badge" aria-label="계정 닉네임 일치" title="계정 닉네임 일치">✓</span>'
+    ? '<span class="user-verified-badge" aria-label="본인 닉네임 인증" title="본인 닉네임 인증">✓</span>'
     : '';
   return `<span class="user-name-inline">${escHtml(nickname)}${badge}</span>`;
 }

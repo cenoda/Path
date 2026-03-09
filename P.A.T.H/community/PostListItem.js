@@ -41,7 +41,7 @@ export function PostListItem(post) {
   const views  = fmtNum(post.views);
   const likes  = fmtNum(post.likes);
   const verifiedBadge = post.isVerifiedNickname
-    ? '<span class="user-verified-badge" aria-label="계정 닉네임 일치" title="계정 닉네임 일치">✓</span>'
+    ? '<span class="user-verified-badge" aria-label="본인 닉네임 인증" title="본인 닉네임 인증">✓</span>'
     : '';
 
   const numCell = post.isHot

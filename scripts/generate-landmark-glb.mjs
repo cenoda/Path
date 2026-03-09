@@ -646,12 +646,61 @@ function buildSogang() {
 
 function buildEwha() {
   const g = new THREE.Group();
-  const arc1 = add(g, new THREE.TorusGeometry(4.2, 0.5, 10, 48, Math.PI), MAT_GLASS, 0, 4.0, 0);
-  arc1.rotation.x = Math.PI / 2;
-  const arc2 = add(g, new THREE.TorusGeometry(3.1, 0.36, 10, 48, Math.PI), MAT_ACCENT, 0, 6.1, 0);
-  arc2.rotation.x = Math.PI / 2;
-  add(g, new THREE.BoxGeometry(5.4, 1.8, 2.6), MAT_STONE, 0, 0.9, 0);
-  addWindowGrid(g, 0, 1.2, 1.4, 3, 1, 1.6, 0.8, 0x9ecfc8);
+  const concrete = new THREE.MeshStandardMaterial({ color: 0x8e9096, roughness: 0.86, metalness: 0.05 });
+  const darkConcrete = new THREE.MeshStandardMaterial({ color: 0x6e727c, roughness: 0.88, metalness: 0.06 });
+  const glassBlue = new THREE.MeshStandardMaterial({ color: 0x83c7d7, roughness: 0.18, metalness: 0.16, transparent: true, opacity: 0.84 });
+  const glassGreen = new THREE.MeshStandardMaterial({ color: 0x59b7a7, roughness: 0.2, metalness: 0.18, transparent: true, opacity: 0.84 });
+  const accentMint = new THREE.MeshStandardMaterial({ color: 0x2b9f87, roughness: 0.42, metalness: 0.2 });
+
+  // Split podium (valley cut).
+  add(g, new THREE.BoxGeometry(13.8, 0.95, 7.6), darkConcrete, 0, 0.48, 0.45);
+  add(g, new THREE.BoxGeometry(5.6, 1.1, 5.8), concrete, -4.0, 1.45, 0.75);
+  add(g, new THREE.BoxGeometry(5.6, 1.1, 5.8), concrete, 4.0, 1.45, 0.75);
+  add(g, new THREE.BoxGeometry(1.8, 1.05, 5.4), darkConcrete, 0, 1.25, 0.85); // central valley strip
+
+  // Main dual ECC arches.
+  const outerArc = add(g, new THREE.TorusGeometry(4.8, 0.58, 12, 64, Math.PI), glassBlue, 0, 4.55, 0.1);
+  outerArc.rotation.x = Math.PI / 2;
+  const innerArc = add(g, new THREE.TorusGeometry(3.55, 0.42, 12, 56, Math.PI), glassGreen, 0, 6.45, 0.15);
+  innerArc.rotation.x = Math.PI / 2;
+
+  // Curved side retaining walls.
+  const leftWall = add(g, new THREE.TorusGeometry(5.6, 0.26, 8, 44, Math.PI), concrete, -0.35, 2.55, 0.95);
+  leftWall.rotation.x = Math.PI / 2;
+  leftWall.rotation.z = Math.PI * 0.08;
+  const rightWall = add(g, new THREE.TorusGeometry(5.6, 0.26, 8, 44, Math.PI), concrete, 0.35, 2.55, 0.95);
+  rightWall.rotation.x = Math.PI / 2;
+  rightWall.rotation.z = -Math.PI * 0.08;
+
+  // Glazed corridor and suspended bridge.
+  add(g, new THREE.BoxGeometry(6.2, 1.2, 2.1), glassBlue, 0, 3.35, 0.95);
+  add(g, new THREE.BoxGeometry(4.4, 0.4, 1.2), accentMint, 0, 5.35, 0.55);
+  add(g, new THREE.BoxGeometry(0.22, 1.35, 0.22), darkConcrete, -1.8, 4.75, 0.55);
+  add(g, new THREE.BoxGeometry(0.22, 1.35, 0.22), darkConcrete, 1.8, 4.75, 0.55);
+
+  // Structural ribs across arches.
+  for (let i = -4; i <= 4; i += 1) {
+    const x = i * 0.95;
+    add(g, new THREE.BoxGeometry(0.16, 2.9, 0.18), accentMint, x, 4.65, 0.22);
+  }
+
+  // Terraced valley stairs.
+  for (let s = 0; s < 6; s += 1) {
+    add(g, new THREE.BoxGeometry(2.2 - s * 0.18, 0.14, 0.42), concrete, 0, 0.2 + s * 0.14, 3.1 + s * 0.11);
+  }
+
+  // Side glazed masses to avoid simple arc-only silhouette.
+  add(g, new THREE.BoxGeometry(2.1, 2.4, 2.4), glassGreen, -3.2, 3.0, 0.9);
+  add(g, new THREE.BoxGeometry(2.1, 2.4, 2.4), glassGreen, 3.2, 3.0, 0.9);
+
+  // Facade window rhythm.
+  addWindowGrid(g, -3.2, 3.0, 2.15, 2, 2, 0.8, 0.85, 0x9ed7cf);
+  addWindowGrid(g, 3.2, 3.0, 2.15, 2, 2, 0.8, 0.85, 0x9ed7cf);
+  addWindowGrid(g, 0, 3.35, 2.05, 4, 2, 0.9, 0.85, 0x9fd4db);
+
+  // Central marker fin.
+  add(g, new THREE.BoxGeometry(0.28, 1.8, 0.22), accentMint, 0, 7.45, 0.12);
+
   return g;
 }
 

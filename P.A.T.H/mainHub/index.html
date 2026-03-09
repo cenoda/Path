@@ -14,9 +14,10 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <script src="/shared/nav.js?v=2"></script>
+    <link rel="prefetch" href="/timer/" as="document">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=5">
     <script type="importmap">
     {
         "imports": {
@@ -25,11 +26,9 @@
         }
     }
     </script>
-    <!-- 스킨 데이터 중앙 파일 – main.js / balloonModel.js 보다 먼저 로드 -->
-    <script src="balloonSkins.js?v=1"></script>
     <!-- socket.io client – loaded before scene.js so it is available globally -->
     <script src="/socket.io/socket.io.js"></script>
-    <script type="module" src="scene.js?v=8"></script>
+    <script type="module" src="scene.js?v=5"></script>
 </head>
 <body>
 <script>
@@ -41,65 +40,58 @@
     <div id="ui-overlay">
         <header class="hud-header">
             <div class="hud-left">
-                <div id="tutorial-profile" class="profile-unit" role="button" tabindex="0" onclick="openProfileCustomizer()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProfileCustomizer();}">
-                    <div id="badge-char" class="char-avatar" title="프로필 설정">
-                        <img id="badge-photo" class="char-photo hidden" src="" alt="profile">
-                        <span id="badge-initial" class="char-initial">U</span>
-                    </div>
+                <div class="profile-unit">
+                    <div id="badge-char" class="char-avatar">U</div>
                     <div class="char-info">
-                        <div id="hud-univ" class="info-univ">닉네임</div>
-                        <div id="hud-pct" class="info-rank" title="공부 시간 백분위">TIME TOP 0.00%</div>
-                        <div id="hud-score-pct" class="info-rank" title="성적 백분위" style="display:none; color: var(--orange); margin-top: 1px;">SCORE TOP 0.00%</div>
+                        <div id="hud-univ" class="info-univ">YONSEI UNIV.</div>
+                        <div id="hud-pct" class="info-rank" title="Study Time Percentile">TIME TOP 0.00%</div>
+                        <div id="hud-score-pct" class="info-rank" title="Actual Score Percentile" style="display:none; color: #ff6b6b; margin-top: 2px;">SCORE TOP 0.00%</div>
                     </div>
                 </div>
             </div>
-
+            
             <div class="hud-right">
                 <div class="stat-group">
-                    <div class="stat-unit"><span class="label">골드</span> <span id="hud-gold" class="val">0</span></div>
-                    <div class="stat-unit"><span class="label">공부 시간</span> <span id="hud-hours" class="val">00:00</span></div>
+                    <div class="stat-unit"><span class="label">GOLD</span> <span id="hud-gold" class="val">0</span></div>
+                    <div class="stat-unit"><span class="label">TIME</span> <span id="hud-hours" class="val">00:00</span></div>
                     <div class="stat-unit"><span class="label">원서비</span> <span id="hud-tickets" class="val">0장</span></div>
                 </div>
                 <div class="sys-controls">
-                    <div id="tutorial-btn-search" class="search-command" style="margin-right: 6px; width: 180px;">
-                        <span class="cmd-icon">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        </span>
-                        <input type="text" id="global-search" placeholder="검색..." oninput="onSearch(this.value)" style="width: 130px;">
+                    <div class="search-command" style="margin-right: 8px; width: 180px;">
+                        <span class="cmd-icon">_</span>
+                        <input type="text" id="global-search" placeholder="SEARCH..." oninput="onSearch(this.value)" style="width: 130px;">
                     </div>
-                    <button id="tutorial-btn-logs" class="sys-btn" onclick="togglePanel('panel-notif')">
-                        알림 <span id="notif-badge" class="dot hidden"></span>
+                    <button class="sys-btn" onclick="togglePanel('panel-notif')">
+                        LOGS <span id="notif-badge" class="dot hidden"></span>
                     </button>
-                    <button id="tutorial-btn-settings" class="sys-btn" onclick="togglePanel('panel-settings')" title="설정">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-                    </button>
+                    <button id="tutorial-btn-settings" class="sys-btn" onclick="togglePanel('panel-settings')" title="설정">⚙</button>
                 </div>
             </div>
         </header>
 
         <nav class="fab-rail" aria-label="메뉴">
-            <button id="tutorial-btn-rank" class="fab-btn" onclick="togglePanel('panel-rank')" title="랭킹" aria-label="랭킹">
+            <button id="tutorial-btn-rank" class="fab-btn" onclick="togglePanel('panel-rank')" title="RANK" aria-label="랭킹">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
             </button>
-            <button id="tutorial-btn-shop" class="fab-btn" onclick="togglePanel('panel-shop')" title="상점" aria-label="상점">
+            <button class="fab-btn" onclick="togglePanel('panel-shop')" title="SHOP" aria-label="상점">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
             </button>
-            <button id="tutorial-btn-apply" class="fab-btn" onclick="toggleApplyPanel()" title="모의지원" aria-label="모의지원">
+            <button class="fab-btn" onclick="toggleApplyPanel()" title="모의지원" aria-label="모의지원">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             </button>
-            <button class="fab-btn" onclick="openFriendPanel()" id="btn-ally" title="친구" aria-label="친구">
+            <button class="fab-btn" onclick="openFriendPanel()" id="btn-ally" title="ALLY" aria-label="동맹">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
                 <span id="friend-req-badge" class="fab-dot hidden"></span>
             </button>
-            <button class="fab-btn" onclick="openMessengerPanel()" id="btn-msg" title="메시지" aria-label="메시지">
+            <button class="fab-btn" onclick="openMessengerPanel()" id="btn-msg" title="MSG" aria-label="메신저">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                 <span id="msg-unread-badge" class="fab-dot hidden"></span>
             </button>
-            <button id="btn-community" class="fab-btn" onclick="navigateTo('/community/')" title="커뮤니티" aria-label="커뮤니티">
+            <button id="btn-community" class="fab-btn" onclick="window.location.href='/community/'" title="COMMUNITY" aria-label="커뮤니티">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 11h-6"/><path d="M20 8v6"/></svg>
             </button>
             <div class="fab-divider"></div>
-            <button class="fab-btn fab-btn-sm" onclick="returnToHome()" title="홈" aria-label="홈으로">
+            <button class="fab-btn fab-btn-sm" onclick="returnToHome()" title="HOME" aria-label="홈으로">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </button>
             <div class="fab-divider"></div>
@@ -109,35 +101,35 @@
         </nav>
 
         <!-- 미니맵 -->
-        <div id="minimap" class="hidden" style="position:fixed;top:80px;right:20px;width:200px;height:200px;border-radius:16px;z-index:10;padding:10px;backdrop-filter:blur(20px);">
-            <div style="font-size:10px;color:var(--text-secondary);margin-bottom:6px;text-align:center;font-weight:700;letter-spacing:0.5px;">미니맵</div>
-            <canvas id="minimap-canvas" width="180" height="156" style="width:100%;height:calc(100% - 22px);border-radius:8px;"></canvas>
+        <div id="minimap" class="hidden" style="position:fixed;top:80px;right:20px;width:200px;height:200px;background:rgba(10,10,20,0.9);border:2px solid rgba(212,175,55,0.4);border-radius:12px;backdrop-filter:blur(8px);z-index:10;padding:8px;">
+            <div style="font-size:10px;color:#888;margin-bottom:6px;text-align:center;font-weight:600;letter-spacing:0.5px;">MINIMAP</div>
+            <canvas id="minimap-canvas" width="184" height="160" style="width:100%;height:calc(100% - 20px);border-radius:6px;"></canvas>
         </div>
 
         <!-- 키보드 가이드 -->
-        <div id="keyboard-guide" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);border-radius:var(--radius-pill);padding:8px 16px;font-family:var(--font-ui);font-size:11px;color:var(--text-secondary);z-index:10;pointer-events:none;backdrop-filter:blur(16px);">
-            <span style="color:var(--accent);margin-right:8px;font-weight:700;">⌨</span>
-            <span>WASD 이동</span>
-            <span style="margin:0 8px;color:var(--text-tertiary);">·</span>
-            <span>R 날씨</span>
-            <span style="margin:0 8px;color:var(--text-tertiary);">·</span>
-            <span>H 홈</span>
-            <span style="margin:0 8px;color:var(--text-tertiary);">·</span>
-            <span>더블클릭 이동</span>
+        <div id="keyboard-guide" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(10,10,20,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px 14px;font-family:'Pretendard Variable',sans-serif;font-size:10px;color:#888;z-index:10;backdrop-filter:blur(8px);pointer-events:none;">
+            <span style="color:var(--accent-gold);margin-right:8px;">⌨️</span>
+            <span style="color:#aaa;">WASD: 이동</span>
+            <span style="color:#666;margin:0 6px;">|</span>
+            <span style="color:#aaa;">R: 날씨</span>
+            <span style="color:#666;margin:0 6px;">|</span>
+            <span style="color:#aaa;">H: 홈</span>
+            <span style="color:#666;margin:0 6px;">|</span>
+            <span style="color:#aaa;">더블클릭: 이동</span>
         </div>
 
         <!-- 좌표 표시 -->
-        <div id="coordinates-display" style="position:fixed;bottom:20px;left:20px;border-radius:var(--radius-md);padding:12px 16px;font-family:var(--font-ui);font-size:12px;color:var(--text-secondary);z-index:10;min-width:200px;backdrop-filter:blur(20px);">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                <span style="color:var(--accent);font-size:14px;">📍</span>
-                <span style="font-weight:700;color:var(--text-primary);font-size:13px;">내 위치</span>
+        <div id="coordinates-display" style="position:fixed;bottom:20px;left:20px;background:rgba(10,10,20,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 14px;font-family:'Pretendard Variable',sans-serif;font-size:11px;color:#aaa;z-index:10;min-width:200px;backdrop-filter:blur(8px);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="color:var(--accent-gold);font-size:13px;">📍</span>
+                <span style="font-weight:600;color:var(--text);letter-spacing:0.5px;">내 위치</span>
             </div>
-            <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:11px;">
-                <span style="color:var(--text-tertiary);">X</span><span id="coord-x" style="color:var(--accent);font-family:var(--font-mono);font-weight:600;">0</span>
-                <span style="color:var(--text-tertiary);">Y</span><span id="coord-y" style="color:var(--accent);font-family:var(--font-mono);font-weight:600;">0</span>
-                <span style="color:var(--text-tertiary);">Z</span><span id="coord-z" style="color:var(--accent);font-family:var(--font-mono);font-weight:600;">0</span>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:10px;">
+                <span style="color:#666;">X:</span><span id="coord-x" style="color:#8af;font-family:monospace;">0</span>
+                <span style="color:#666;">Y:</span><span id="coord-y" style="color:#8af;font-family:monospace;">0</span>
+                <span style="color:#666;">Z:</span><span id="coord-z" style="color:#8af;font-family:monospace;">0</span>
             </div>
-            <button id="btn-teleport" onclick="openTeleportDialog()" style="width:100%;margin-top:10px;padding:8px;border-radius:var(--radius-pill);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s;font-family:var(--font-ui);">⚡ 텔레포트</button>
+            <button id="btn-teleport" onclick="openTeleportDialog()" style="width:100%;margin-top:8px;padding:6px;background:rgba(212,175,55,0.15);border:1px solid rgba(212,175,55,0.3);border-radius:6px;color:var(--accent-gold);font-size:10px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.25)'" onmouseout="this.style.background='rgba(212,175,55,0.15)'">⚡ 텔레포트</button>
         </div>
 
         <div class="pill-action-wrap">
@@ -147,7 +139,7 @@
                 </span>
                 <span class="pill-label">공부 시작하기</span>
             </button>
-            <div class="pill-sub">지금 바로 시작해보세요</div>
+            <div class="pill-sub">READY TO IMMERSE</div>
         </div>
     </div>
 
@@ -157,74 +149,59 @@
         <div id="map-layer">
             <div class="building" id="my-castle" style="left:1900px; top:2000px;">
                 <img id="my-castle-img" src="assets/balloon_dark.png" alt="Estate">
-                <div class="building-label mine" id="my-castle-label">내 풍선</div>
+                <div class="building-label mine" id="my-castle-label">MY BALLOON</div>
             </div>
         </div>
     </div>
 
-    <!-- 랭킹 패널 -->
     <div class="glass-panel hidden" id="panel-rank">
         <div class="panel-head">
-            <h3>랭킹</h3>
+            <h3>LEADERBOARD</h3>
             <div class="tabs">
-                <button class="tab active" onclick="switchRankTab('total', this)">전체</button>
-                <button class="tab" onclick="switchRankTab('today', this)">오늘</button>
+                <button class="tab active" onclick="switchRankTab('total', this)">TOTAL</button>
+                <button class="tab" onclick="switchRankTab('today', this)">TODAY</button>
             </div>
-            <button class="close-btn" onclick="togglePanel('panel-rank')" aria-label="닫기">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <button class="close-btn" onclick="togglePanel('panel-rank')">×</button>
         </div>
-        <div class="panel-content" id="rank-list">불러오는 중...</div>
+        <div class="panel-content" id="rank-list">LOADING DATA...</div>
     </div>
 
-    <!-- 알림 패널 -->
     <div class="glass-panel hidden" id="panel-notif">
         <div class="panel-head">
-            <h3>알림</h3>
-            <button class="close-btn" onclick="togglePanel('panel-notif')" aria-label="닫기">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <h3>LOGS</h3>
+            <button class="close-btn" onclick="togglePanel('panel-notif')">×</button>
         </div>
-        <div class="panel-content" id="notif-list">새 알림이 없습니다</div>
+        <div class="panel-content" id="notif-list">NO NEW LOGS</div>
     </div>
 
-    <!-- 상점 패널 -->
     <div class="glass-panel hidden" id="panel-shop" style="width: 400px;">
         <div class="panel-head">
-            <h3>상점</h3>
+            <h3>SUPPLY DEPOT</h3>
             <div class="tabs">
-                <button class="tab active" onclick="switchShopTab('item', this)">아이템</button>
-                <button class="tab" onclick="switchShopTab('skin', this)">스킨</button>
+                <button class="tab active" onclick="switchShopTab('item', this)">ITEMS</button>
+                <button class="tab" onclick="switchShopTab('skin', this)">SKINS</button>
             </div>
-            <button class="close-btn" onclick="togglePanel('panel-shop')" aria-label="닫기">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <button class="close-btn" onclick="togglePanel('panel-shop')">×</button>
         </div>
         <div class="panel-content" id="shop-content"></div>
     </div>
 
-    <!-- 모의지원 패널 -->
     <div class="glass-panel hidden" id="panel-apply" style="width: 400px;">
         <div class="panel-head">
             <h3>모의지원</h3>
-            <button class="close-btn" onclick="togglePanel('panel-apply')" aria-label="닫기">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <button class="close-btn" onclick="togglePanel('panel-apply')">×</button>
         </div>
         <div class="panel-content" id="apply-content"></div>
     </div>
 
-    <!-- 설정 패널 -->
     <div class="glass-panel hidden" id="panel-settings" style="width: 320px;">
         <div class="panel-head">
-            <h3>설정</h3>
-            <button class="close-btn" onclick="togglePanel('panel-settings')" aria-label="닫기">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <h3>SETTINGS</h3>
+            <button class="close-btn" onclick="togglePanel('panel-settings')">×</button>
         </div>
         <div class="panel-content">
             <div class="settings-section">
-                <div class="settings-section-title">화면 표시</div>
+                <div class="settings-section-title">UI 표시 (UI DISPLAY)</div>
                 <div class="settings-row">
                     <span class="settings-label">라이트 모드</span>
                     <label class="toggle-switch">
@@ -233,38 +210,38 @@
                     </label>
                 </div>
                 <div class="settings-row">
-                    <span class="settings-label">미니맵</span>
+                    <span class="settings-label">미니맵 표시</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="minimap-toggle" onchange="saveUiSettings()">
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
                 <div class="settings-row">
-                    <span class="settings-label">키보드 가이드</span>
+                    <span class="settings-label">키보드 가이드 표시</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="keyboard-guide-toggle" onchange="saveUiSettings()">
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
                 <div class="settings-row">
-                    <span class="settings-label">좌표 패널</span>
+                    <span class="settings-label">좌표 패널 표시</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="coordinates-toggle" onchange="saveUiSettings()">
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <div class="settings-note">설정은 이 브라우저에 저장됩니다.</div>
+                <div class="settings-note">UI 설정은 브라우저에 저장됩니다.</div>
             </div>
 
             <div class="settings-section">
-                <div class="settings-section-title">계정</div>
+                <div class="settings-section-title">계정 (ACCOUNT)</div>
                 <button class="settings-action-btn" onclick="doLogout()">로그아웃</button>
             </div>
 
             <div class="settings-section">
-                <div class="settings-section-title">캠 인증</div>
+                <div class="settings-section-title">캠인증 (CAM CERTIFICATION)</div>
                 <div class="settings-row">
-                    <span class="settings-label">캠 인증 활성화</span>
+                    <span class="settings-label">캠인증 활성화</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="cam-enabled-toggle" onchange="saveCamSettings()">
                         <span class="toggle-slider"></span>
@@ -273,163 +250,119 @@
                 <div class="settings-row" id="cam-visibility-row">
                     <span class="settings-label">공개 범위</span>
                     <select id="cam-visibility-select" class="settings-select" onchange="saveCamSettings()">
-                        <option value="all">전체 공개</option>
+                        <option value="all">전체공개</option>
                         <option value="admin">관리자만</option>
                     </select>
                 </div>
                 <div class="settings-note" id="cam-settings-note">
-                    선택한 공개 범위에 따라 표시됩니다.
+                    공개 범위는 모든 유저에게 표시됩니다.
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 공지 패널 -->
-    <div class="glass-panel hidden" id="panel-agent-notice" style="z-index: 2000; width: 320px;">
+    <div class="glass-panel hidden" id="panel-agent-notice" style="z-index: 2000; width: 320px; text-align: left;">
         <div class="panel-head">
-            <h3>공지 안내</h3>
-            <button class="close-btn" onclick="togglePanel('panel-agent-notice')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <h3>AGENT MESSAGE</h3>
+            <button class="close-btn" onclick="togglePanel('panel-agent-notice')">×</button>
         </div>
-        <div class="panel-content" style="padding: 18px; font-size: 13px; line-height: 1.65; color: var(--text-secondary);">
-            <div style="font-weight:800;font-size:15px;color:var(--text-primary);margin-bottom:14px;letter-spacing:-0.3px;">백분위 구분 안내</div>
+        <div class="panel-content" style="padding: 16px; font-size: 13px; line-height: 1.6; color: #aaa;">
+            <div style="text-align: center; margin-bottom: 12px; font-size: 15px; color: var(--gold); letter-spacing: 2px;">NOTICE</div>
+            <strong>[백분위 구분 안내]</strong><br><br>
             수험생 여러분, 랭킹 시스템이 이원화되었습니다.<br><br>
-            <strong style="color:var(--text-primary);">① TIME RANK</strong><br>
-            순수 <strong>공부 시간</strong>에 따른 성실도의 척도입니다.
-            <strong style="color:var(--accent);">TIME TOP X%</strong>로 표시됩니다.<br><br>
-            <strong style="color:var(--text-primary);">② SCORE RANK</strong><br>
-            인증된 <strong>모의고사/내신 성적</strong>에 따른 실력의 척도입니다.
-            <strong style="color:var(--orange);">SCORE TOP X%</strong>로 표시됩니다.<br><br>
-            두 지표는 <strong>별개</strong>로 산정됩니다.
-            꾸준함(Time)과 실력(Score), 두 가지 모두 증명해보세요.
+            1. <strong style="color: #fff;">TIME RANK</strong><br>
+            - 순수 <strong>공부 시간</strong>에 따른 성실함의 척도입니다.<br>
+            - <strong>TIME TOP X%</strong>로 표시됩니다.<br><br>
+            2. <strong style="color: #ff6b6b;">SCORE RANK</strong><br>
+            - 인증된 <strong>실제 모의고사/내신 성적</strong>에 따른 실력의 척도입니다.<br>
+            - <strong>SCORE TOP X%</strong>로 표시됩니다.<br><br>
+            두 지표는 <strong>별개</strong>로 산정됩니다.<br>
+            꾸준함(Time)과 실력(Score), 두 가지 모두 증명해 보이십시오.
             <br><br>
             <div style="text-align: center;">
-                <button class="shop-btn" onclick="togglePanel('panel-agent-notice')" style="padding:10px 28px;font-size:13px;">확인</button>
+                <button class="sys-btn" onclick="togglePanel('panel-agent-notice')" style="padding: 8px 20px;">CONFIRM</button>
             </div>
         </div>
     </div>
 
-    <!-- 내 정보 (인테리어) -->
     <div class="full-overlay hidden" id="castle-interior">
         <div class="overlay-head">
-            <h2>내 정보</h2>
-            <button class="back-btn" onclick="closeInterior()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-                지도로 돌아가기
-            </button>
+            <h2>INTERNAL STRUCTURE</h2>
+            <button class="back-btn" onclick="closeInterior()">RETURN TO MAP</button>
         </div>
         <div class="overlay-body" id="interior-body"></div>
     </div>
 
-    <!-- 친구 패널 -->
     <div class="glass-panel hidden" id="panel-ally" style="width: 340px;">
         <div class="panel-head">
-            <h3>친구</h3>
+            <h3>ALLY SYSTEM</h3>
             <div class="tabs">
-                <button class="tab active" id="ally-tab-list" onclick="switchAllyTab('list', this)">목록</button>
+                <button class="tab active" id="ally-tab-list" onclick="switchAllyTab('list', this)">동맹 목록</button>
                 <button class="tab" id="ally-tab-req" onclick="switchAllyTab('requests', this)">신청 <span id="ally-req-count"></span></button>
             </div>
-            <button class="close-btn" onclick="closeFriendPanel()" aria-label="닫기">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <button class="close-btn" onclick="closeFriendPanel()">×</button>
         </div>
-        <div class="panel-content" id="ally-content">불러오는 중...</div>
+        <div class="panel-content" id="ally-content">로딩 중...</div>
     </div>
 
-    <!-- 메시지 패널 -->
     <div class="glass-panel hidden" id="panel-messenger" style="width: 360px;">
         <div class="panel-head">
-            <h3 id="messenger-title">메시지</h3>
-            <button class="close-btn" id="messenger-back-btn" onclick="messengerBack()" style="display:none;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <button class="close-btn" onclick="closeMessengerPanel()" aria-label="닫기">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <h3 id="messenger-title">MESSENGER</h3>
+            <button class="close-btn" id="messenger-back-btn" onclick="messengerBack()" style="display:none;">←</button>
+            <button class="close-btn" onclick="closeMessengerPanel()">×</button>
         </div>
-        <div id="messenger-conv-list" class="panel-content">불러오는 중...</div>
+        <div id="messenger-conv-list" class="panel-content">로딩 중...</div>
         <div id="messenger-chat" style="display:none; flex-direction:column; flex:1; min-height:0;">
-            <div id="chat-messages" style="flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:8px;"></div>
-            <div id="file-preview" style="display:none; padding:8px 14px; background:var(--surface-hover); border-top:1px solid var(--border-color); font-size:12px;">
+            <div id="chat-messages" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px;"></div>
+            <div id="file-preview" style="display:none; padding:8px 12px; background:var(--surface-hover); border-top:1px solid var(--border-color); font-size:11px;">
                 <span id="file-preview-name"></span>
-                <button onclick="cancelFileUpload()" style="margin-left:8px; padding:3px 10px; font-size:11px; cursor:pointer; border-radius:var(--radius-pill); border:1px solid var(--border-color); background:transparent; color:var(--text-secondary);">취소</button>
+                <button onclick="cancelFileUpload()" style="margin-left:8px; padding:2px 8px; font-size:10px; cursor:pointer;">취소</button>
             </div>
             <div class="chat-input-row">
                 <input type="file" id="chat-file-input" style="display:none;" accept="image/*,.pdf,.doc,.docx,.txt,.zip" onchange="handleFileSelect(event)">
                 <button class="chat-file-btn" onclick="document.getElementById('chat-file-input').click()" title="파일 첨부">📎</button>
-                <input type="text" id="chat-input" class="chat-input" placeholder="메시지를 입력하세요" maxlength="500"
+                <input type="text" id="chat-input" class="chat-input" placeholder="메시지 입력..." maxlength="500"
                     onkeydown="if(event.key==='Enter')sendMessage()">
                 <button class="chat-send-btn" onclick="sendMessage()">전송</button>
             </div>
         </div>
     </div>
 
-    <!-- 텔레포트 모달 -->
+    <!-- 텔레포트 다이얼로그 -->
     <div class="modal-backdrop hidden" id="modal-teleport">
-        <div class="modal-card" style="max-width:340px;">
-            <h3>⚡ 텔레포트</h3>
+        <div class="modal-card" style="max-width:320px;">
+            <h3 style="font-size:14px;margin-bottom:16px;">⚡ 텔레포트</h3>
             <div class="modal-content">
-                <div style="margin-bottom:14px;">
-                    <label style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;display:block;">X 좌표</label>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:10px;color:#888;margin-bottom:4px;display:block;">X 좌표</label>
                     <input type="number" id="tp-x" class="chat-input" style="width:100%;" placeholder="0">
                 </div>
-                <div style="margin-bottom:14px;">
-                    <label style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;display:block;">Y 좌표</label>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:10px;color:#888;margin-bottom:4px;display:block;">Y 좌표</label>
                     <input type="number" id="tp-y" class="chat-input" style="width:100%;" placeholder="0">
                 </div>
-                <div style="font-size:12px;color:var(--text-secondary);line-height:1.55;margin-bottom:4px;">입력한 좌표로 즉시 이동합니다.</div>
+                <div style="font-size:10px;color:#666;line-height:1.5;margin-bottom:12px;">원하는 좌표로 즉시 이동합니다.</div>
             </div>
             <div class="modal-foot">
+                <button class="shop-btn" onclick="doTeleport()" style="padding:8px 16px;font-size:11px;">이동</button>
                 <button class="cancel-btn" onclick="closeModal('modal-teleport')">취소</button>
-                <button class="shop-btn" onclick="doTeleport()">이동하기</button>
             </div>
         </div>
     </div>
 
-    <!-- 유저 정보 모달 -->
     <div class="modal-backdrop hidden" id="modal-user">
         <div class="modal-card">
-            <h3 id="user-modal-title">유저 정보</h3>
+            <h3 id="user-modal-title">TARGET INFO</h3>
             <div id="user-modal-body" class="modal-content"></div>
             <div class="modal-foot">
-                <button class="shop-btn" id="btn-friend-action" onclick="doFriendAction()" style="display:none;">친구 신청</button>
-                <button class="shop-btn" id="btn-send-msg" onclick="openChatFromModal()" style="display:none;background:rgba(49,130,246,0.12);border-color:rgba(49,130,246,0.3);">메시지</button>
-                <button class="shop-btn" id="btn-invade" onclick="doInvade()" style="background:rgba(246,166,35,0.12);border-color:rgba(246,166,35,0.35);color:var(--gold);">도전하기</button>
-                <button class="cancel-btn" onclick="closeModal('modal-user')">닫기</button>
+                <button class="shop-btn" id="btn-friend-action" onclick="doFriendAction()" style="padding:8px 16px;font-size:11px;display:none;">동맹 신청</button>
+                <button class="shop-btn" id="btn-send-msg" onclick="openChatFromModal()" style="padding:8px 16px;font-size:11px;display:none;border-color:#4a9eff;color:#4a9eff;">메시지</button>
+                <button class="shop-btn" id="btn-invade" onclick="doInvade()" style="padding:8px 16px;font-size:11px;border-color:var(--accent-gold);color:var(--accent-gold);">도전하기</button>
+                <button class="cancel-btn" onclick="closeModal('modal-user')">CLOSE</button>
             </div>
         </div>
     </div>
 
-    <!-- 프로필 설정 모달 -->
-    <div class="modal-backdrop hidden" id="modal-profile-custom">
-        <div class="modal-card profile-modal-card">
-            <h3>프로필 설정</h3>
-            <div class="modal-content profile-modal-content">
-                <div class="profile-avatar-editor">
-                    <div class="profile-avatar-preview" id="profile-avatar-preview-wrap">
-                        <img id="profile-avatar-preview-img" class="hidden" src="" alt="profile preview">
-                        <span id="profile-avatar-preview-initial">U</span>
-                    </div>
-                    <input type="file" id="profile-image-input" accept="image/*" style="display:none;" onchange="onProfileImageSelected(event)">
-                    <button class="shop-btn" style="padding:9px 18px;font-size:12px;" onclick="document.getElementById('profile-image-input').click()">사진 업로드</button>
-                    <div style="font-size:11px;color:var(--text-secondary);">jpg, png, webp, heic · 최대 5MB</div>
-                </div>
-
-                <div class="profile-field">
-                    <label for="profile-nickname-input">닉네임</label>
-                    <input id="profile-nickname-input" class="chat-input" type="text" maxlength="20" placeholder="닉네임을 입력하세요">
-                    <div style="font-size:11px;color:var(--text-secondary);">한글, 영문, 숫자, 밑줄(_) 사용 가능 (2~20자)</div>
-                </div>
-            </div>
-            <div class="modal-foot">
-                <button class="cancel-btn" onclick="closeProfileCustomizer()">취소</button>
-                <button class="shop-btn" onclick="saveProfileCustomizer()" style="background:var(--accent);border-color:var(--accent);color:#fff;">저장하기</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 온보딩 튜토리얼 -->
     <div id="onboarding-tutorial" class="onboarding-layer hidden" aria-hidden="true">
         <div id="onboarding-highlight" class="onboarding-highlight" aria-hidden="true"></div>
         <div id="onboarding-bubble" class="onboarding-bubble" role="dialog" aria-live="polite" aria-label="처음 사용자 튜토리얼">

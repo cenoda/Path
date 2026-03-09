@@ -1,11 +1,22 @@
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-// 스킨 데이터는 balloonSkins.js → window.BALLOON_SKINS 에서 로드됩니다.
+const BALLOON_SKINS = {
+    'default': { id: 'default', name: '기본 열기구', price: 0, darkImg: 'assets/balloon_dark.png', lightImg: 'assets/balloon_light.png', desc: '기본 제공 열기구' },
+    'rainbow': { id: 'rainbow', name: '무지개 열기구', price: 2000, darkImg: 'assets/balloon_rainbow.png', lightImg: 'assets/balloon_rainbow.png', desc: '화려한 무지개 열기구' },
+    'pastel': { id: 'pastel', name: '파스텔 열기구', price: 3000, darkImg: 'assets/balloon_pastel.png', lightImg: 'assets/balloon_pastel.png', desc: '차분한 파스텔톤 열기구' },
+    'redstripes': { id: 'redstripes', name: '레드 스트라이프', price: 4000, darkImg: 'assets/balloon_redstripes.png', lightImg: 'assets/balloon_redstripes.png', desc: '강렬한 레드 스트라이프 열기구' },
+    'golden': { id: 'golden', name: '황금 열기구', price: 5000, darkImg: 'assets/balloon_golden.png', lightImg: 'assets/balloon_golden.png', desc: '고급스러운 황금빛 열기구' },
+    'cosmic': { id: 'cosmic', name: '우주 열기구', price: 6500, darkImg: 'assets/balloon_cosmic.png', lightImg: 'assets/balloon_cosmic.png', desc: '신비로운 우주 테마 열기구' },
+    'sunset': { id: 'sunset', name: '석양 열기구', price: 8000, darkImg: 'assets/balloon_sunset.png', lightImg: 'assets/balloon_sunset.png', desc: '아름다운 석양 그라데이션 열기구' },
+    'emerald': { id: 'emerald', name: '에메랄드 열기구', price: 9500, darkImg: 'assets/balloon_emerald.png', lightImg: 'assets/balloon_emerald.png', desc: '고귀한 에메랄드빛 열기구' },
+    'phoenix': { id: 'phoenix', name: '불사조 열기구', price: 11000, darkImg: 'assets/balloon_phoenix.png', lightImg: 'assets/balloon_phoenix.png', desc: '화염 속 불사조 열기구' },
+    'galaxy': { id: 'galaxy', name: '은하수 열기구', price: 13000, darkImg: 'assets/balloon_galaxy.png', lightImg: 'assets/balloon_galaxy.png', desc: '찬란한 은하수 열기구' },
+    'diamond': { id: 'diamond', name: '다이아몬드 열기구', price: 15000, darkImg: 'assets/balloon_diamond.png', lightImg: 'assets/balloon_diamond.png', desc: '최고급 다이아몬드 열기구' }
+};
+
 function getBalloonSrc(skinId, isLight) {
-    const skin = window.BALLOON_SKINS?.[skinId];
-    const fallback = window.BALLOON_SKINS?.default;
-    const resolved = (skin?.hasOwnImage ? skin : fallback) || fallback;
-    return isLight ? resolved.lightImg : resolved.darkImg;
+    const skin = BALLOON_SKINS[skinId] || BALLOON_SKINS['default'];
+    return isLight ? skin.lightImg : skin.darkImg;
 }
 
 const UI_SETTINGS_KEY = 'path_ui_settings';
@@ -18,64 +29,19 @@ const ONBOARDING_PENDING_KEY = 'path_onboarding_pending';
 const ONBOARDING_DONE_PREFIX = 'path_onboarding_done_user_';
 const ONBOARDING_STEPS = [
     {
-        target: '#tutorial-profile',
-        title: '프로필 커스텀',
-        text: '좌측 상단 프로필을 누르면 닉네임/프로필 사진을 바로 수정할 수 있습니다.'
-    },
-    {
         target: '#btn-enter-path',
         title: '공부 시작하기',
         text: '하단 공부 시작하기 버튼을 누르면 공부 타이머 화면으로 이동합니다.'
     },
     {
-        target: '#tutorial-btn-shop',
-        title: '상점 (SHOP)',
-        text: 'SHOP에서 원서비를 구매하고, 열기구 스킨을 획득/장착할 수 있습니다.'
-    },
-    {
-        target: '#tutorial-btn-apply',
-        title: '모의지원 패널',
-        text: '모의지원에서 슬롯/지원 가능 횟수/지원 이력을 확인하고 랭킹에서 바로 도전할 수 있습니다.'
-    },
-    {
         target: '#tutorial-btn-rank',
         title: '랭킹 확인',
-        text: 'RANK에서 TOTAL/TODAY 랭킹을 보고 유저를 선택해 정보 확인, 메시지, 도전을 진행할 수 있습니다.'
-    },
-    {
-        target: '#btn-ally',
-        title: '동맹 시스템',
-        text: 'ALLY 버튼에서 동맹 목록/신청을 관리할 수 있고, 점은 새로운 신청이 있다는 뜻입니다.'
-    },
-    {
-        target: '#btn-msg',
-        title: '메신저',
-        text: 'MSG에서 동맹 유저와 대화하고 파일도 전송할 수 있습니다.'
-    },
-    {
-        target: '#btn-community',
-        title: '커뮤니티',
-        text: 'COMMUNITY 버튼으로 게시판으로 이동해 글/댓글 기반 소통을 할 수 있습니다.'
-    },
-    {
-        target: '#tutorial-btn-search',
-        title: '검색과 빠른 포커스',
-        text: '상단 SEARCH에 닉네임/대학명을 입력하면 맵의 유저가 필터링되고 대상 위치로 빠르게 포커스됩니다.'
-    },
-    {
-        target: '#btn-teleport',
-        title: '좌표 & 텔레포트',
-        text: '좌측 하단 좌표 패널에서 현재 위치를 확인하고 원하는 좌표로 즉시 이동할 수 있습니다.'
+        text: '오른쪽(모바일은 하단) 메뉴의 RANK 버튼에서 전체/오늘 랭킹을 확인할 수 있습니다.'
     },
     {
         target: '#tutorial-btn-settings',
-        title: '설정 / 환경 제어',
-        text: '설정에서 라이트 모드, 미니맵, 키보드 가이드, 좌표 패널, 캠인증 공개 범위를 관리할 수 있습니다.'
-    },
-    {
-        target: '#weather-btn',
-        title: '날씨 전환',
-        text: '날씨 버튼(또는 R 키)으로 연출을 바꿀 수 있고, HOME(H 키)으로 내 위치로 복귀할 수 있습니다.'
+        title: '설정과 로그아웃',
+        text: '우측 상단 설정 버튼에서 UI 표시, 라이트 모드, 로그아웃을 관리할 수 있습니다.'
     }
 ];
 
@@ -168,8 +134,6 @@ let dragStartX, dragStartY;
 let mapOffsetX = 0, mapOffsetY = 0;
 let scale = 1.0;
 let currentRankTab = 'total';
-let pendingProfileImageFile = null;
-let profileModalOpenedAt = 0;
 
 function getOnboardingDoneKey(userId) {
     return `${ONBOARDING_DONE_PREFIX}${userId}`;
@@ -397,12 +361,7 @@ async function initHub() {
             }
         }
 
-        // Fallback: if Three.js scene did not boot, run legacy canvas background.
-        if (!(window.WorldScene && window.WorldScene.isReady) && window.BG && typeof window.BG.init === 'function') {
-            const bgCanvas = document.getElementById('bg-canvas');
-            if (bgCanvas) bgCanvas.style.display = 'block';
-            window.BG.init(topPct);
-        }
+        // BG is replaced by the Three.js WorldScene; skip legacy BG.init
 
         updateHUD(currentUser);
         updateMyBuilding(currentUser);
@@ -429,67 +388,9 @@ function secToHour(sec) {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function getNicknameInitial(nickname) {
-    return (nickname || '?').trim().charAt(0).toUpperCase() || '?';
-}
-
-function getProfileImageSrc(user) {
-    if (!user?.profile_image_url) return '';
-    const stamp = user.id ? `u=${encodeURIComponent(user.id)}` : `t=${Date.now()}`;
-    return `${user.profile_image_url}${user.profile_image_url.includes('?') ? '&' : '?'}${stamp}`;
-}
-
-function getExternalProfileImageSrc(profileImageUrl, userId) {
-    if (!profileImageUrl) return '';
-    const stamp = userId ? `u=${encodeURIComponent(userId)}` : `t=${Date.now()}`;
-    return `${profileImageUrl}${profileImageUrl.includes('?') ? '&' : '?'}${stamp}`;
-}
-
-function renderAvatarHtml({ nickname, profileImageUrl, userId, className = 'user-avatar' }) {
-    const initial = esc(getNicknameInitial(nickname));
-    const imageSrc = getExternalProfileImageSrc(profileImageUrl, userId);
-    if (imageSrc) {
-        return `<div class="${className}"><img src="${esc(imageSrc)}" alt="${esc(nickname || 'user')}" loading="lazy"></div>`;
-    }
-    return `<div class="${className}">${initial}</div>`;
-}
-
-function updateProfilePreview(imageSrc, initial) {
-    const previewImg = document.getElementById('profile-avatar-preview-img');
-    const previewInitial = document.getElementById('profile-avatar-preview-initial');
-    if (!previewImg || !previewInitial) return;
-
-    if (imageSrc) {
-        previewImg.src = imageSrc;
-        previewImg.classList.remove('hidden');
-        previewInitial.classList.add('hidden');
-    } else {
-        previewImg.classList.add('hidden');
-        previewImg.removeAttribute('src');
-        previewInitial.textContent = initial;
-        previewInitial.classList.remove('hidden');
-    }
-}
-
 function updateHUD(user) {
-    const initial = getNicknameInitial(user.nickname);
-    const profileImageSrc = getProfileImageSrc(user);
-    const badgePhoto = document.getElementById('badge-photo');
-    const badgeInitial = document.getElementById('badge-initial');
-    if (badgePhoto && badgeInitial) {
-        if (profileImageSrc) {
-            badgePhoto.src = profileImageSrc;
-            badgePhoto.classList.remove('hidden');
-            badgeInitial.classList.add('hidden');
-        } else {
-            badgePhoto.classList.add('hidden');
-            badgePhoto.removeAttribute('src');
-            badgeInitial.textContent = initial;
-            badgeInitial.classList.remove('hidden');
-        }
-    }
-
-    document.getElementById('hud-univ').textContent = user.nickname || '-';
+    document.getElementById('badge-char').textContent = (user.nickname || '?').charAt(0).toUpperCase();
+    document.getElementById('hud-univ').textContent = user.university || '-';
     document.getElementById('hud-gold').textContent = (user.gold || 0).toLocaleString();
     document.getElementById('hud-hours').textContent = secToHour(myTotalSec);
     document.getElementById('hud-tickets').textContent = (user.tickets || 0) + '장';
@@ -504,17 +405,8 @@ function updateMyBuilding(user) {
     const label = document.getElementById('my-castle-label');
     if (label) label.textContent = user?.university || 'MY BALLOON';
     if (window.WorldScene && window.WorldScene.isReady) {
-        window.WorldScene.updateMyBalloon(skinId);
+        window.WorldScene.updateMyBalloon(src);
     }
-}
-
-function applyCurrentUserState(user, { syncWorld = true, refreshMap = false } = {}) {
-    if (!user) return;
-    currentUser = user;
-    updateHUD(user);
-    updateMyBuilding(user);
-    if (syncWorld) _emitWorldPresence(user);
-    if (refreshMap) loadRankingAndMap();
 }
 
 async function loadRankingAndMap() {
@@ -550,37 +442,6 @@ function renderOtherUsers(users) {
     }
 }
 
-function _normalizeUserId(value) {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-}
-
-function _composeVisibleUsers() {
-    const byId = new Map();
-
-    (allUsers || []).forEach((u) => {
-        const id = _normalizeUserId(u?.id);
-        if (id === null) return;
-        byId.set(id, { ...u, id });
-    });
-
-    _wsNearby.forEach((p, rawId) => {
-        const id = _normalizeUserId(rawId);
-        if (id === null) return;
-        const prev = byId.get(id) || {};
-        byId.set(id, { ...prev, ...p, id });
-    });
-
-    return [...byId.values()];
-}
-
-function _renderSocketAwareUsers() {
-    const isLight = document.body.classList.contains('light');
-    if (window.WorldScene && window.WorldScene.isReady) {
-        window.WorldScene.setUsers(_composeVisibleUsers(), currentUser, isLight);
-    }
-}
-
 // ── 랭킹 패널 ────────────────────────────────────────────────────────
 async function loadRankPanel(tab) {
     const listEl = document.getElementById('rank-list');
@@ -598,15 +459,8 @@ async function loadRankPanel(tab) {
             const val = tab === 'today'
                 ? `<span style="color:#aaa">${secToHour(u.today_sec || 0)}</span>`
                 : `<span style="color:#aaa">${secToHour(u.total_sec || 0)}</span>`;
-            const avatar = renderAvatarHtml({
-                nickname: u.nickname,
-                profileImageUrl: u.profile_image_url,
-                userId: u.id,
-                className: 'rank-avatar'
-            });
             return `<div class="rank-item ${isMe ? 'me' : ''}" onclick="focusUser(${u.id})">
                 <span class="rank-num">${i + 1}</span>
-                ${avatar}
                 <div style="flex:1;min-width:0">
                     <div class="rank-nick">${u.nickname} ${u.is_studying ? '<span class="rank-studying">📖</span>' : ''}</div>
                     <div class="rank-univ">${u.university || '-'}</div>
@@ -680,13 +534,9 @@ async function openEstate() {
 
         let scoreSection = '';
         if (scoreStatus === 'approved') {
-            scoreSection = `
-                <div class="estate-val" style="color:#4CAF50">✓ 인증 완료 · ${score}점</div>
-                <button class="inline-btn" style="margin-top:6px" onclick="startScoreRetry()">성적 인증 다시하기</button>`;
+            scoreSection = `<div class="estate-val" style="color:#4CAF50">✓ 인증 완료 · ${score}점</div>`;
         } else if (scoreStatus === 'pending') {
-            scoreSection = `
-                <div class="estate-val" style="color:#f1c40f">⏳ 관리자 심사 대기 중</div>
-                <button class="inline-btn" style="margin-top:6px" onclick="startScoreRetry()">성적 인증 다시하기</button>`;
+            scoreSection = `<div class="estate-val" style="color:#f1c40f">⏳ 관리자 심사 대기 중</div>`;
         } else if (scoreStatus === 'rejected') {
             scoreSection = `
                 <div class="estate-val" style="color:var(--accent);margin-bottom:6px">✗ 반려됨 — 재업로드 필요</div>
@@ -758,7 +608,7 @@ async function openEstate() {
 
                 <div class="interior-card">
                     <div class="interior-card-title">📋 평가원 점수 인증</div>
-                    <div id="score-section-body">${scoreSection}</div>
+                    ${scoreSection}
                 </div>
 
                 <div class="interior-card">
@@ -920,18 +770,6 @@ function previewScore(input) {
     }
 }
 
-function startScoreRetry() {
-    const scoreSection = document.getElementById('score-section-body');
-    if (!scoreSection) return;
-    scoreSection.innerHTML = `
-        <div class="score-upload-area" id="score-upload-area">
-            <input type="file" id="score-file" accept="image/*" style="display:none" onchange="previewScore(this)">
-            <button class="inline-btn" onclick="document.getElementById('score-file').click()">📷 성적 사진 업로드</button>
-            <div id="score-preview" style="margin-top:6px"></div>
-            <button class="inline-btn" id="btn-upload-score" style="display:none;margin-top:6px" onclick="uploadScore()">업로드</button>
-        </div>`;
-}
-
 async function uploadScore() {
     const fileInput = document.getElementById('score-file');
     if (!fileInput.files[0]) { alert('사진을 선택해주세요.'); return; }
@@ -958,7 +796,8 @@ async function refreshCurrentUser() {
         const r = await fetch('/api/auth/me', { credentials: 'include' });
         if (r.ok) {
             const data = await r.json();
-            applyCurrentUserState(data.user, { syncWorld: false });
+            currentUser = data.user;
+            updateHUD(currentUser);
         }
     } catch (e) {}
 }
@@ -1016,21 +855,7 @@ function openUserModal(user) {
         probHTML = `<div style="margin-top:10px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:#666;">해당 대학 정보가 없습니다.</div>`;
     }
 
-    const userAvatar = renderAvatarHtml({
-        nickname: user.nickname,
-        profileImageUrl: user.profile_image_url,
-        userId: user.id,
-        className: 'user-modal-avatar'
-    });
-
     document.getElementById('user-modal-body').innerHTML = `
-        <div class="user-modal-profile-head">
-            ${userAvatar}
-            <div class="user-modal-profile-meta">
-                <div class="user-modal-profile-nick">${esc(user.nickname || '-')}</div>
-                <div class="user-modal-profile-sub">${esc(user.university || '대학 미정')}</div>
-            </div>
-        </div>
         <div class="estate-section">
             <div class="estate-label">🏫 모의진학 대학</div>
             <div class="estate-val">${esc(user.university) || '-'}</div>
@@ -1164,8 +989,11 @@ async function doInvade() {
             ? `🎉 모의지원 합격!\n\n내 점수: ${data.attacker_score}점${probLine}\n🏫 대학: ${data.defender_university}(으)로 변경!`
             : `📝 모의지원 불합격\n\n내 점수: ${data.attacker_score}점${probLine}\n\n더 열심히 공부해서 다시 도전하세요!`;
         alert(msg);
-        applyCurrentUserState(data.user, { syncWorld: true, refreshMap: true });
+        currentUser = data.user;
+        updateHUD(data.user);
+        updateMyBuilding(data.user);
         closeModal('modal-user');
+        loadRankingAndMap();
     } catch (e) { alert('서버 오류 발생'); }
 }
 
@@ -1216,7 +1044,7 @@ async function renderApplyPanel() {
                     probStr = ` · 확률 ${app.accept_prob}%`;
                 }
                 return `
-                    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid ${won ? 'rgba(0,196,113,0.3)' : 'var(--border)'};border-radius:4px;background:${won ? 'rgba(0,196,113,0.05)' : 'transparent'};">
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid ${won ? 'rgba(212,175,55,0.3)' : 'var(--border)'};border-radius:4px;background:${won ? 'rgba(212,175,55,0.05)' : 'transparent'};">
                         <div>
                             <div style="font-size:12px;font-weight:600;color:var(--text);">${esc(app.target_university || '?')}</div>
                             <div style="font-size:10px;color:#666;margin-top:1px;">${esc(app.target_nickname)} · ${date}${probStr}</div>
@@ -1305,96 +1133,17 @@ function togglePanel(id) {
     }
 }
 
+function loadCommunityPanel() {
+    const iframe = document.getElementById('community-iframe');
+    if (iframe && !iframe.src) {
+        iframe.src = resolveHubPath('/P.A.T.H/community/index.html', '../community/index.html');
+    }
+}
+
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-function openProfileCustomizer() {
-    if (!currentUser) return;
-    pendingProfileImageFile = null;
-
-    const nicknameInput = document.getElementById('profile-nickname-input');
-    const imageInput = document.getElementById('profile-image-input');
-    if (nicknameInput) nicknameInput.value = currentUser.nickname || '';
-    if (imageInput) imageInput.value = '';
-
-    updateProfilePreview(getProfileImageSrc(currentUser), getNicknameInitial(currentUser.nickname));
-    profileModalOpenedAt = Date.now();
-    document.getElementById('modal-profile-custom').classList.remove('hidden');
-}
-
-function closeProfileCustomizer() {
-    pendingProfileImageFile = null;
-    closeModal('modal-profile-custom');
-}
-
-function onProfileImageSelected(event) {
-    const file = event?.target?.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-        alert('이미지 용량은 5MB 이하여야 합니다.');
-        event.target.value = '';
-        return;
-    }
-
-    pendingProfileImageFile = file;
-    const reader = new FileReader();
-    reader.onload = () => {
-        updateProfilePreview(reader.result, getNicknameInitial(currentUser?.nickname || 'U'));
-    };
-    reader.readAsDataURL(file);
-}
-
-async function saveProfileCustomizer() {
-    if (!currentUser) return;
-    const nicknameInput = document.getElementById('profile-nickname-input');
-    const nickname = (nicknameInput?.value || '').trim();
-    if (nickname.length < 2 || nickname.length > 20) {
-        alert('닉네임은 2~20자 사이여야 합니다.');
-        return;
-    }
-
-    const nicknameChanged = nickname !== (currentUser.nickname || '');
-    const imageChanged = !!pendingProfileImageFile;
-    if (!nicknameChanged && !imageChanged) {
-        alert('변경된 내용이 없습니다.');
-        return;
-    }
-
-    try {
-        const formData = new FormData();
-        formData.append('nickname', nickname);
-        if (pendingProfileImageFile) {
-            formData.append('profileImage', pendingProfileImageFile);
-        }
-
-        const r = await fetch('/api/auth/profile-custom', {
-            method: 'POST',
-            credentials: 'include',
-            body: formData
-        });
-        const data = await r.json();
-        if (!r.ok) {
-            alert(data.error || '프로필 저장에 실패했습니다.');
-            return;
-        }
-
-        applyCurrentUserState(data.user, { syncWorld: true, refreshMap: true });
-        closeProfileCustomizer();
-        alert('프로필이 저장되었습니다.');
-    } catch (e) {
-        alert('프로필 저장 중 오류가 발생했습니다.');
-    }
-}
-
 document.querySelectorAll('.modal-backdrop').forEach(el => {
-    el.addEventListener('click', e => {
-        if (e.target !== el) return;
-        if (el.id === 'modal-profile-custom') {
-            if (Date.now() - profileModalOpenedAt < 300) return;
-            closeProfileCustomizer();
-            return;
-        }
-        el.classList.add('hidden');
-    });
+    el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
 });
 
 // ── 드래그 / 줌 ── WorldScene이 입력을 직접 처리 ──────────────────────
@@ -1411,11 +1160,11 @@ function returnToHome() {
 }
 
 function goToTimer() {
-    navigateTo('/timer/');
+    window.location.href = '/timer/';
 }
 
 function goToCommunity() {
-    navigateTo('/community/');
+    window.location.href = '/community/';
 }
 
 async function doLogout() {
@@ -1458,23 +1207,154 @@ function cleanupShopBalloonRenderers() {
     shopBalloonRenderers = [];
 }
 
-// Create a mini 3D scene for a balloon preview
-function createBalloonPreviewCanvas(skinId, size = 80) {
-    const isLight = document.body.classList.contains('light');
+// Create 3D balloon colors (matches scene.js)
+function getBalloonColors(colorScheme) {
+    const schemes = {
+        default: {
+            primary: 0xff4444,
+            secondary: 0xffaa44,
+            accent: 0xffdd00
+        },
+        rainbow: {
+            primary: 0xff00ff,
+            secondary: 0x00ffff,
+            accent: 0xffff00
+        },
+        pastel: {
+            primary: 0xffb6c1,
+            secondary: 0xb0e0e6,
+            accent: 0xffd700
+        },
+        redstripes: {
+            primary: 0xcc0000,
+            secondary: 0xffffff,
+            accent: 0xcc0000
+        },
+        golden: {
+            primary: 0xffd700,
+            secondary: 0xdaa520,
+            accent: 0xffdf00
+        },
+        cosmic: {
+            primary: 0x0d1b2a,
+            secondary: 0x1b263b,
+            accent: 0x415a77
+        },
+        sunset: {
+            primary: 0xff6b35,
+            secondary: 0xff9a56,
+            accent: 0xffcc00
+        },
+        emerald: {
+            primary: 0x2ecc71,
+            secondary: 0x27ae60,
+            accent: 0x1abc9c
+        },
+        phoenix: {
+            primary: 0xff4500,
+            secondary: 0xff8c00,
+            accent: 0xffd700
+        },
+        galaxy: {
+            primary: 0x6a0dad,
+            secondary: 0x9932cc,
+            accent: 0x00ced1
+        },
+        diamond: {
+            primary: 0xe8f4f8,
+            secondary: 0xb0e0e6,
+            accent: 0xffffff
+        }
+    };
+    return schemes[colorScheme] || schemes.default;
+}
 
-    // Fallback: if THREE is unavailable, render a simple image preview.
-    if (typeof THREE === 'undefined') {
-        const img = document.createElement('img');
-        img.src = getBalloonSrc(skinId, isLight);
-        img.alt = `${skinId} balloon preview`;
-        img.style.width = `${size}px`;
-        img.style.height = `${size}px`;
-        img.style.objectFit = 'contain';
-        img.style.display = 'block';
-        img.style.margin = '0 auto 6px';
-        return img;
+// Create 3D balloon model (matches scene.js)
+function make3DBalloonPreview(scale, colorScheme) {
+    const group = new THREE.Group();
+    const colors = getBalloonColors(colorScheme);
+
+    // Main balloon envelope (spherical shape)
+    const balloonGeo = new THREE.SphereGeometry(scale * 40, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.75);
+    const balloonMat = new THREE.MeshStandardMaterial({
+        color: colors.primary,
+        roughness: 0.7,
+        metalness: 0.1,
+        side: THREE.DoubleSide
+    });
+    const balloonMesh = new THREE.Mesh(balloonGeo, balloonMat);
+    balloonMesh.position.y = scale * 20;
+    group.add(balloonMesh);
+
+    // Vertical stripes on balloon for visual detail
+    const numStripes = 8;
+    for (let i = 0; i < numStripes; i++) {
+        const angle = (i / numStripes) * Math.PI * 2;
+        const stripeGeo = new THREE.PlaneGeometry(scale * 8, scale * 60);
+        const stripeMat = new THREE.MeshStandardMaterial({
+            color: colors.secondary,
+            roughness: 0.7,
+            metalness: 0.1,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.6
+        });
+        const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+        stripe.position.x = Math.cos(angle) * scale * 35;
+        stripe.position.z = Math.sin(angle) * scale * 35;
+        stripe.position.y = scale * 20;
+        stripe.lookAt(0, scale * 20, 0);
+        group.add(stripe);
     }
 
+    // Top cap of balloon
+    const capGeo = new THREE.SphereGeometry(scale * 8, 12, 8);
+    const capMat = new THREE.MeshStandardMaterial({
+        color: colors.accent,
+        roughness: 0.6,
+        metalness: 0.2
+    });
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.y = scale * 50;
+    group.add(cap);
+
+    // Basket (rectangular box)
+    const basketGeo = new THREE.BoxGeometry(scale * 20, scale * 15, scale * 20);
+    const basketMat = new THREE.MeshStandardMaterial({
+        color: 0x8b6914,
+        roughness: 0.9,
+        metalness: 0.0
+    });
+    const basket = new THREE.Mesh(basketGeo, basketMat);
+    basket.position.y = scale * -25;
+    group.add(basket);
+
+    // Basket ropes connecting to balloon
+    const ropeMat = new THREE.MeshStandardMaterial({
+        color: 0x654321,
+        roughness: 0.95,
+        metalness: 0.0
+    });
+
+    const ropePositions = [
+        { x: scale * 10, z: scale * 10 },
+        { x: -scale * 10, z: scale * 10 },
+        { x: scale * 10, z: -scale * 10 },
+        { x: -scale * 10, z: -scale * 10 }
+    ];
+
+    ropePositions.forEach(pos => {
+        const ropeGeo = new THREE.CylinderGeometry(scale * 0.5, scale * 0.5, scale * 35, 4);
+        const rope = new THREE.Mesh(ropeGeo, ropeMat);
+        rope.position.set(pos.x, scale * -5, pos.z);
+        group.add(rope);
+    });
+
+    return group;
+}
+
+// Create a mini 3D scene for a balloon preview
+function createBalloonPreviewCanvas(skinId, size = 80) {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -1483,23 +1363,9 @@ function createBalloonPreviewCanvas(skinId, size = 80) {
     canvas.style.display = 'block';
     canvas.style.margin = '0 auto 6px';
 
-    let renderer;
-    try {
-        renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-        renderer.setSize(size, size);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    } catch (e) {
-        // WebGL is not available: fallback to static image.
-        const img = document.createElement('img');
-        img.src = getBalloonSrc(skinId, isLight);
-        img.alt = `${skinId} balloon preview`;
-        img.style.width = `${size}px`;
-        img.style.height = `${size}px`;
-        img.style.objectFit = 'contain';
-        img.style.display = 'block';
-        img.style.margin = '0 auto 6px';
-        return img;
-    }
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setSize(size, size);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     const scene = new THREE.Scene();
 
@@ -1631,11 +1497,11 @@ async function renderShopContent(tab) {
                     btnDiv.style.cssText = 'font-size:10px;color:var(--accent-gold);letter-spacing:1px;';
                     btnDiv.innerHTML = '✓ 장착 중';
                 } else if (isOwned) {
-                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="equipSkin('${esc(skin.id)}')">장착</button>`;
+                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="equipSkin('${skin.id}')">장착</button>`;
                 } else if (skin.price === 0) {
-                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buySkin('${esc(skin.id)}', 0)">획득</button>`;
+                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buySkin('${skin.id}', 0)">획득</button>`;
                 } else {
-                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buySkin('${esc(skin.id)}', ${parseInt(skin.price, 10) || 0})">${skin.price.toLocaleString()}G 구매</button>`;
+                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buySkin('${skin.id}', ${skin.price})">${skin.price.toLocaleString()}G 구매</button>`;
                 }
                 card.appendChild(btnDiv);
 
@@ -1717,13 +1583,14 @@ async function buyApplicationFee(targetUniversity, unitPrice) {
         const data = await r.json();
         if (!r.ok) { alert(data.error || '구매 실패'); return; }
         alert(`[${targetUniversity}] 원서비 1장 구매 완료! (-${data.spent.toLocaleString()}G)`);
-        applyCurrentUserState(data.user, { syncWorld: false });
+        currentUser = data.user;
+        updateHUD(data.user);
         renderShopContent('item');
     } catch (e) { alert('오류 발생'); }
 }
 
 async function buySkin(skinId, price) {
-    const skin = window.BALLOON_SKINS?.[skinId];
+    const skin = BALLOON_SKINS[skinId];
     if (!skin) return;
     if (price > 0 && !confirm(`[${skin.name}]을 ${price.toLocaleString()}G에 구매하시겠습니까?`)) return;
     try {
@@ -1875,7 +1742,7 @@ async function saveCamSettings() {
         if (note) {
             const visLabel = select.value === 'all' ? '전체공개' : '관리자만';
             note.textContent = `저장됨 — 공개 범위: ${visLabel}`;
-            note.style.color = 'var(--accent)';
+            note.style.color = 'var(--accent-gold)';
             setTimeout(() => {
                 note.textContent = '공개 범위는 모든 유저에게 표시됩니다.';
                 note.style.color = '';
@@ -1967,7 +1834,6 @@ async function loadFriendList(content) {
             }
             return `
             <div class="ally-item" onclick="focusFriend(${f.id})">
-                ${renderAvatarHtml({ nickname: f.nickname, profileImageUrl: f.profile_image_url, userId: f.id, className: 'ally-avatar' })}
                 <div class="ally-status-dot ${f.is_studying ? 'studying' : ''}"></div>
                 <div class="ally-info">
                     <div class="ally-nick">${esc(f.nickname)}</div>
@@ -1996,7 +1862,6 @@ async function loadFriendRequests(content) {
         }
         content.innerHTML = reqs.map(req => `
             <div class="ally-item">
-                ${renderAvatarHtml({ nickname: req.nickname, profileImageUrl: req.profile_image_url, userId: req.id, className: 'ally-avatar' })}
                 <div class="ally-status-dot"></div>
                 <div class="ally-info">
                     <div class="ally-nick">${esc(req.nickname)}</div>
@@ -2043,22 +1908,12 @@ function focusFriend(userId) {
 }
 
 // ── 좌표 및 텔레포트 ──────────────────────────────────────────────────
-const COORD_DISPLAY_SCALE = 100;
-
-function worldToDisplayCoord(value) {
-    return Math.round((Number(value) || 0) / COORD_DISPLAY_SCALE);
-}
-
-function displayToWorldCoord(value) {
-    return Math.round((Number(value) || 0) * COORD_DISPLAY_SCALE);
-}
-
 window.updateCoordinatesUI = function(x, y, z) {
     const elX = document.getElementById('coord-x');
     const elY = document.getElementById('coord-y');
     const elZ = document.getElementById('coord-z');
-    if (elX) elX.textContent = worldToDisplayCoord(x);
-    if (elY) elY.textContent = worldToDisplayCoord(y);
+    if (elX) elX.textContent = x;
+    if (elY) elY.textContent = y;
     if (elZ) elZ.textContent = z;
 };
 
@@ -2077,18 +1932,16 @@ function startCoordinateSyncLoop() {
 
 function openTeleportDialog() {
     const pos = window.WorldScene ? window.WorldScene.getMyPosition() : { x: 0, y: 0 };
-    document.getElementById('tp-x').value = worldToDisplayCoord(pos.x);
-    document.getElementById('tp-y').value = worldToDisplayCoord(pos.y);
+    document.getElementById('tp-x').value = pos.x;
+    document.getElementById('tp-y').value = pos.y;
     document.getElementById('modal-teleport').classList.remove('hidden');
 }
 
 function doTeleport() {
-    const x = parseInt(document.getElementById('tp-x').value, 10) || 0;
-    const y = parseInt(document.getElementById('tp-y').value, 10) || 0;
-    const worldX = displayToWorldCoord(x);
-    const worldY = displayToWorldCoord(y);
+    const x = parseInt(document.getElementById('tp-x').value) || 0;
+    const y = parseInt(document.getElementById('tp-y').value) || 0;
     if (window.WorldScene) {
-        window.WorldScene.teleportTo(worldX, worldY);
+        window.WorldScene.teleportTo(x, y);
     }
     closeModal('modal-teleport');
     alert(`좌표 (${x}, ${y})로 이동했습니다!`);
@@ -2180,7 +2033,7 @@ function updateMinimap() {
         const x = centerX + pos.x * scale;
         const y = centerY - pos.y * scale;
         if (x >= 0 && x <= w && y >= 0 && y <= h) {
-            ctx.fillStyle = window.WorldScene.friendIds.has(b.user.id) ? 'rgba(0,196,113,0.8)' : 'rgba(100,150,255,0.5)';
+            ctx.fillStyle = window.WorldScene.friendIds.has(b.user.id) ? 'rgba(255,215,0,0.7)' : 'rgba(100,150,255,0.5)';
             ctx.beginPath();
             ctx.arc(x, y, 2, 0, Math.PI * 2);
             ctx.fill();
@@ -2189,8 +2042,8 @@ function updateMinimap() {
     
     // 내 위치
     if (window.WorldScene.myBalloon) {
-        ctx.fillStyle = '#3182F6';
-        ctx.strokeStyle = 'rgba(49,130,246,0.5)';
+        ctx.fillStyle = '#D4AF37';
+        ctx.strokeStyle = 'rgba(212,175,55,0.5)';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
@@ -2257,7 +2110,7 @@ async function loadConversations() {
 
         const convHtml = convs.map(c => `
             <div class="conv-item" onclick="openChat(${c.other_user},'${esc(c.nickname)}')">
-                ${renderAvatarHtml({ nickname: c.nickname, profileImageUrl: c.profile_image_url, userId: c.other_user, className: 'conv-avatar' })}
+                <div class="conv-avatar">${esc(c.nickname)[0]}</div>
                 <div class="conv-info">
                     <div class="conv-nick">${esc(c.nickname)} ${c.unread_count > 0 ? `<span class="conv-unread">${c.unread_count}</span>` : ''}</div>
                     <div class="conv-last">${esc(c.last_msg || '')}</div>
@@ -2270,7 +2123,7 @@ async function loadConversations() {
             <div style="padding:8px 14px 4px;font-size:9px;color:#666;letter-spacing:.08em;text-transform:uppercase;">동맹 — 새 대화 시작</div>
             ${newFriends.map(f => `
                 <div class="conv-item" onclick="openChat(${f.id},'${esc(f.nickname)}')">
-                    ${renderAvatarHtml({ nickname: f.nickname, profileImageUrl: f.profile_image_url, userId: f.id, className: 'conv-avatar' })}
+                    <div class="conv-avatar" style="opacity:0.7">${esc(f.nickname)[0]}</div>
                     <div class="conv-info">
                         <div class="conv-nick" style="color:var(--text-secondary)">${esc(f.nickname)}</div>
                         <div class="conv-last" style="color:#555">첫 메시지를 보내보세요</div>
@@ -2495,38 +2348,6 @@ function _startWorldPositionSync() {
     }, POSITION_SYNC_MS);
 }
 
-function _emitWorldPresence(user = currentUser) {
-    if (!worldSocket || !user) return;
-    const pos = (window.WorldScene && window.WorldScene.isReady)
-        ? window.WorldScene.getWorldPosition()
-        : { x: 0, y: 0 };
-
-    worldSocket.emit('player:join', {
-        userId:         user.id,
-        nickname:       user.nickname       || '',
-        university:     user.university     || '',
-        balloon_skin:   user.balloon_skin   || 'default',
-        status_message: user.status_message || null,
-        worldX: pos.x,
-        worldY: pos.y,
-    });
-
-    const meId = _normalizeUserId(user.id);
-    if (meId !== null) {
-        const prev = _wsNearby.get(meId) || {};
-        _wsNearby.set(meId, {
-            ...prev,
-            id: meId,
-            nickname: user.nickname || '',
-            university: user.university || '',
-            balloon_skin: user.balloon_skin || 'default',
-            status_message: user.status_message || null,
-            worldX: pos.x,
-            worldY: pos.y
-        });
-    }
-}
-
 function initWorldSocket(user) {
     if (worldSocket) return;   // already connected
 
@@ -2555,39 +2376,35 @@ function initWorldSocket(user) {
     // ── Receive full nearby-player snapshot ──────────────────────────
     worldSocket.on('players:nearby', (players) => {
         _wsNearby.clear();
-        players.forEach((p) => {
-            const id = _normalizeUserId(p?.id);
-            if (id === null) return;
-            _wsNearby.set(id, { ...p, id });
-        });
-        _renderSocketAwareUsers();
+        players.forEach(p => _wsNearby.set(p.id, p));
+        if (window.WorldScene && window.WorldScene.isReady) {
+            window.WorldScene.updateWorldPlayers(players, currentUser);
+        }
     });
 
     // ── A new player entered the nearby area ─────────────────────────
     worldSocket.on('player:enter', (player) => {
-        const id = _normalizeUserId(player?.id);
-        if (id === null) return;
-        _wsNearby.set(id, { ...player, id });
-        _renderSocketAwareUsers();
+        _wsNearby.set(player.id, player);
+        if (window.WorldScene && window.WorldScene.isReady) {
+            window.WorldScene.updateWorldPlayers([...(_wsNearby.values())], currentUser);
+        }
     });
 
     // ── Remote player moved ──────────────────────────────────────────
     worldSocket.on('player:moved', ({ id, worldX, worldY }) => {
-        const userId = _normalizeUserId(id);
-        if (userId === null) return;
-        const p = _wsNearby.get(userId);
+        const p = _wsNearby.get(id);
         if (p) { p.worldX = worldX; p.worldY = worldY; }
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.moveWorldPlayer(userId, worldX, worldY);
+            window.WorldScene.moveWorldPlayer(id, worldX, worldY);
         }
     });
 
     // ── Remote player disconnected ───────────────────────────────────
     worldSocket.on('player:left', ({ id }) => {
-        const userId = _normalizeUserId(id);
-        if (userId === null) return;
-        _wsNearby.delete(userId);
-        _renderSocketAwareUsers();
+        _wsNearby.delete(id);
+        if (window.WorldScene && window.WorldScene.isReady) {
+            window.WorldScene.removeWorldPlayer(id);
+        }
     });
 
     // ── Interaction state snapshot on join ───────────────────────────
@@ -2606,7 +2423,15 @@ function initWorldSocket(user) {
     });
 
     // ── Announce ourselves to the server ────────────────────────────
-    _emitWorldPresence(user);
+    worldSocket.emit('player:join', {
+        userId:         user.id,
+        nickname:       user.nickname       || '',
+        university:     user.university     || '',
+        balloon_skin:   user.balloon_skin   || 'default',
+        status_message: user.status_message || null,
+        worldX: 0,
+        worldY: 0,
+    });
 
     // Wire up WorldScene's interaction callback so local clicks are emitted.
     if (window.WorldScene) {
@@ -2619,194 +2444,35 @@ function initWorldSocket(user) {
 }
 
 function _startApp() {
-    let started = false;
-
-    const boot = (useWorldScene) => {
-        if (started) return;
-        started = true;
-
-        if (useWorldScene && window.WorldScene) {
-            try {
-                window.WorldScene.init();
-            } catch (e) {
-                console.error('WorldScene init 실패, legacy BG로 폴백합니다:', e);
-                useWorldScene = false;
-            }
-        }
-
-        initHub().then(() => {
-            if (useWorldScene && currentUser) initWorldSocket(currentUser);
-        });
-    };
-
     if (window._worldSceneReady && window.WorldScene) {
-        boot(true);
-        return;
+        window.WorldScene.init();
+        initHub().then(() => { if (currentUser) initWorldSocket(currentUser); });
+    } else {
+        window._onWorldSceneReady = function() {
+            window.WorldScene.init();
+            initHub().then(() => { if (currentUser) initWorldSocket(currentUser); });
+        };
     }
-
-    window._onWorldSceneReady = function() {
-        boot(true);
-    };
-
-    // scene.js 자체가 로드 실패하면 _onWorldSceneReady가 호출되지 않으므로
-    // 일정 시간 후 허브 초기화를 진행하고 BG 캔버스로 폴백한다.
-    setTimeout(() => {
-        if (!started) {
-            console.warn('WorldScene 로드 타임아웃, legacy BG로 폴백합니다.');
-            boot(false);
-        }
-    }, 2500);
 }
 _startApp();
 startCoordinateSyncLoop();
 
-function bindTapAction(el, handler) {
-    if (!el || !handler || el.dataset.tapBound === '1') return;
-
-    // Avoid duplicate execution for controls already wired with inline onclick.
-    // shared/nav.js handles touch fallback for inline handlers globally.
-    if (el.hasAttribute && el.hasAttribute('onclick')) {
-        el.dataset.tapBound = '1';
-        return;
-    }
-
-    let lastTapTs = 0;
-
-    el.addEventListener('click', (e) => {
-        // Ignore synthetic click that follows touch pointerup handling.
-        if (Date.now() - lastTapTs < 350) {
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-        }
-        e.preventDefault();
-        e.stopPropagation();
-        handler(e);
-    });
-
-    el.addEventListener('pointerup', (e) => {
-        if (e.pointerType !== 'touch') return;
-        const now = Date.now();
-        if (now - lastTapTs < 250) return;
-        lastTapTs = now;
-        e.preventDefault();
-        e.stopPropagation();
-        handler(e);
-    }, { passive: false });
-
-    el.dataset.tapBound = '1';
-}
-
-function bindMainHubSettingsPanelControls() {
-    const settingsBtn = document.getElementById('tutorial-btn-settings');
-    const settingsPanel = document.getElementById('panel-settings');
-    if (!settingsBtn || !settingsPanel) return;
-
-    if (settingsBtn.dataset.settingsTapBound !== '1') {
-        settingsBtn.removeAttribute('onclick');
-        bindTapAction(settingsBtn, () => togglePanel('panel-settings'));
-        settingsBtn.dataset.settingsTapBound = '1';
-    }
-
-    const closeBtn = settingsPanel.querySelector('.close-btn');
-    if (closeBtn && closeBtn.dataset.settingsTapBound !== '1') {
-        closeBtn.removeAttribute('onclick');
-        bindTapAction(closeBtn, () => togglePanel('panel-settings'));
-        closeBtn.dataset.settingsTapBound = '1';
-    }
-
-    const logoutBtn = settingsPanel.querySelector('.settings-action-btn');
-    if (logoutBtn && logoutBtn.dataset.settingsTapBound !== '1') {
-        logoutBtn.removeAttribute('onclick');
-        bindTapAction(logoutBtn, () => doLogout());
-        logoutBtn.dataset.settingsTapBound = '1';
-    }
-
-    const themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle && themeToggle.dataset.changeBound !== '1') {
-        themeToggle.removeAttribute('onchange');
-        themeToggle.addEventListener('change', saveUiSettings);
-        themeToggle.dataset.changeBound = '1';
-    }
-
-    const minimapToggle = document.getElementById('minimap-toggle');
-    if (minimapToggle && minimapToggle.dataset.changeBound !== '1') {
-        minimapToggle.removeAttribute('onchange');
-        minimapToggle.addEventListener('change', saveUiSettings);
-        minimapToggle.dataset.changeBound = '1';
-    }
-
-    const keyboardToggle = document.getElementById('keyboard-guide-toggle');
-    if (keyboardToggle && keyboardToggle.dataset.changeBound !== '1') {
-        keyboardToggle.removeAttribute('onchange');
-        keyboardToggle.addEventListener('change', saveUiSettings);
-        keyboardToggle.dataset.changeBound = '1';
-    }
-
-    const coordinatesToggle = document.getElementById('coordinates-toggle');
-    if (coordinatesToggle && coordinatesToggle.dataset.changeBound !== '1') {
-        coordinatesToggle.removeAttribute('onchange');
-        coordinatesToggle.addEventListener('change', saveUiSettings);
-        coordinatesToggle.dataset.changeBound = '1';
-    }
-
-    const camEnabledToggle = document.getElementById('cam-enabled-toggle');
-    if (camEnabledToggle && camEnabledToggle.dataset.changeBound !== '1') {
-        camEnabledToggle.removeAttribute('onchange');
-        camEnabledToggle.addEventListener('change', saveCamSettings);
-        camEnabledToggle.dataset.changeBound = '1';
-    }
-
-    const camVisibilitySelect = document.getElementById('cam-visibility-select');
-    if (camVisibilitySelect && camVisibilitySelect.dataset.changeBound !== '1') {
-        camVisibilitySelect.removeAttribute('onchange');
-        camVisibilitySelect.addEventListener('change', saveCamSettings);
-        camVisibilitySelect.dataset.changeBound = '1';
-    }
-}
-
-function bindMainHubPrimaryButtons() {
-    const profileBtn = document.getElementById('tutorial-profile');
-    const notifBtn = document.getElementById('tutorial-btn-logs');
-    const settingsBtn = document.getElementById('tutorial-btn-settings');
-    const rankBtn = document.getElementById('tutorial-btn-rank');
-    const shopBtn = document.getElementById('tutorial-btn-shop');
-    const applyBtn = document.getElementById('tutorial-btn-apply');
-    const allyBtn = document.getElementById('btn-ally');
-    const msgBtn = document.getElementById('btn-msg');
-    const communityBtn = document.getElementById('btn-community');
-    const homeBtn = document.querySelector('.fab-btn-sm[title="홈"]');
-    const weatherBtn = document.getElementById('weather-btn');
-    const enterPathBtn = document.getElementById('btn-enter-path');
+document.addEventListener('DOMContentLoaded', () => {
     const teleportBtn = document.getElementById('btn-teleport');
 
-    bindTapAction(profileBtn, () => openProfileCustomizer());
-    bindTapAction(notifBtn, () => togglePanel('panel-notif'));
-    bindTapAction(settingsBtn, () => togglePanel('panel-settings'));
-    bindTapAction(rankBtn, () => togglePanel('panel-rank'));
-    bindTapAction(shopBtn, () => togglePanel('panel-shop'));
-    bindTapAction(applyBtn, () => toggleApplyPanel());
-    bindTapAction(allyBtn, () => openFriendPanel());
-    bindTapAction(msgBtn, () => openMessengerPanel());
-    bindTapAction(communityBtn, () => navigateTo('/community/'));
-    bindTapAction(homeBtn, () => returnToHome());
-    bindTapAction(weatherBtn, () => toggleWeather());
-    bindTapAction(enterPathBtn, () => goToTimer());
-
     if (teleportBtn) {
-        bindTapAction(teleportBtn, () => openTeleportDialog());
+        teleportBtn.addEventListener('pointerup', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openTeleportDialog();
+        });
+        teleportBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openTeleportDialog();
+        });
     }
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        bindMainHubPrimaryButtons();
-        bindMainHubSettingsPanelControls();
-    }, { once: true });
-} else {
-    bindMainHubPrimaryButtons();
-    bindMainHubSettingsPanelControls();
-}
+});
 
 document.addEventListener('click', (e) => {
     const target = e.target && e.target.closest ? e.target.closest('#btn-teleport') : null;
@@ -2837,54 +2503,4 @@ async function saveStatusMsg(e) {
 // Keep inline handlers stable for all browsers/build modes.
 window.goToCommunity = goToCommunity;
 window.goToTimer = goToTimer;
-window.openProfileCustomizer = openProfileCustomizer;
-window.closeProfileCustomizer = closeProfileCustomizer;
-window.onProfileImageSelected = onProfileImageSelected;
-window.saveProfileCustomizer = saveProfileCustomizer;
-
-// Explicit global exports for HTML inline handlers (onclick/onchange/oninput).
-window.togglePanel = togglePanel;
-window.toggleApplyPanel = toggleApplyPanel;
-window.switchRankTab = switchRankTab;
-window.switchShopTab = switchShopTab;
-window.switchAllyTab = switchAllyTab;
-window.openFriendPanel = openFriendPanel;
-window.closeFriendPanel = closeFriendPanel;
-window.openMessengerPanel = openMessengerPanel;
-window.closeMessengerPanel = closeMessengerPanel;
-window.messengerBack = messengerBack;
-window.returnToHome = returnToHome;
-window.toggleWeather = toggleWeather;
-window.openTeleportDialog = openTeleportDialog;
-window.doTeleport = doTeleport;
-window.closeModal = closeModal;
-window.closeInterior = closeInterior;
-window.collectTax = collectTax;
-window.onSearch = onSearch;
-window.saveUiSettings = saveUiSettings;
-window.saveCamSettings = saveCamSettings;
-window.doLogout = doLogout;
-window.doFriendAction = doFriendAction;
-window.openChatFromModal = openChatFromModal;
-window.doInvade = doInvade;
-window.openAllyChat = openAllyChat;
-window.focusFriend = focusFriend;
-window.acceptRequest = acceptRequest;
-window.rejectRequest = rejectRequest;
-window.deleteFriend = deleteFriend;
-window.openChat = openChat;
-window.handleFileSelect = handleFileSelect;
-window.cancelFileUpload = cancelFileUpload;
-window.sendMessage = sendMessage;
-window.focusUser = focusUser;
-window.openEstate = openEstate;
-window.startScoreRetry = startScoreRetry;
-window.uploadScore = uploadScore;
-window.compareGpa = compareGpa;
-window.uploadGpa = uploadGpa;
-window.saveStatusMsg = saveStatusMsg;
-window.buySkin = buySkin;
-window.equipSkin = equipSkin;
-window.buyApplicationFee = buyApplicationFee;
-window.viewUniversityEstate = viewUniversityEstate;
 

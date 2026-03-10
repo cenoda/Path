@@ -48,12 +48,12 @@ function playerPublic(p) {
     };
 }
 
-/** Collect all other connected players (chunk filtering disabled). */
+/** Collect all connected players including self (chunk filtering disabled). */
 function getNearbyPlayers(socketId) {
     if (!players.has(socketId)) return [];
     const result = [];
     players.forEach((p, sid) => {
-        if (sid === socketId) return;
+        // Include self so client can render local balloon consistently
         result.push(playerPublic(p));
     });
     return result;

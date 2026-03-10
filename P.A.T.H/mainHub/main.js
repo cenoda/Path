@@ -466,12 +466,19 @@ async function loadUniversitiesCache() {
 }
 
 function renderOtherUsers(users) {
-    // Once realtime socket is active, world players are controlled by
-    // players:nearby / player:enter / player:moved events.
-    if (worldSocket) return;
-
     const isLight = document.body.classList.contains('light');
-    if (window.WorldScene && window.WorldScene.isReady) {
+    if (!window.WorldScene || !window.WorldScene.isReady) return;
+
+    // If worldSocket is active, show ranking users as distant background only
+    if (worldSocket) {
+        const nearbyCount = _wsNearby.size;
+        // Show background ranking users if we have fewer than 15 nearby players
+        if (nearbyCount < 15) {
+            const backgroundUsers = users.filter(u => !_wsNearby.has(u.id) && (!currentUser || u.id !== currentUser.id)).slice(0, 200);
+            window.WorldScene.setBackgroundUsers(backgroundUsers, isLight);
+        }
+    } else {
+        // No socket: use full ranking display
         window.WorldScene.setUsers(users, currentUser, isLight);
     }
 }
@@ -2664,6 +2671,18 @@ function _startApp() {
 }
 _startApp();
 startCoordinateSyncLoop();
+
+// Page visibility recovery: restore scene when returning to page
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && window.WorldScene && window.WorldScene.isReady) {
+        // Ensure my balloon is visible when page becomes visible again
+        if (currentUser && window.WorldScene.myBalloon) {
+            window.WorldScene.myBalloon.group.visible = true;
+        }
+        // Refresh ranking display
+        loadRankingAndMap();
+    }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     const teleportBtn = document.getElementById('btn-teleport');

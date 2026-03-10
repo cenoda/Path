@@ -206,7 +206,13 @@
                         <span class="room-card-badge ${active > 0 ? 'badge-active' : ''}">${active > 0 ? `🔥 ${active}명 공부 중` : '📚 대기 중'}</span>
                     </div>
                     ${room.goal ? `<div class="room-card-goal">${esc(room.goal)}</div>` : ''}
-                    <div class="room-card-meta">${members}/${room.max_members}명 · 초대코드 ${room.invite_code}</div>
+                    <div class="room-card-meta">
+                        <span>${members}/${room.max_members}명</span>
+                        <span>·</span>
+                        <span>${room.is_public ? '🌐 공개' : '🔒 비공개'}</span>
+                        <span>·</span>
+                        <span>코드 ${room.invite_code}</span>
+                    </div>
                 </div>`;
             }).join('');
         },
@@ -707,15 +713,24 @@
         showSettingsModal() {
             const modal = document.getElementById('room-settings-modal');
             if (!modal) return;
-            // Pre-fill edit fields
             const room = this.myRooms.find(r => r.id === this.activeRoomId);
-            if (room) {
-                const nameEl = document.getElementById('room-edit-name');
-                const goalEl = document.getElementById('room-edit-goal');
-                const maxEl  = document.getElementById('room-edit-max');
-                if (nameEl) nameEl.value = room.name;
-                if (goalEl) goalEl.value = room.goal || '';
-                if (maxEl)  maxEl.value  = room.max_members;
+            const myId = typeof UI !== 'undefined' && UI.currentUser ? UI.currentUser.id : null;
+            const isCreator = room && myId && String(room.creator_id) === String(myId);
+
+            const creatorSection = document.getElementById('room-settings-creator-section');
+            const deleteBtn = document.getElementById('room-settings-delete-btn');
+            if (creatorSection) creatorSection.classList.toggle('hidden', !isCreator);
+            if (deleteBtn) deleteBtn.classList.toggle('hidden', !isCreator);
+
+            if (room && isCreator) {
+                const nameEl   = document.getElementById('room-edit-name');
+                const goalEl   = document.getElementById('room-edit-goal');
+                const maxEl    = document.getElementById('room-edit-max');
+                const publicEl = document.getElementById('room-edit-public');
+                if (nameEl)   nameEl.value   = room.name;
+                if (goalEl)   goalEl.value   = room.goal || '';
+                if (maxEl)    maxEl.value    = room.max_members;
+                if (publicEl) publicEl.checked = !!room.is_public;
             }
             modal.classList.remove('hidden');
         },
@@ -933,21 +948,23 @@
             const name = document.getElementById('room-edit-name')?.value.trim();
             const goal = document.getElementById('room-edit-goal')?.value.trim();
             const maxMembers = parseInt(document.getElementById('room-edit-max')?.value, 10) || 10;
+            const isPublic = document.getElementById('room-edit-public')?.checked || false;
             if (!name) { alert('방 이름을 입력해주세요.'); return; }
 
             const btn = document.getElementById('room-edit-submit');
             try {
                 if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
-                const data = await this.apiPatch(`/api/rooms/${this.activeRoomId}`, { name, goal, max_members: maxMembers });
+                const data = await this.apiPatch(`/api/rooms/${this.activeRoomId}`, { name, goal, max_members: maxMembers, is_public: isPublic });
                 // Update local data
                 const idx = this.myRooms.findIndex(r => r.id === this.activeRoomId);
                 if (idx !== -1) {
                     this.myRooms[idx] = { ...this.myRooms[idx], ...data.room };
                     document.getElementById('room-view-name').textContent = data.room.name;
-                    document.getElementById('room-view-goal').textContent = data.room.goal || '';
+                    const goalEl = document.getElementById('room-view-goal');
+                    if (goalEl) goalEl.textContent = data.room.goal || '';
                 }
                 this.hideSettingsModal();
-                showToast('방 정보가 업데이트됐어요');
+                showToast(isPublic ? '방이 공개로 설정됐어요 🌐' : '방 정보가 업데이트됐어요');
             } catch (err) {
                 alert(err.message);
             } finally {
@@ -1011,6 +1028,15 @@
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+    function _fmtHM(sec) {
+        const s = parseInt(sec, 10) || 0;
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        if (h > 0) return `${h}시간 ${m}분`;
+        if (m > 0) return `${m}분`;
+        return '0분';
+    }
+
     function esc(str) {
         return String(str || '')
             .replace(/&/g, '&amp;')

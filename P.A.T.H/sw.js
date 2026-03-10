@@ -3,7 +3,7 @@
  * Provides offline support and caching for the PWA
  */
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const STATIC_CACHE = `path-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `path-dynamic-${CACHE_VERSION}`;
 

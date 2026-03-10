@@ -21,7 +21,9 @@ export const CATEGORY_META = {
  * @param {string}  post.category
  * @param {string}  post.title
  * @param {string}  post.nickname
+ * @param {number}  post.userId
  * @param {boolean} post.isVerifiedNickname
+ * @param {string}  post.profileImageUrl
  * @param {string}  post.ipPrefix
  * @param {number}  post.likes
  * @param {number}  post.comments
@@ -43,6 +45,13 @@ export function PostListItem(post) {
   const verifiedBadge = post.isVerifiedNickname
     ? '<span class="user-verified-badge" aria-label="본인 닉네임 인증" title="본인 닉네임 인증">✓</span>'
     : '';
+  const showProfileAvatar = post.isVerifiedNickname && !!post.profileImageUrl;
+  const authorDataAttrs = post.isVerifiedNickname && Number(post.userId) > 0
+    ? `data-user-id="${post.userId}"`
+    : '';
+  const authorBtnClass = post.isVerifiedNickname && Number(post.userId) > 0
+    ? 'post-row__author-btn js-open-user-profile'
+    : 'post-row__author-btn';
 
   const numCell = post.isHot
     ? `<span class="post-row__num post-row__num--hot">
@@ -66,7 +75,10 @@ export function PostListItem(post) {
         ${post.comments > 0 ? `<span class="post-row__cmts" aria-label="댓글 ${post.comments}개">${post.comments}</span>` : ''}
       </div>
       <span class="post-row__author">
-        <span class="post-row__author-nick">${escHtml(post.nickname)}${verifiedBadge}</span><!-- --><span class="post-author-ip">(${escHtml(post.ipPrefix)})</span>
+        <button class="${authorBtnClass}" type="button" ${authorDataAttrs}>
+          ${showProfileAvatar ? `<img class="user-avatar-inline" src="${escHtml(post.profileImageUrl)}" alt="" loading="lazy">` : ''}
+          <span class="post-row__author-nick">${escHtml(post.nickname)}${verifiedBadge}</span>
+        </button><!-- --><span class="post-author-ip">(${escHtml(post.ipPrefix)})</span>
       </span>
       <span class="post-row__sep">·</span>
       <span class="post-row__date">${date}</span>

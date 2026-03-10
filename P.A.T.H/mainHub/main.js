@@ -16,11 +16,11 @@ const BALLOON_SKINS = {
 
 const BALLOON_AURAS = {
     'none': { id: 'none', name: '없음', price: 0, desc: '기본 상태' },
-    'sun': { id: 'sun', name: '태양 후광', price: 2500, priceDiamond: 0, desc: '따뜻한 황금빛 후광' },
-    'frost': { id: 'frost', name: '서리 오오라', price: 4200, priceDiamond: 16, desc: '차가운 푸른빛 기류' },
+    'sun': { id: 'sun', name: '태양 후광', price: 2500, desc: '따뜻한 황금빛 후광' },
+    'frost': { id: 'frost', name: '서리 오오라', price: 4200, desc: '차가운 푸른빛 기류' },
     'forest': { id: 'forest', name: '숲의 숨결', price: 5200, desc: '초록빛 생명 에너지' },
-    'cosmic': { id: 'cosmic', name: '코스믹 링', price: 6800, priceDiamond: 24, desc: '우주 먼지 같은 잔광' },
-    'royal': { id: 'royal', name: '로열 크라운', price: 9000, priceDiamond: 32, desc: '보랏빛 왕관형 오오라' }
+    'cosmic': { id: 'cosmic', name: '코스믹 링', price: 6800, desc: '우주 먼지 같은 잔광' },
+    'royal': { id: 'royal', name: '로열 크라운', price: 9000, desc: '보랏빛 왕관형 오오라' }
 };
 
 function getBalloonSrc(skinId, isLight) {
@@ -398,23 +398,7 @@ function secToHour(sec) {
 }
 
 function updateHUD(user) {
-    const initial = (user.nickname || '?').charAt(0).toUpperCase();
-    const photoEl = document.getElementById('badge-photo');
-    const initialEl = document.getElementById('badge-initial');
-    if (photoEl && initialEl) {
-        if (user.profile_image_url) {
-            photoEl.src = user.profile_image_url;
-            photoEl.classList.remove('hidden');
-            initialEl.classList.add('hidden');
-        } else {
-            photoEl.classList.add('hidden');
-            initialEl.classList.remove('hidden');
-            initialEl.textContent = initial;
-        }
-    } else {
-        const charEl = document.getElementById('badge-char');
-        if (charEl) charEl.textContent = initial;
-    }
+    document.getElementById('badge-char').textContent = (user.nickname || '?').charAt(0).toUpperCase();
     document.getElementById('hud-univ').textContent = user.university || '-';
     document.getElementById('hud-gold').textContent = (user.gold || 0).toLocaleString();
     document.getElementById('hud-hours').textContent = secToHour(myTotalSec);
@@ -1298,21 +1282,18 @@ function getBalloonColors(colorScheme) {
 
 // Create 3D balloon model (matches scene.js)
 function make3DBalloonPreview(scale, colorScheme) {
-    const Three = globalThis.THREE;
-    if (!Three) throw new Error('THREE is not available');
-
-    const group = new Three.Group();
+    const group = new THREE.Group();
     const colors = getBalloonColors(colorScheme);
 
     // Main balloon envelope (spherical shape)
-    const balloonGeo = new Three.SphereGeometry(scale * 40, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.75);
-    const balloonMat = new Three.MeshStandardMaterial({
+    const balloonGeo = new THREE.SphereGeometry(scale * 40, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.75);
+    const balloonMat = new THREE.MeshStandardMaterial({
         color: colors.primary,
         roughness: 0.7,
         metalness: 0.1,
-        side: Three.DoubleSide
+        side: THREE.DoubleSide
     });
-    const balloonMesh = new Three.Mesh(balloonGeo, balloonMat);
+    const balloonMesh = new THREE.Mesh(balloonGeo, balloonMat);
     balloonMesh.position.y = scale * 20;
     group.add(balloonMesh);
 
@@ -1320,16 +1301,16 @@ function make3DBalloonPreview(scale, colorScheme) {
     const numStripes = 8;
     for (let i = 0; i < numStripes; i++) {
         const angle = (i / numStripes) * Math.PI * 2;
-        const stripeGeo = new Three.PlaneGeometry(scale * 8, scale * 60);
-        const stripeMat = new Three.MeshStandardMaterial({
+        const stripeGeo = new THREE.PlaneGeometry(scale * 8, scale * 60);
+        const stripeMat = new THREE.MeshStandardMaterial({
             color: colors.secondary,
             roughness: 0.7,
             metalness: 0.1,
-            side: Three.DoubleSide,
+            side: THREE.DoubleSide,
             transparent: true,
             opacity: 0.6
         });
-        const stripe = new Three.Mesh(stripeGeo, stripeMat);
+        const stripe = new THREE.Mesh(stripeGeo, stripeMat);
         stripe.position.x = Math.cos(angle) * scale * 35;
         stripe.position.z = Math.sin(angle) * scale * 35;
         stripe.position.y = scale * 20;
@@ -1338,29 +1319,29 @@ function make3DBalloonPreview(scale, colorScheme) {
     }
 
     // Top cap of balloon
-    const capGeo = new Three.SphereGeometry(scale * 8, 12, 8);
-    const capMat = new Three.MeshStandardMaterial({
+    const capGeo = new THREE.SphereGeometry(scale * 8, 12, 8);
+    const capMat = new THREE.MeshStandardMaterial({
         color: colors.accent,
         roughness: 0.6,
         metalness: 0.2
     });
-    const cap = new Three.Mesh(capGeo, capMat);
+    const cap = new THREE.Mesh(capGeo, capMat);
     cap.position.y = scale * 50;
     group.add(cap);
 
     // Basket (rectangular box)
-    const basketGeo = new Three.BoxGeometry(scale * 20, scale * 15, scale * 20);
-    const basketMat = new Three.MeshStandardMaterial({
+    const basketGeo = new THREE.BoxGeometry(scale * 20, scale * 15, scale * 20);
+    const basketMat = new THREE.MeshStandardMaterial({
         color: 0x8b6914,
         roughness: 0.9,
         metalness: 0.0
     });
-    const basket = new Three.Mesh(basketGeo, basketMat);
+    const basket = new THREE.Mesh(basketGeo, basketMat);
     basket.position.y = scale * -25;
     group.add(basket);
 
     // Basket ropes connecting to balloon
-    const ropeMat = new Three.MeshStandardMaterial({
+    const ropeMat = new THREE.MeshStandardMaterial({
         color: 0x654321,
         roughness: 0.95,
         metalness: 0.0
@@ -1374,8 +1355,8 @@ function make3DBalloonPreview(scale, colorScheme) {
     ];
 
     ropePositions.forEach(pos => {
-        const ropeGeo = new Three.CylinderGeometry(scale * 0.5, scale * 0.5, scale * 35, 4);
-        const rope = new Three.Mesh(ropeGeo, ropeMat);
+        const ropeGeo = new THREE.CylinderGeometry(scale * 0.5, scale * 0.5, scale * 35, 4);
+        const rope = new THREE.Mesh(ropeGeo, ropeMat);
         rope.position.set(pos.x, scale * -5, pos.z);
         group.add(rope);
     });
@@ -1385,9 +1366,6 @@ function make3DBalloonPreview(scale, colorScheme) {
 
 // Create a mini 3D scene for a balloon preview
 function createBalloonPreviewCanvas(skinId, size = 80) {
-    const Three = globalThis.THREE;
-    if (!Three) throw new Error('THREE is not available');
-
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -1396,21 +1374,21 @@ function createBalloonPreviewCanvas(skinId, size = 80) {
     canvas.style.display = 'block';
     canvas.style.margin = '0 auto 6px';
 
-    const renderer = new Three.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     renderer.setSize(size, size);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const scene = new Three.Scene();
+    const scene = new THREE.Scene();
 
-    const camera = new Three.PerspectiveCamera(45, 1, 1, 1000);
+    const camera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
     camera.position.set(0, 0, 120);
     camera.lookAt(0, 0, 0);
 
     // Lighting
-    const ambientLight = new Three.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
-    const directionalLight = new Three.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(5, 10, 7);
     scene.add(directionalLight);
 
@@ -1458,8 +1436,7 @@ function createSkinPreviewElement(skin, isLight, size = 80) {
     };
 
     try {
-        const Three = globalThis.THREE;
-        if (!Three || !Three.WebGLRenderer) return fallbackImg;
+        if (typeof THREE === 'undefined' || !THREE || !THREE.WebGLRenderer) return fallbackImg;
         return createBalloonPreviewCanvas(skin?.id || 'default', size);
     } catch (_) {
         return fallbackImg;
@@ -1580,13 +1557,11 @@ async function renderShopContent(tab) {
             const auraData = auraRes.ok ? await auraRes.json() : { auras: [], owned: ['none'], equipped: 'none' };
             const { auras, owned, equipped } = auraData;
             const myGold = currentUser?.gold || 0;
-            const myDiamond = currentUser?.diamond || 0;
 
             container.innerHTML = `
                 <div style="padding:10px 0 6px;">
                     <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:12px;">
                         보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
-                        &nbsp;|&nbsp; 보유 다이아: <strong style="color:#6fd6ff">${myDiamond}D</strong>
                     </div>
                     <div id="aura-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
                 </div>
@@ -1624,14 +1599,10 @@ async function renderShopContent(tab) {
 
                 const priceDiv = document.createElement('div');
                 priceDiv.style.cssText = 'font-size:10px;color:#666;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:3px;';
-                const goldPrice = Number(aura.price || 0);
-                const diamondPrice = Number(aura.priceDiamond || 0);
-                if (goldPrice === 0 && diamondPrice === 0) {
+                if (aura.price === 0) {
                     priceDiv.textContent = '무료';
-                } else if (diamondPrice > 0) {
-                    priceDiv.innerHTML = `<img src="assets/coin.png" style="width:10px;height:10px;">${goldPrice.toLocaleString()}G&nbsp;|&nbsp;<span style="color:#6fd6ff">${diamondPrice}D</span>`;
                 } else {
-                    priceDiv.innerHTML = `<img src="assets/coin.png" style="width:10px;height:10px;">${goldPrice.toLocaleString()}G`;
+                    priceDiv.innerHTML = `<img src="assets/coin.png" style="width:10px;height:10px;">${aura.price.toLocaleString()}G`;
                 }
                 card.appendChild(priceDiv);
 
@@ -1641,16 +1612,10 @@ async function renderShopContent(tab) {
                     btnDiv.innerHTML = '✓ 장착 중';
                 } else if (isOwned) {
                     btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="equipAura('${aura.id}')">장착</button>`;
-                } else if (goldPrice === 0 && diamondPrice === 0) {
-                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buyAura('${aura.id}', 'gold')">획득</button>`;
-                } else if (diamondPrice > 0) {
-                    btnDiv.style.cssText = 'display:flex;gap:6px;justify-content:center;';
-                    btnDiv.innerHTML = `
-                        <button class="shop-btn" style="padding:4px 8px;font-size:10px;" onclick="buyAura('${aura.id}', 'gold')">골드 구매</button>
-                        <button class="shop-btn" style="padding:4px 8px;font-size:10px;border-color:#6fd6ff;color:#6fd6ff;" onclick="buyAura('${aura.id}', 'diamond')">다이아 구매</button>
-                    `;
+                } else if (aura.price === 0) {
+                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buyAura('${aura.id}', 0)">획득</button>`;
                 } else {
-                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buyAura('${aura.id}', 'gold')">${goldPrice.toLocaleString()}G 구매</button>`;
+                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buyAura('${aura.id}', ${aura.price})">${aura.price.toLocaleString()}G 구매</button>`;
                 }
                 card.appendChild(btnDiv);
 
@@ -1777,30 +1742,21 @@ async function equipSkin(skinId) {
     } catch (e) { alert('오류 발생'); }
 }
 
-async function buyAura(auraId, currency = 'gold') {
+async function buyAura(auraId, price) {
     const aura = BALLOON_AURAS[auraId];
     if (!aura) return;
-    const useDiamond = currency === 'diamond';
-    const goldPrice = Number(aura.price || 0);
-    const diamondPrice = Number(aura.priceDiamond || 0);
-    if (useDiamond && diamondPrice <= 0) {
-        alert('이 오오라는 다이아 구매를 지원하지 않습니다.');
-        return;
-    }
-    if (!useDiamond && goldPrice > 0 && !confirm(`[${aura.name}]을 ${goldPrice.toLocaleString()}G에 구매하시겠습니까?`)) return;
-    if (useDiamond && !confirm(`[${aura.name}]을 ${diamondPrice}D에 구매하시겠습니까?`)) return;
+    if (price > 0 && !confirm(`[${aura.name}]을 ${price.toLocaleString()}G에 구매하시겠습니까?`)) return;
     try {
         const r = await fetch('/api/estate/buy-aura', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ aura_id: auraId, currency })
+            body: JSON.stringify({ aura_id: auraId })
         });
         const data = await r.json();
         if (!r.ok) { alert(data.error || '구매 실패'); return; }
         if (currentUser) {
             currentUser.gold = data.user.gold;
-            currentUser.diamond = data.user.diamond;
             currentUser.owned_auras = data.user.owned_auras;
             updateHUD(currentUser);
         }
@@ -2732,218 +2688,7 @@ async function saveStatusMsg(e) {
     } catch (err) {}
 }
 
-// ── 프로필 커스터마이저 ────────────────────────────────────────────
-let pendingProfileImageFile = null;
-
-function openProfileCustomizer() {
-    if (!currentUser) return;
-    pendingProfileImageFile = null;
-    const modal = document.getElementById('modal-profile-custom');
-    if (!modal) return;
-    const nickInput = document.getElementById('profile-nick-input');
-    if (nickInput) nickInput.value = currentUser.nickname || '';
-    const preview = document.getElementById('profile-avatar-preview');
-    if (preview) {
-        if (currentUser.profile_image_url) {
-            preview.innerHTML = '<img src="' + esc(currentUser.profile_image_url) + '" alt="preview">';
-        } else {
-            preview.textContent = (currentUser.nickname || '?').charAt(0).toUpperCase();
-        }
-    }
-    modal.classList.remove('hidden');
-}
-
-function closeProfileCustomizer() {
-    const modal = document.getElementById('modal-profile-custom');
-    if (modal) modal.classList.add('hidden');
-    pendingProfileImageFile = null;
-}
-
-function onProfileImageSelected(input) {
-    const file = input && input.files && input.files[0];
-    if (!file) return;
-    pendingProfileImageFile = file;
-    const reader = new FileReader();
-    reader.onload = function(ev) {
-        const preview = document.getElementById('profile-avatar-preview');
-        if (preview) preview.innerHTML = '<img src="' + ev.target.result + '" alt="preview">';
-    };
-    reader.readAsDataURL(file);
-}
-
-async function saveProfileCustomizer() {
-    const nickInput = document.getElementById('profile-nick-input');
-    const errEl = document.getElementById('profile-save-err');
-    const saveBtn = document.getElementById('profile-save-btn');
-    const nick = (nickInput ? nickInput.value : '').trim();
-    if (!nick) { if (errEl) errEl.textContent = '닉네임을 입력해주세요.'; return; }
-    if (errEl) errEl.textContent = '';
-    if (saveBtn) saveBtn.disabled = true;
-    try {
-        const fd = new FormData();
-        fd.append('nickname', nick);
-        if (pendingProfileImageFile) fd.append('profileImage', pendingProfileImageFile);
-        const r = await fetch('/api/auth/profile-custom', { method: 'POST', body: fd, credentials: 'include' });
-        const data = r.ok ? await r.json() : null;
-        if (!data || !data.ok) { if (errEl) errEl.textContent = data && data.error || '저장 중 오류가 발생했습니다.'; return; }
-        currentUser = data.user;
-        updateHUD(currentUser);
-        closeProfileCustomizer();
-    } catch (e) {
-        if (errEl) errEl.textContent = '저장 중 오류가 발생했습니다.';
-    } finally {
-        if (saveBtn) saveBtn.disabled = false;
-    }
-}
-
-// ── 버튼 바인딩 헬퍼 ─────────────────────────────────────────────
-function bindBtn(el, handler) {
-    if (!el) return;
-    el.removeAttribute('onclick');
-    el.onclick = null;
-    let _t = 0;
-    el.addEventListener('pointerup', function(e) {
-        if (e.pointerType !== 'touch') return;
-        var now = Date.now();
-        if (now - _t < 250) return;
-        _t = now;
-        e.preventDefault();
-        e.stopPropagation();
-        handler(e);
-    }, { passive: false });
-    el.addEventListener('click', function(e) {
-        var now = Date.now();
-        if (now - _t < 350) { e.preventDefault(); e.stopPropagation(); return; }
-        handler(e);
-    });
-}
-
-// ── DOMContentLoaded: 모든 정적 onclick을 명시적 리스너로 교체 ───
-document.addEventListener('DOMContentLoaded', function() {
-    // onclick 속성 문자열을 파싱 → window.* 함수 호출 핸들러 생성
-    // el.onclick이 null인 환경(WebView/CSP inline 차단)에서도 동작
-    function parseAttrHandler(el, attrName) {
-        var attr = (el.getAttribute(attrName) || '').trim();
-        if (!attr) return null;
-
-        // window.location.href = 'url'
-        var navM = attr.match(/^window\.location\.href\s*=\s*['"]([^'"]+)['"]\s*;?$/);
-        if (navM) { var url = navM[1]; return function() { window.location.href = url; }; }
-
-        // document.getElementById('id').method()
-        var domM = attr.match(/^document\.getElementById\(['"]([^'"]+)['"]\)\.(\w+)\(\)\s*;?$/);
-        if (domM) {
-            var elId = domM[1], method = domM[2];
-            return function() { var t = document.getElementById(elId); if (t) t[method](); };
-        }
-
-        // functionName(args...)
-        var callM = attr.match(/^([\w$]+)\((.*)\)\s*;?$/);
-        if (!callM) return null;
-        var fn = window[callM[1]];
-        if (typeof fn !== 'function') return null;
-        var rawArgs = callM[2].trim() ? callM[2].trim().split(',').map(function(s) { return s.trim(); }) : [];
-
-        return function(e) {
-            var args = rawArgs.map(function(a) {
-                if (a === 'this') return el;
-                if (a === 'event') return e;
-                var q = a.match(/^['"](.*)['"]$/);
-                if (q) return q[1];
-                if (a !== '' && !isNaN(+a)) return +a;
-                return undefined;
-            });
-            fn.apply(el, args);
-        };
-    }
-
-    // onclick 교체
-    document.querySelectorAll('[onclick]').forEach(function(el) {
-        var handler = parseAttrHandler(el, 'onclick');
-        if (!handler) return;
-        el.removeAttribute('onclick');
-        el.onclick = null;
-        var _t = 0;
-        el.addEventListener('pointerup', function(e) {
-            if (e.pointerType !== 'touch') return;
-            var now = Date.now();
-            if (now - _t < 250) return;
-            _t = now;
-            e.preventDefault();
-            e.stopPropagation();
-            handler(e);
-        }, { passive: false });
-        el.addEventListener('click', function(e) {
-            var now = Date.now();
-            if (now - _t < 350) { e.preventDefault(); e.stopPropagation(); return; }
-            handler(e);
-        });
-    });
-
-    // onchange 교체
-    document.querySelectorAll('[onchange]').forEach(function(el) {
-        var handler = parseAttrHandler(el, 'onchange');
-        if (!handler) return;
-        el.removeAttribute('onchange');
-        el.onchange = null;
-        el.addEventListener('change', handler);
-    });
-
-    // oninput 교체 (검색)
-    var searchInput = document.getElementById('global-search');
-    if (searchInput) {
-        searchInput.removeAttribute('oninput');
-        searchInput.addEventListener('input', function() { onSearch(searchInput.value); });
-    }
-
-    // onkeydown 교체 (채팅 입력)
-    var chatInput = document.getElementById('chat-input');
-    if (chatInput) {
-        chatInput.removeAttribute('onkeydown');
-        chatInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') sendMessage(); });
-    }
-
-    // 프로필 버튼 (onclick 속성 없음 → bindBtn으로 직접 연결)
-    bindBtn(document.getElementById('tutorial-profile'), function() { openProfileCustomizer(); });
-});
-
-// ── window 전역 노출 (inline handler fallback 및 scene.js 참조) ──
-window.togglePanel = togglePanel;
-window.doLogout = doLogout;
-window.closeModal = closeModal;
-window.saveCamSettings = saveCamSettings;
-window.onSearch = onSearch;
-window.toggleApplyPanel = toggleApplyPanel;
-window.openFriendPanel = openFriendPanel;
-window.closeFriendPanel = closeFriendPanel;
-window.switchAllyTab = switchAllyTab;
-window.openMessengerPanel = openMessengerPanel;
-window.closeMessengerPanel = closeMessengerPanel;
-window.messengerBack = messengerBack;
-window.sendMessage = sendMessage;
-window.handleFileSelect = handleFileSelect;
-window.cancelFileUpload = cancelFileUpload;
-window.returnToHome = returnToHome;
-window.toggleWeather = toggleWeather;
-window.switchRankTab = switchRankTab;
-window.switchShopTab = switchShopTab;
-window.doFriendAction = doFriendAction;
-window.openChatFromModal = openChatFromModal;
-window.doInvade = doInvade;
-window.closeInterior = closeInterior;
-window.openUserModal = openUserModal;
-window.openEstate = openEstate;
-window.focusUser = focusUser;
-window.openTeleportDialog = openTeleportDialog;
-window.doTeleport = doTeleport;
-window.saveStatusMsg = saveStatusMsg;
-window.openProfileCustomizer = openProfileCustomizer;
-window.closeProfileCustomizer = closeProfileCustomizer;
-window.onProfileImageSelected = onProfileImageSelected;
-window.saveProfileCustomizer = saveProfileCustomizer;
+// Keep inline handlers stable for all browsers/build modes.
 window.goToCommunity = goToCommunity;
 window.goToTimer = goToTimer;
-window.openAccountSecurityModal = openAccountSecurityModal;
-window.submitPasswordChange = submitPasswordChange;
-window.copyMyUserCode = copyMyUserCode;
 

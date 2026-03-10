@@ -227,7 +227,13 @@ function HotCard(post) {
         <div class="c-hot-card__cat ${cat.cls}">${cat.label}</div>
         <p class="c-hot-card__title">${escHtml(post.title)}</p>
         <div class="c-hot-card__footer">
-          <span class="c-hot-card__author">${renderNicknameWithBadge(post.display_nickname || post.nickname || '익명', post.is_verified_nickname)}(${escHtml(post.ip_prefix ?? '?')})</span>
+          <span class="c-hot-card__author">${renderNicknameWithBadge({
+            nickname: post.display_nickname || post.nickname || '익명',
+            isVerifiedNickname: post.is_verified_nickname,
+            userId: post.user_id,
+            profileImageUrl: post.profile_image_url,
+            className: 'js-open-user-profile'
+          })}(${escHtml(post.ip_prefix ?? '?')})</span>
           <span class="c-hot-card__stats">
             <span class="c-hot-card__stat">
               <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
@@ -242,6 +248,7 @@ function HotCard(post) {
           </span>
         </div>
       </div>`;
+    bindUserProfileTriggers(li);
     li.querySelector('.c-hot-card').addEventListener('click', () => openPostDetail(post.id));
     return li;
 }
@@ -318,7 +325,9 @@ async function loadNextPage() {
                 category:     post.category,
                 title:        post.title,
                 nickname:     post.display_nickname || post.nickname || '익명',
+                userId:       post.user_id,
                 isVerifiedNickname: Boolean(post.is_verified_nickname),
+                profileImageUrl: post.profile_image_url || '',
                 ipPrefix:     post.ip_prefix ?? '?.?',
                 likes:        post.likes,
                 comments:     post.comments_count,
@@ -344,6 +353,8 @@ async function loadNextPage() {
 
 /* ─── 게시글 클릭 → 조회수 증가 + 상세 열기 ──────────────── */
 function bindPostClicks() {
+  bindUserProfileTriggers(postList);
+
     postList.querySelectorAll('.post-row:not([data-bound])').forEach(row => {
         row.dataset.bound = '1';
         row.addEventListener('click', e => {
@@ -421,7 +432,13 @@ function renderDetailBody(container, { post, postId, comments }) {
     const cmtHtml = comments.map(c => `
       <li class="cmt-item" data-comment-id="${c.id}">
         <div class="cmt-meta">
-          <span class="cmt-nick">${renderNicknameWithBadge(c.display_nickname || c.nickname || '익명', c.is_verified_nickname)}</span>
+          <span class="cmt-nick">${renderNicknameWithBadge({
+            nickname: c.display_nickname || c.nickname || '익명',
+            isVerifiedNickname: c.is_verified_nickname,
+            userId: c.user_id,
+            profileImageUrl: c.profile_image_url,
+            className: 'js-open-user-profile'
+          })}</span>
           <span class="cmt-ip">(${escHtml(c.ip_prefix ?? '?.?')})</span>
           <span class="cmt-date">${fmtRelative(c.created_at)}</span>
           ${canModerate ? '<button class="cmt-admin-del" type="button">삭제</button>' : ''}
@@ -436,7 +453,13 @@ function renderDetailBody(container, { post, postId, comments }) {
       </div>
       <h3 class="detail-title">${escHtml(post.title)}</h3>
       <div class="detail-author-row">
-        <span class="cmt-nick">${renderNicknameWithBadge(post.display_nickname || post.nickname || '익명', post.is_verified_nickname)}</span>
+        <span class="cmt-nick">${renderNicknameWithBadge({
+          nickname: post.display_nickname || post.nickname || '익명',
+          isVerifiedNickname: post.is_verified_nickname,
+          userId: post.user_id,
+          profileImageUrl: post.profile_image_url,
+          className: 'js-open-user-profile'
+        })}</span>
         <span class="cmt-ip">(${escHtml(post.ip_prefix ?? '?.?')})</span>
         <span class="detail-stat">조회 ${post.views}</span>
         <span class="detail-stat" style="color:var(--accent-red)">추천 ${post.likes}</span>
@@ -471,6 +494,8 @@ function renderDetailBody(container, { post, postId, comments }) {
           </div>
         </div>
       </div>`;
+
+    bindUserProfileTriggers(container);
 
     // 추천
     container.querySelector('#detail-like-btn').addEventListener('click', async () => {
@@ -649,7 +674,13 @@ function renderDetailBody(container, { post, postId, comments }) {
             li.className = 'cmt-item';
             li.innerHTML = `
               <div class="cmt-meta">
-                <span class="cmt-nick">${renderNicknameWithBadge(comment.display_nickname || comment.nickname || '익명', comment.is_verified_nickname)}</span>
+                <span class="cmt-nick">${renderNicknameWithBadge({
+                  nickname: comment.display_nickname || comment.nickname || '익명',
+                  isVerifiedNickname: comment.is_verified_nickname,
+                  userId: comment.user_id,
+                  profileImageUrl: comment.profile_image_url,
+                  className: 'js-open-user-profile'
+                })}</span>
                 <span class="cmt-ip">(${escHtml(comment.ip_prefix ?? '?.?')})</span>
                 <span class="cmt-date">방금</span>
               </div>
@@ -658,6 +689,15 @@ function renderDetailBody(container, { post, postId, comments }) {
             const emptyEl = container.querySelector('.cmt-empty');
             if (emptyEl) emptyEl.remove();
             container.querySelector('#cmt-list').appendChild(li);
+            li.querySelectorAll('.js-open-user-profile').forEach((nameEl) => {
+              nameEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const userId = parseInt(nameEl.dataset.userId || '', 10);
+                if (!userId) return;
+                openUserProfile(userId);
+              });
+            });
 
             // 댓글 수 갱신
             const headEl = container.querySelector('.detail-cmt-head strong');
@@ -737,6 +777,19 @@ function renderDetailBody(container, { post, postId, comments }) {
           });
         });
       }
+}
+
+function bindUserProfileTriggers(root) {
+  root.querySelectorAll('.js-open-user-profile:not([data-user-bound])').forEach((nameEl) => {
+    nameEl.dataset.userBound = '1';
+    nameEl.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const userId = parseInt(nameEl.dataset.userId || '', 10);
+      if (!userId) return;
+      openUserProfile(userId);
+    });
+  });
 }
 
 /* ─── 이벤트 바인딩 ─────────────────────────────────────── */
@@ -1367,11 +1420,96 @@ function escHtml(s) {
         .replace(/"/g, '&quot;');
 }
 
-function renderNicknameWithBadge(nickname, isVerifiedNickname) {
+async function openUserProfile(userId) {
+  if (!Number.isInteger(userId) || userId <= 0) return;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="write-modal profile-modal" role="dialog" aria-modal="true" aria-label="유저 프로필" style="max-width:420px;">
+      <div class="write-modal-handle"></div>
+      <div class="write-modal-header">
+        <h2 class="write-modal-title">유저 프로필</h2>
+        <button class="write-modal-close" aria-label="닫기" id="profile-close-btn">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/>
+          </svg>
+        </button>
+      </div>
+      <div class="write-modal-body" id="profile-body" style="min-height:220px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="skel" style="width:54px;height:54px;border-radius:50%;"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+            <div class="skel" style="height:16px;width:70%;"></div>
+            <div class="skel" style="height:12px;width:45%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(backdrop);
+  requestAnimationFrame(() => backdrop.classList.add('visible'));
+
+  const close = () => {
+    backdrop.classList.remove('visible');
+    backdrop.addEventListener('transitionend', () => backdrop.remove(), { once: true });
+  };
+
+  backdrop.querySelector('#profile-close-btn')?.addEventListener('click', close);
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
+
+  try {
+    const r = await fetch(`/api/community/users/${userId}`, { credentials: 'include' });
+    if (!r.ok) {
+      const msg = await readApiError(r, '프로필을 불러올 수 없어요');
+      if (msg) showToast(msg);
+      close();
+      return;
+    }
+
+    const { user } = await r.json();
+    const profileBody = backdrop.querySelector('#profile-body');
+    const profileImage = safeHttpUrl(user.profile_image_url);
+    profileBody.innerHTML = `
+      <div class="user-profile-head">
+        ${profileImage ? `<img class="user-profile-avatar" src="${escHtml(profileImage)}" alt="${escHtml(user.display_nickname || user.nickname)} 프로필">` : '<div class="user-profile-avatar user-profile-avatar--empty">👤</div>'}
+        <div class="user-profile-main">
+          <p class="user-profile-nick">${escHtml(user.display_nickname || user.nickname || '익명')}</p>
+          <p class="user-profile-sub">${escHtml(user.university || '비공개')}</p>
+        </div>
+      </div>
+      <div class="user-profile-grid">
+        <div class="user-profile-cell"><span>티어</span><strong>${escHtml(user.tier || '-')}</strong></div>
+        <div class="user-profile-cell"><span>연속 출석</span><strong>${Number(user.streak_count || 0).toLocaleString('ko-KR')}일</strong></div>
+        <div class="user-profile-cell"><span>경험치</span><strong>${Number(user.exp || 0).toLocaleString('ko-KR')}</strong></div>
+        <div class="user-profile-cell"><span>골드</span><strong>${Number(user.gold || 0).toLocaleString('ko-KR')}G</strong></div>
+      </div>
+      ${user.status_message ? `<p class="user-profile-status">${escHtml(user.status_emoji || '')} ${escHtml(user.status_message)}</p>` : ''}
+    `;
+  } catch (_) {
+    showToast('프로필을 불러올 수 없어요');
+    close();
+  }
+}
+
+function renderNicknameWithBadge({ nickname, isVerifiedNickname, userId = 0, profileImageUrl = '', className = '' }) {
   const badge = isVerifiedNickname
     ? '<span class="user-verified-badge" aria-label="본인 닉네임 인증" title="본인 닉네임 인증">✓</span>'
     : '';
-  return `<span class="user-name-inline">${escHtml(nickname)}${badge}</span>`;
+  const safeClass = className ? ` ${escHtml(className)}` : '';
+  const safeUserId = Number.isInteger(Number(userId)) ? Number(userId) : 0;
+  const safeProfileImageUrl = safeHttpUrl(profileImageUrl);
+  const avatar = isVerifiedNickname && safeProfileImageUrl
+    ? `<img class="user-avatar-inline" src="${escHtml(safeProfileImageUrl)}" alt="" loading="lazy">`
+    : '';
+
+  if (isVerifiedNickname && safeUserId > 0) {
+    return `<button class="user-name-inline js-open-user-profile${safeClass}" type="button" data-user-id="${safeUserId}">${avatar}${escHtml(nickname)}${badge}</button>`;
+  }
+
+  return `<span class="user-name-inline">${avatar}${escHtml(nickname)}${badge}</span>`;
 }
 
 function safeHttpUrl(url) {
@@ -1482,6 +1620,35 @@ detailStyle.textContent = `
 .cmt-admin-del {
   margin-left:8px; font-size:11px; color:var(--accent-red); font-weight:700;
   border:1px solid rgba(255,69,58,0.3); border-radius:999px; padding:2px 8px;
+}
+.user-profile-head { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.user-profile-avatar {
+  width:54px; height:54px; border-radius:50%; object-fit:cover;
+  border:1px solid var(--border-mid); background:var(--surface-2);
+}
+.user-profile-avatar--empty {
+  display:flex; align-items:center; justify-content:center; font-size:24px; color:var(--text-3);
+}
+.user-profile-main { min-width:0; }
+.user-profile-nick { font-size:15px; font-weight:700; color:var(--text-1); }
+.user-profile-sub {
+  margin-top:4px; font-size:12px; color:var(--text-2);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.user-profile-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:8px;
+}
+.user-profile-cell {
+  display:flex; flex-direction:column; gap:3px;
+  padding:10px 11px; background:var(--surface-2); border:1px solid var(--border);
+  border-radius:10px;
+}
+.user-profile-cell span { font-size:11px; color:var(--text-3); }
+.user-profile-cell strong { font-size:13px; color:var(--text-1); }
+.user-profile-status {
+  margin-top:12px; padding:10px 11px; border-radius:10px;
+  background:color-mix(in srgb, var(--surface-2) 72%, transparent);
+  border:1px solid var(--border); font-size:12.5px; line-height:1.45; color:var(--text-2);
 }
 `;
 document.head.appendChild(detailStyle);

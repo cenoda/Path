@@ -519,11 +519,39 @@ body.light .theme-icon--moon { display: block; }
 }
 .post-row__author      { font-size: 11.5px; color: var(--text-3); flex-shrink: 0; }
 .post-row__author-nick { color: var(--text-2); font-weight: 500; }
+.post-row__author-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+}
 .user-name-inline,
 .post-row__author-nick {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+.user-name-inline.js-open-user-profile,
+.post-row__author-btn.js-open-user-profile {
+  cursor: pointer;
+  border-radius: 999px;
+  transition: color var(--transition), opacity var(--transition);
+}
+.user-name-inline.js-open-user-profile:hover,
+.post-row__author-btn.js-open-user-profile:hover {
+  color: var(--accent-blue);
+}
+.user-avatar-inline {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-mid);
+  flex-shrink: 0;
 }
 .user-verified-badge {
   display: inline-flex;

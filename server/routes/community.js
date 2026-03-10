@@ -103,6 +103,14 @@ function normalizeCommunityNickname(raw) {
     return trimmed;
 }
 
+function normalizeProfileImageUrl(raw) {
+    if (typeof raw !== 'string') return '';
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    if (/^\/uploads\/profiles\/[a-zA-Z0-9._-]+$/.test(trimmed)) return trimmed;
+    return '';
+}
+
 async function requireLatestEula(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
@@ -244,7 +252,9 @@ router.get('/posts', async (req, res) => {
             pool.query(`SELECT COUNT(*) FROM community_posts p ${whereWithAlias}`, params),
             pool.query(
                 `SELECT p.id, p.category, p.title, p.nickname, p.ip_prefix,
+                        p.user_id,
                         u.nickname AS user_nickname, u.active_title,
+                        u.profile_image_url,
                     (p.user_id IS NOT NULL AND u.nickname IS NOT NULL AND p.nickname = u.nickname) AS is_verified_nickname,
                         p.views, p.likes, p.comments_count, p.created_at,
                         p.image_url,
@@ -263,6 +273,7 @@ router.get('/posts', async (req, res) => {
                 : row.nickname;
             return {
                 ...row,
+                profile_image_url: normalizeProfileImageUrl(row.profile_image_url),
                 display_nickname: displayNickname
             };
         });
@@ -299,7 +310,9 @@ router.get('/posts/hot', async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT p.id, p.category, p.title, p.nickname, p.ip_prefix,
+                    p.user_id,
                     u.nickname AS user_nickname, u.active_title,
+                    u.profile_image_url,
                     (p.user_id IS NOT NULL AND u.nickname IS NOT NULL AND p.nickname = u.nickname) AS is_verified_nickname,
                     p.views, p.likes, p.comments_count, p.created_at,
                     p.image_url,
@@ -313,6 +326,7 @@ router.get('/posts/hot', async (req, res) => {
         );
         const posts = result.rows.map((row) => ({
             ...row,
+            profile_image_url: normalizeProfileImageUrl(row.profile_image_url),
             display_nickname: row.active_title
                 ? formatDisplayName(row.nickname, row.active_title)
                 : row.nickname
@@ -352,6 +366,7 @@ router.get('/posts/:id', async (req, res) => {
         const result = await pool.query(
             `SELECT p.id, p.user_id, p.category, p.title, p.body, p.image_url, p.link_url, p.nickname, p.ip_prefix,
                     u.nickname AS user_nickname, u.active_title,
+                    u.profile_image_url,
                     (p.user_id IS NOT NULL AND u.nickname IS NOT NULL AND p.nickname = u.nickname) AS is_verified_nickname,
                     p.views, p.likes, p.comments_count, p.created_at
              FROM community_posts p
@@ -365,6 +380,7 @@ router.get('/posts/:id', async (req, res) => {
         post.display_nickname = post.active_title
             ? formatDisplayName(post.nickname, post.active_title)
             : post.nickname;
+        post.profile_image_url = normalizeProfileImageUrl(post.profile_image_url);
         res.json({ post });
     } catch (err) {
         console.error('[community] GET /posts/:id', err.message);
@@ -643,6 +659,7 @@ router.get('/posts/:id/comments', async (req, res) => {
         const result = await pool.query(
             `SELECT c.id, c.user_id, c.nickname, c.ip_prefix, c.body, c.created_at,
                     u.nickname AS user_nickname, u.active_title,
+                    u.profile_image_url,
                     (c.user_id IS NOT NULL AND u.nickname IS NOT NULL AND c.nickname = u.nickname) AS is_verified_nickname
              FROM community_comments c
              LEFT JOIN users u ON u.id = c.user_id
@@ -653,6 +670,7 @@ router.get('/posts/:id/comments', async (req, res) => {
         );
         const comments = result.rows.map((row) => ({
             ...row,
+            profile_image_url: normalizeProfileImageUrl(row.profile_image_url),
             display_nickname: row.user_nickname
                 ? formatDisplayName(row.user_nickname, row.active_title)
                 : row.nickname
@@ -682,7 +700,7 @@ router.post('/posts/:id/comments', requireAuth, requireLatestEula, async (req, r
         await client.query('BEGIN');
 
         const userRes = await client.query(
-            'SELECT nickname, active_title FROM users WHERE id = $1',
+            'SELECT nickname, active_title, profile_image_url FROM users WHERE id = $1',
             [req.session.userId]
         );
         if (!userRes.rows.length) throw new Error('user not found');
@@ -692,7 +710,7 @@ router.post('/posts/:id/comments', requireAuth, requireLatestEula, async (req, r
         const result = await client.query(
             `INSERT INTO community_comments (post_id, user_id, body, ip_prefix, nickname)
              VALUES ($1, $2, $3, $4, $5)
-             RETURNING id, nickname, ip_prefix, body, created_at`,
+             RETURNING id, user_id, nickname, ip_prefix, body, created_at`,
             [postId, req.session.userId, body.trim(), ipPrefix, nickname]
         );
 
@@ -705,6 +723,7 @@ router.post('/posts/:id/comments', requireAuth, requireLatestEula, async (req, r
         res.status(201).json({ comment: {
             ...result.rows[0],
             display_nickname: formatDisplayName(nickname, activeTitle),
+            profile_image_url: normalizeProfileImageUrl(userRes.rows[0].profile_image_url),
             is_verified_nickname: true
         } });
     } catch (err) {
@@ -737,6 +756,49 @@ router.get('/blocks', requireAuth, async (req, res) => {
         return res.json({ blocks: result.rows });
     } catch (err) {
         console.error('[community] GET /blocks', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+router.get('/users/:userId', async (req, res) => {
+    const userId = parseInt(req.params.userId, 10);
+    if (!userId) return res.status(400).json({ error: '잘못된 요청입니다.' });
+
+    try {
+        const result = await pool.query(
+            `SELECT id, nickname, university, tier, exp, gold,
+                    profile_image_url, status_emoji, status_message,
+                    active_title, streak_count, streak_last_date,
+                    mock_exam_score, score_status
+             FROM users
+             WHERE id = $1`,
+            [userId]
+        );
+
+        if (!result.rows.length) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+        const row = result.rows[0];
+        const safeUser = {
+            id: row.id,
+            nickname: row.nickname,
+            display_nickname: formatDisplayName(row.nickname, row.active_title),
+            university: row.university || '비공개',
+            tier: row.tier || '브론즈',
+            exp: Number(row.exp || 0),
+            gold: Number(row.gold || 0),
+            profile_image_url: normalizeProfileImageUrl(row.profile_image_url),
+            status_emoji: row.status_emoji || '',
+            status_message: row.status_message || '',
+            active_title: row.active_title || null,
+            streak_count: Number(row.streak_count || 0),
+            streak_last_date: row.streak_last_date || null,
+            score_status: row.score_status || null,
+            mock_exam_score: row.score_status === 'approved' ? row.mock_exam_score : null,
+        };
+
+        return res.json({ user: safeUser });
+    } catch (err) {
+        console.error('[community] GET /users/:userId', err.message);
         return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     }
 });

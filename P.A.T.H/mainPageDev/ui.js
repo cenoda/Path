@@ -1,4 +1,6 @@
 const UI = {
+    defaultEngGradeRatio: [1.0, 0.97, 0.92, 0.84, 0.74, 0.6, 0.44, 0.26, 0.1],
+    defaultHistGradeRatio: [1.0, 1.0, 1.0, 0.98, 0.96, 0.94, 0.92, 0.9, 0.8],
     currentMode: 'timer',
     currentTab: 'study',
     currentUser: null,
@@ -505,16 +507,16 @@ const UI = {
             total += ((t1 + t2) / 200) * formula.탐구;
         }
 
-        if (Array.isArray(formula.영어) && formula.영어.length > 0) {
+        if (formula.영어 != null) {
             if (scores.영어 == null) return null;
             const g = Math.max(1, Math.min(9, Math.floor(scores.영어)));
-            total += formula.영어[g - 1] || 0;
+            total += this.resolveGradeScore(formula.영어, g, this.defaultEngGradeRatio);
         }
 
-        if (Array.isArray(formula.한국사) && formula.한국사.length > 0) {
+        if (formula.한국사 != null) {
             if (scores.한국사 == null) return null;
             const g = Math.max(1, Math.min(9, Math.floor(scores.한국사)));
-            total += formula.한국사[g - 1] || 0;
+            total += this.resolveGradeScore(formula.한국사, g, this.defaultHistGradeRatio);
         }
 
         if (formula.수학가산 && scores.수학선택 === '미적분/기하') {
@@ -525,6 +527,18 @@ const UI = {
         }
 
         return Math.round(total * 100) / 100;
+    },
+
+    resolveGradeScore(rule, grade, fallbackRatios) {
+        if (Array.isArray(rule) && rule.length > 0) {
+            return Number(rule[grade - 1] || 0);
+        }
+        if (Number.isFinite(Number(rule))) {
+            const max = Number(rule);
+            const ratio = fallbackRatios[grade - 1] ?? 0;
+            return Math.round(max * ratio * 100) / 100;
+        }
+        return 0;
     },
 
     buildScoreComparisonHtml(universityInfo, total) {

@@ -45,20 +45,6 @@ function chunkOf(worldX, worldY) {
     };
 }
 
-function nearbyChunkKeys(cx, cy) {
-    const keys = [];
-    for (let dx = -VIEW_CHUNKS; dx <= VIEW_CHUNKS; dx++) {
-        for (let dy = -VIEW_CHUNKS; dy <= VIEW_CHUNKS; dy++) {
-            keys.push(`${cx + dx},${cy + dy}`);
-        }
-    }
-    return keys;
-}
-
-function chunkRoomName(ck) {
-    return `chunk:${ck}`;
-}
-
 /** Returns the public player snapshot visible to other clients. */
 function playerPublic(p) {
     return {
@@ -75,17 +61,13 @@ function playerPublic(p) {
     };
 }
 
-/** Collect all players in the vicinity of socketId. */
+/** Collect all other connected players (chunk filtering disabled). */
 function getNearbyPlayers(socketId) {
-    const me = players.get(socketId);
-    if (!me) return [];
-    const nearby = new Set(nearbyChunkKeys(me.cx, me.cy));
+    if (!players.has(socketId)) return [];
     const result = [];
     players.forEach((p, sid) => {
         if (sid === socketId) return;
-        if (nearby.has(`${p.cx},${p.cy}`)) {
-            result.push(playerPublic(p));
-        }
+        result.push(playerPublic(p));
     });
     return result;
 }
@@ -130,14 +112,11 @@ function setup(io) {
                 worldX: clamped.worldX, worldY: clamped.worldY, cx, cy,
             });
 
-            // Join the 5×5 chunk rooms around the player's current position.
-            nearbyChunkKeys(cx, cy).forEach(k => socket.join(chunkRoomName(k)));
-
             // Send the snapshot of nearby players.
             socket.emit('players:nearby', getNearbyPlayers(socket.id));
 
-            // Announce arrival to players subscribed to this chunk room.
-            socket.to(chunkRoomName(`${cx},${cy}`)).emit('player:enter', playerPublic(players.get(socket.id)));
+            // Announce arrival globally (except sender).
+            socket.broadcast.emit('player:enter', playerPublic(players.get(socket.id)));
 
             // Send current interaction state to new player.
             const stateObj = {};
@@ -156,8 +135,6 @@ function setup(io) {
             worldX = Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, Number(worldX) || 0));
             worldY = Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, Number(worldY) || 0));
 
-            const oldCx = player.cx;
-            const oldCy = player.cy;
             const { cx, cy } = chunkOf(worldX, worldY);
 
             player.worldX = worldX;
@@ -165,21 +142,12 @@ function setup(io) {
             player.cx = cx;
             player.cy = cy;
 
-            if (cx !== oldCx || cy !== oldCy) {
-                // Update socket.io room membership.
-                const oldRooms = new Set(nearbyChunkKeys(oldCx, oldCy).map(chunkRoomName));
-                const newRooms = new Set(nearbyChunkKeys(cx, cy).map(chunkRoomName));
-                oldRooms.forEach(r => { if (!newRooms.has(r)) socket.leave(r); });
-                newRooms.forEach(r => { if (!oldRooms.has(r)) socket.join(r); });
-            }
-
             // Keep client-side nearby roster fresh while moving, even when the
-            // player stays in the same chunk. This avoids stale world positions
-            // and premature client-side culling artifacts.
+            // player stays connected.
             socket.emit('players:nearby', getNearbyPlayers(socket.id));
 
-            // Fan out position update to peers subscribed to this chunk room.
-            socket.to(chunkRoomName(`${cx},${cy}`)).emit('player:moved', {
+            // Fan out position update globally (except sender).
+            socket.broadcast.emit('player:moved', {
                 id: player.userId, worldX, worldY,
             });
         });
@@ -200,7 +168,7 @@ function setup(io) {
                 player.status_message = raw ? String(raw).slice(0, 60) : null;
             }
 
-            emitToNearbyRooms(socket, player.cx, player.cy, 'player:appearance', {
+            socket.broadcast.emit('player:appearance', {
                 id: player.userId,
                 balloon_skin: player.balloon_skin,
                 balloon_aura: player.balloon_aura || 'none',
@@ -219,17 +187,15 @@ function setup(io) {
             interactionState.set(propId, { activated, activatedBy: player.userId });
 
             const update = { propId, activated, activatedBy: player.userId };
-            // Broadcast to all players in and around the same chunk.
-            nearbyChunkKeys(player.cx, player.cy).forEach(k => {
-                io.to(chunkRoomName(k)).emit('interaction:update', update);
-            });
+            // Chunk filtering disabled: broadcast interaction updates globally.
+            io.emit('interaction:update', update);
         });
 
         // ── disconnect ───────────────────────────────────────────────────
         socket.on('disconnect', () => {
             const player = players.get(socket.id);
             if (player) {
-                socket.to(chunkRoomName(`${player.cx},${player.cy}`)).emit('player:left', { id: player.userId });
+                socket.broadcast.emit('player:left', { id: player.userId });
                 players.delete(socket.id);
             }
         });

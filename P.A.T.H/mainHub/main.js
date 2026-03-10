@@ -397,12 +397,39 @@ function secToHour(sec) {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+function firstNonEmpty(...values) {
+    for (const value of values) {
+        if (typeof value !== 'string') continue;
+        const v = value.trim();
+        if (v) return v;
+    }
+    return '';
+}
+
+function getDisplayName(user) {
+    return firstNonEmpty(
+        user?.nickname,
+        user?.display_nickname,
+        user?.real_name,
+        user?.name,
+        user?.username,
+        user?.user_code
+    );
+}
+
+function mergeCurrentUser(nextUser) {
+    currentUser = { ...(currentUser || {}), ...(nextUser || {}) };
+    return currentUser;
+}
+
 function updateHUD(user) {
-    document.getElementById('badge-char').textContent = (user.nickname || '?').charAt(0).toUpperCase();
-    document.getElementById('hud-univ').textContent = user.nickname || user.name || '-';
-    document.getElementById('hud-gold').textContent = (user.gold || 0).toLocaleString();
+    const mergedUser = { ...(currentUser || {}), ...(user || {}) };
+    const displayName = getDisplayName(mergedUser);
+    document.getElementById('badge-char').textContent = (displayName || '?').charAt(0).toUpperCase();
+    document.getElementById('hud-univ').textContent = displayName || '-';
+    document.getElementById('hud-gold').textContent = (mergedUser.gold || 0).toLocaleString();
     document.getElementById('hud-hours').textContent = secToHour(myTotalSec);
-    document.getElementById('hud-tickets').textContent = (user.tickets || 0) + '장';
+    document.getElementById('hud-tickets').textContent = (mergedUser.tickets || 0) + '장';
 }
 
 function updateMyBuilding(user) {
@@ -814,7 +841,7 @@ async function refreshCurrentUser() {
         const r = await fetch('/api/auth/me', { credentials: 'include' });
         if (r.ok) {
             const data = await r.json();
-            currentUser = data.user;
+            currentUser = mergeCurrentUser(data.user);
             updateHUD(currentUser);
         }
     } catch (e) {}
@@ -1007,7 +1034,7 @@ async function doInvade() {
             ? `🎉 모의지원 합격!\n\n내 점수: ${data.attacker_score}점${probLine}\n🏫 대학: ${data.defender_university}(으)로 변경!`
             : `📝 모의지원 불합격\n\n내 점수: ${data.attacker_score}점${probLine}\n\n더 열심히 공부해서 다시 도전하세요!`;
         alert(msg);
-        currentUser = data.user;
+        currentUser = mergeCurrentUser(data.user);
         updateHUD(data.user);
         updateMyBuilding(data.user);
         closeModal('modal-user');
@@ -1691,7 +1718,7 @@ async function buyApplicationFee(targetUniversity, unitPrice) {
         const data = await r.json();
         if (!r.ok) { alert(data.error || '구매 실패'); return; }
         alert(`[${targetUniversity}] 원서비 1장 구매 완료! (-${data.spent.toLocaleString()}G)`);
-        currentUser = data.user;
+        currentUser = mergeCurrentUser(data.user);
         updateHUD(data.user);
         renderShopContent('item');
     } catch (e) { alert('오류 발생'); }

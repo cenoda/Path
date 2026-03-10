@@ -56,11 +56,11 @@ class University {
         }
         if (formula.영어 && scores.영어 != null) {
             const g = Math.max(1, Math.min(9, Math.floor(scores.영어)));
-            total += formula.영어[g - 1] || 0;
+            total += this.resolveGradeScore(formula.영어, g, DEFAULT_ENG_GRADE_RATIO);
         }
         if (formula.한국사 && scores.한국사 != null) {
             const g = Math.max(1, Math.min(9, Math.floor(scores.한국사)));
-            total += formula.한국사[g - 1] || 0;
+            total += this.resolveGradeScore(formula.한국사, g, DEFAULT_HIST_GRADE_RATIO);
         }
         if (formula.수학가산 && scores.수학선택 === '미적분/기하') {
             total += formula.수학가산;
@@ -70,7 +70,22 @@ class University {
         }
         return Math.round(total * 100) / 100;
     }
+
+    resolveGradeScore(rule, grade, fallbackRatios) {
+        if (Array.isArray(rule)) {
+            return Number(rule[grade - 1] || 0);
+        }
+        if (Number.isFinite(Number(rule))) {
+            const max = Number(rule);
+            const ratio = fallbackRatios[grade - 1] ?? 0;
+            return Math.round(max * ratio * 100) / 100;
+        }
+        return 0;
+    }
 }
+
+const DEFAULT_ENG_GRADE_RATIO = [1.0, 0.97, 0.92, 0.84, 0.74, 0.6, 0.44, 0.26, 0.1];
+const DEFAULT_HIST_GRADE_RATIO = [1.0, 1.0, 1.0, 0.98, 0.96, 0.94, 0.92, 0.9, 0.8];
 
 const ENG_GRADE_SNU = [0, -0.5, -1, -1.5, -2, -2.5, -3, -3.5, -4];
 const HIST_GRADE_SNU = [10, 10, 10, 9.8, 9.6, 9.4, 9.2, 9, 8];

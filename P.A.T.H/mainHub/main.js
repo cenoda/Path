@@ -399,7 +399,7 @@ function secToHour(sec) {
 
 function updateHUD(user) {
     document.getElementById('badge-char').textContent = (user.nickname || '?').charAt(0).toUpperCase();
-    document.getElementById('hud-univ').textContent = user.university || '-';
+    document.getElementById('hud-univ').textContent = user.nickname || user.name || '-';
     document.getElementById('hud-gold').textContent = (user.gold || 0).toLocaleString();
     document.getElementById('hud-hours').textContent = secToHour(myTotalSec);
     document.getElementById('hud-tickets').textContent = (user.tickets || 0) + '장';

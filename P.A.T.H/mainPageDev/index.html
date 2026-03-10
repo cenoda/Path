@@ -365,7 +365,13 @@ function toggleTheme() {
                     <span class="room-invite-label">초대 코드</span>
                     <code id="room-view-code" class="room-invite-code"></code>
                 </div>
-                <button class="room-copy-btn" onclick="GroupRooms.copyInviteLink()">복사</button>
+                <div class="room-invite-btns">
+                    <button class="room-copy-btn room-copy-btn-secondary" onclick="GroupRooms.copyInviteLink()">복사</button>
+                    <button class="room-copy-btn" id="room-share-btn" onclick="GroupRooms.shareInviteLink()">
+                        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M9.5 1L12 3.5 9.5 6M2 7v2a2 2 0 002 2h5.5M5 4.5L2.5 7 5 9.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        공유
+                    </button>
+                </div>
             </div>
 
             <div class="room-panels">

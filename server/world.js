@@ -59,18 +59,6 @@ function chunkRoomName(ck) {
     return `chunk:${ck}`;
 }
 
-function emitToNearbyRooms(socket, cx, cy, eventName, payload) {
-    const keys = nearbyChunkKeys(cx, cy);
-    if (!keys.length) return;
-
-    // Build a union broadcast operator to avoid duplicate emits per socket.
-    let op = socket.to(chunkRoomName(keys[0]));
-    for (let i = 1; i < keys.length; i++) {
-        op = op.to(chunkRoomName(keys[i]));
-    }
-    op.emit(eventName, payload);
-}
-
 /** Returns the public player snapshot visible to other clients. */
 function playerPublic(p) {
     return {
@@ -148,8 +136,8 @@ function setup(io) {
             // Send the snapshot of nearby players.
             socket.emit('players:nearby', getNearbyPlayers(socket.id));
 
-            // Announce arrival to players in nearby chunks.
-            emitToNearbyRooms(socket, cx, cy, 'player:enter', playerPublic(players.get(socket.id)));
+            // Announce arrival to players subscribed to this chunk room.
+            socket.to(chunkRoomName(`${cx},${cy}`)).emit('player:enter', playerPublic(players.get(socket.id)));
 
             // Send current interaction state to new player.
             const stateObj = {};
@@ -190,8 +178,8 @@ function setup(io) {
             // and premature client-side culling artifacts.
             socket.emit('players:nearby', getNearbyPlayers(socket.id));
 
-            // Fan out position update to peers in nearby chunks.
-            emitToNearbyRooms(socket, cx, cy, 'player:moved', {
+            // Fan out position update to peers subscribed to this chunk room.
+            socket.to(chunkRoomName(`${cx},${cy}`)).emit('player:moved', {
                 id: player.userId, worldX, worldY,
             });
         });
@@ -241,7 +229,7 @@ function setup(io) {
         socket.on('disconnect', () => {
             const player = players.get(socket.id);
             if (player) {
-                emitToNearbyRooms(socket, player.cx, player.cy, 'player:left', { id: player.userId });
+                socket.to(chunkRoomName(`${player.cx},${player.cy}`)).emit('player:left', { id: player.userId });
                 players.delete(socket.id);
             }
         });

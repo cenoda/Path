@@ -2486,3 +2486,20 @@ body.active .tab-panel {
         padding: 9px 14px;
     }
 }
+
+/* Invite button group */
+.room-invite-btns {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.room-copy-btn-secondary {
+    background: transparent;
+    color: var(--accent-blue);
+    border: 1.5px solid var(--accent-blue);
+}
+
+.room-copy-btn-secondary:hover {
+    background: var(--accent-blue-light);
+}

@@ -305,20 +305,40 @@
             }
         },
 
-        // ── Copy invite link ──────────────────────────────────────────────────
-        copyInviteLink() {
+        // ── Share / Copy invite link ──────────────────────────────────────────
+        async shareInviteLink() {
             const codeEl = document.getElementById('room-view-code');
             if (!codeEl) return;
             const code = codeEl.textContent.trim();
             const url = `${location.origin}/room/${code}`;
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(url).then(() => {
-                    showToast('초대 링크가 클립보드에 복사됐습니다! 🔗');
-                });
-            } else {
+            const roomName = document.getElementById('room-view-name')?.textContent?.trim() || '그룹 타이머';
+
+            // Use Web Share API when available (mobile browsers, KakaoTalk in-app browser, etc.)
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: `P.A.T.H — ${roomName}`,
+                        text: '함께 공부해요! P.A.T.H 그룹 타이머에 합류하세요.',
+                        url,
+                    });
+                    return;
+                } catch (e) {
+                    // User cancelled or share failed — fall through to clipboard
+                    if (e.name === 'AbortError') return;
+                }
+            }
+
+            // Fallback: clipboard copy
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast('초대 링크가 복사됐어요');
+            } catch {
                 prompt('초대 링크를 복사하세요:', url);
             }
         },
+
+        // Keep old name as alias so existing onclick still works
+        copyInviteLink() { return this.shareInviteLink(); },
 
         // ── Create room ───────────────────────────────────────────────────────
         showCreateModal() {

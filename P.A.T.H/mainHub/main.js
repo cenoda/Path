@@ -379,13 +379,7 @@ async function initHub() {
             if (window.WorldScene) window.WorldScene.setFriendIds(friends.map(f => f.id));
         }).catch(() => {});
 
-        const onboardingShown = startOnboardingTutorialIfNeeded();
-
-        // [Agent Notice] Show once
-        if (!onboardingShown && !localStorage.getItem('agent_notice_v1')) {
-            setTimeout(() => togglePanel('panel-agent-notice'), 800);
-            localStorage.setItem('agent_notice_v1', 'true');
-        }
+        startOnboardingTutorialIfNeeded();
     } catch (e) {
         console.error('initHub 오류:', e);
     }

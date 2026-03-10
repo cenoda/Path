@@ -417,6 +417,39 @@ async function initSchema() {
             CREATE INDEX IF NOT EXISTS idx_study_room_messages_room ON study_room_messages(room_id, created_at);
         `);
 
+        // ── 방 꾸미기 ──────────────────────────────────────────────────────
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS room_owned_items (
+                id              SERIAL PRIMARY KEY,
+                room_id         INTEGER NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,
+                item_key        VARCHAR(50) NOT NULL,
+                category        VARCHAR(20) NOT NULL,
+                purchased_by    INTEGER NOT NULL REFERENCES users(id),
+                purchased_at    TIMESTAMP DEFAULT NOW(),
+                UNIQUE(room_id, item_key)
+            );
+            CREATE INDEX IF NOT EXISTS idx_room_owned_items_room ON room_owned_items(room_id);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS room_decor_state (
+                room_id         INTEGER PRIMARY KEY REFERENCES study_rooms(id) ON DELETE CASCADE,
+                wallpaper_key   VARCHAR(50) DEFAULT 'default',
+                prop_keys       JSONB DEFAULT '[]'::jsonb,
+                updated_at      TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS room_gold_contributed (
+                room_id     INTEGER NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,
+                user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                total_gold  INTEGER DEFAULT 0 NOT NULL,
+                PRIMARY KEY(room_id, user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_room_gold_contributed_room ON room_gold_contributed(room_id);
+        `);
+
         console.log('DB 스키마 초기화 완료');
     } catch (err) {
         console.error('DB 스키마 초기화 오류:', err.message);

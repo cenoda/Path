@@ -391,7 +391,10 @@ function toggleTheme() {
 
             <!-- Room Visual -->
             <div id="room-visual" class="room-visual wallpaper-default">
+                <div class="room-visual-ambience"></div>
+                <div class="room-visual-floor"></div>
                 <div id="room-props-display" class="room-props-display"></div>
+                <div id="room-decor-score-chip" class="room-decor-score-chip">REALISM 0</div>
                 <button class="room-decor-open-btn" onclick="GroupRooms.showDecorModal()">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13 3a1 1 0 00-1.4 0L5 9.6 3 11l1.4 1.4 1.4-2L12.4 4.4A1 1 0 0013 3zM2 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     방 꾸미기
@@ -404,6 +407,7 @@ function toggleTheme() {
                     <code id="room-view-code" class="room-invite-code"></code>
                 </div>
                 <div class="room-invite-btns">
+                    <button class="room-copy-btn room-copy-btn-secondary" onclick="GroupRooms.shareDecorShowcase()">룸 자랑</button>
                     <button class="room-copy-btn room-copy-btn-secondary" onclick="GroupRooms.copyInviteLink()">복사</button>
                     <button class="room-copy-btn" onclick="GroupRooms.shareInviteLink()">
                         <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M9.5 1L12 3.5 9.5 6M2 7v2a2 2 0 002 2h5.5M5 4.5L2.5 7 5 9.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -582,6 +586,7 @@ function toggleTheme() {
                     <button class="room-decor-tab active" data-tab="wallpaper" onclick="GroupRooms.switchDecorTab('wallpaper')">벽지</button>
                     <button class="room-decor-tab" data-tab="props" onclick="GroupRooms.switchDecorTab('props')">소품</button>
                     <button class="room-decor-tab" data-tab="contrib" onclick="GroupRooms.switchDecorTab('contrib')">기여도</button>
+                    <button class="room-decor-tab" data-tab="showcase" onclick="GroupRooms.switchDecorTab('showcase')">자랑</button>
                 </div>
 
                 <!-- Wallpaper tab -->
@@ -599,6 +604,24 @@ function toggleTheme() {
                 <div id="room-decor-contrib" class="room-decor-panel hidden">
                     <div id="room-contrib-list" class="room-contrib-list">
                         <div class="room-weekly-loading">불러오는 중…</div>
+                    </div>
+                </div>
+
+                <!-- Showcase tab -->
+                <div id="room-decor-showcase" class="room-decor-panel hidden">
+                    <div class="room-showcase-card">
+                        <div class="room-showcase-kicker">ROOM STYLE REPORT</div>
+                        <div id="room-showcase-grade" class="room-showcase-grade">준비 중</div>
+                        <div class="room-showcase-score-row">
+                            <span>리얼리즘 점수</span>
+                            <strong id="room-showcase-score">0</strong>
+                        </div>
+                        <div id="room-showcase-mood" class="room-showcase-mood">분위기를 계산 중입니다.</div>
+                        <div id="room-showcase-caption" class="room-showcase-caption">아직 꾸미기 정보가 없어요.</div>
+                        <div class="room-showcase-actions">
+                            <button class="room-copy-btn room-copy-btn-secondary" onclick="GroupRooms.copyDecorShowcaseText()">문구 복사</button>
+                            <button class="room-copy-btn" onclick="GroupRooms.shareDecorShowcase()">자랑 공유</button>
+                        </div>
                     </div>
                 </div>
             </div>

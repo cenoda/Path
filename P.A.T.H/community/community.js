@@ -938,6 +938,12 @@ function clearWriteDraft() {
   }
 }
 
+function getDefaultCommunityNickname() {
+  const raw = typeof currentUser?.nickname === 'string' ? currentUser.nickname.trim() : '';
+  if (raw && raw.length >= 2 && raw.length <= 20) return raw;
+  return '익명';
+}
+
 /* ─── 글쓰기 모달 ─────────────────────────────────────────── */
 function showWriteModal() {
     const backdrop = document.createElement('div');
@@ -1291,7 +1297,7 @@ function showWriteModal() {
     });
 
     if (draft) {
-      nickInput.value = draft.anonymousNickname || '';
+      nickInput.value = draft.anonymousNickname || getDefaultCommunityNickname();
       titleInput.value = draft.title || '';
       textarea.value = draft.body || '';
       linkInput.value = draft.linkUrl || '';
@@ -1300,6 +1306,10 @@ function showWriteModal() {
       if (draft.title || draft.body || draft.anonymousNickname) {
         showToast('임시저장 글을 불러왔어요');
       }
+    }
+
+    if (!draft) {
+      nickInput.value = getDefaultCommunityNickname();
     }
 
     syncTextMeta();

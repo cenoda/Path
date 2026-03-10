@@ -477,6 +477,27 @@
                 .finally(function () { if (saveBtn) saveBtn.disabled = false; });
         };
     })();
+
+    // 프로필 버튼 직접 바인딩 (nav.js div onclick 미탐지 대비)
+    document.addEventListener('DOMContentLoaded', function () {
+        var btn = document.getElementById('tutorial-profile');
+        if (!btn) return;
+        var _t = 0;
+        btn.addEventListener('pointerup', function (e) {
+            if (e.pointerType !== 'touch') return;
+            var now = Date.now();
+            if (now - _t < 250) return;
+            _t = now;
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.openProfileCustomizer === 'function') window.openProfileCustomizer();
+        }, { passive: false });
+        btn.addEventListener('click', function (e) {
+            var now = Date.now();
+            if (now - _t < 350) { e.preventDefault(); e.stopPropagation(); return; }
+            if (typeof window.openProfileCustomizer === 'function') window.openProfileCustomizer();
+        });
+    });
     </script>
 </body>
 </html>

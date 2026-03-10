@@ -4,13 +4,13 @@
  *
  * GET  /api/community/posts          - 목록 조회
  * GET  /api/community/posts/hot      - 베스트 (추천 Top 8)
- * POST /api/community/uploads/image  - 이미지 업로드 (auth)
- * POST /api/community/posts          - 글 작성 (auth)
+ * POST /api/community/uploads/image  - 이미지 업로드
+ * POST /api/community/posts          - 글 작성
  * POST /api/community/posts/:id/view - 조회수 +1
  * POST /api/community/posts/:id/like - 추천 토글 (auth)
  * POST /api/community/posts/:id/gold-like - 골드 추천 +1 (auth)
  * GET  /api/community/posts/:id/comments  - 댓글 목록
- * POST /api/community/posts/:id/comments  - 댓글 작성 (auth)
+ * POST /api/community/posts/:id/comments  - 댓글 작성
  */
 
 const router = require('express').Router();
@@ -402,7 +402,7 @@ router.get('/posts/:id', async (req, res) => {
 /* ════════════════════════════════════════════════════════════ */
 /* POST /uploads/image — 커뮤니티 이미지 업로드                */
 /* ════════════════════════════════════════════════════════════ */
-router.post('/uploads/image', requireAuth, requireLatestEula, (req, res) => {
+router.post('/uploads/image', requireLatestEulaIfAuthenticated, (req, res) => {
     imageUpload.single('image')(req, res, (err) => {
         if (err) {
             const msg = err.message || '이미지 업로드에 실패했습니다.';
@@ -422,7 +422,7 @@ router.post('/uploads/image', requireAuth, requireLatestEula, (req, res) => {
 });
 
 /* ════════════════════════════════════════════════════════════ */
-/* POST /posts — 글 작성 (로그인 필수)                           */
+/* POST /posts — 글 작성                                         */
 /* ════════════════════════════════════════════════════════════ */
 router.post('/posts', requireLatestEulaIfAuthenticated, async (req, res) => {
     const { category, title, body = '', anonymous_nickname, image_url, link_url } = req.body;
@@ -451,8 +451,8 @@ router.post('/posts', requireLatestEulaIfAuthenticated, async (req, res) => {
         return res.status(400).json({ error: '링크 주소는 http/https 형식으로 입력해 주세요.' });
     }
 
-    const nickname = normalizeCommunityNickname(anonymous_nickname);
-    if (nickname === null) {
+    const requestedNickname = normalizeCommunityNickname(anonymous_nickname);
+    if (requestedNickname === null) {
         return res.status(400).json({ error: '익명 닉네임은 2~20자로 입력해 주세요.' });
     }
 
@@ -460,9 +460,15 @@ router.post('/posts', requireLatestEulaIfAuthenticated, async (req, res) => {
 
     try {
         let userId = null;
+        let nickname = requestedNickname;
         if (req.session.userId) {
-            const userRes = await pool.query('SELECT id FROM users WHERE id = $1', [req.session.userId]);
-            if (userRes.rows.length) userId = req.session.userId;
+            const userRes = await pool.query('SELECT id, nickname FROM users WHERE id = $1', [req.session.userId]);
+            if (userRes.rows.length) {
+                userId = userRes.rows[0].id;
+                const userNickname = normalizeCommunityNickname(userRes.rows[0].nickname) || '익명';
+                const hasCustomNicknameInput = typeof anonymous_nickname === 'string' && anonymous_nickname.trim().length > 0;
+                nickname = hasCustomNicknameInput ? requestedNickname : userNickname;
+            }
         }
 
         const result = await pool.query(

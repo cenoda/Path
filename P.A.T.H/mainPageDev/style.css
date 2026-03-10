@@ -3079,6 +3079,44 @@ body.active .tab-panel {
     border: 1px solid rgba(0,0,0,0.06);
 }
 
+.room-visual::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 45%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.room-visual-ambience {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 18% 22%, rgba(255,255,255,0.26) 0, rgba(255,255,255,0) 28%),
+        radial-gradient(circle at 82% 26%, rgba(255,255,255,0.16) 0, rgba(255,255,255,0) 24%);
+}
+
+.room-visual-floor {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 28%;
+    z-index: 2;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            rgba(70, 52, 34, 0.12) 0,
+            rgba(70, 52, 34, 0.12) 10px,
+            rgba(255, 255, 255, 0.04) 10px,
+            rgba(255, 255, 255, 0.04) 20px
+        ),
+        linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.18) 100%);
+    border-top: 1px solid rgba(0,0,0,0.10);
+}
+
 /* ── 벽지 배경 ──────────────────────────────────────────────── */
 .wallpaper-default { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
 .wallpaper-blossom { background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 60%, #fce4ec 100%); }
@@ -3111,22 +3149,37 @@ body.active .tab-panel {
 .room-props-display {
     position: absolute;
     inset: 0;
-    display: flex;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 8px 12px;
+    z-index: 3;
     pointer-events: none;
 }
 
 .room-prop-badge {
+    position: absolute;
     font-size: 26px;
     line-height: 1;
     filter: drop-shadow(0 1px 3px rgba(0,0,0,0.15));
     animation: propFloat 3s ease-in-out infinite;
+    transform: translate(-50%, -50%);
 }
 .room-prop-badge:nth-child(2n) { animation-delay: -1s; }
 .room-prop-badge:nth-child(3n) { animation-delay: -2s; }
+
+.room-decor-score-chip {
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    z-index: 4;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    background: rgba(0, 0, 0, 0.44);
+    color: #f9fbff;
+    border: 1px solid rgba(255,255,255,0.22);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
 
 @keyframes propFloat {
     0%, 100% { transform: translateY(0); }
@@ -3154,6 +3207,7 @@ body.active .tab-panel {
     cursor: pointer;
     transition: background 0.15s, transform 0.1s;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    z-index: 5;
 }
 .room-decor-open-btn:hover { background: rgba(255,255,255,0.95); }
 .room-decor-open-btn:active { transform: scale(0.95); }
@@ -3444,6 +3498,69 @@ body.active .tab-panel {
 .room-contrib-pct {
     font-size: 11px;
     color: var(--text-muted);
+}
+
+.room-showcase-card {
+    background: var(--surface-soft);
+    border: 1px solid rgba(49, 130, 246, 0.18);
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.room-showcase-kicker {
+    font-size: 10px;
+    letter-spacing: 1px;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.room-showcase-grade {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--text-primary);
+    letter-spacing: -0.4px;
+}
+
+.room-showcase-score-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.room-showcase-score-row strong {
+    font-size: 24px;
+    color: var(--accent-blue);
+    letter-spacing: -0.7px;
+}
+
+.room-showcase-mood {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.room-showcase-caption {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    background: var(--surface-strong);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.room-showcase-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.room-showcase-actions .room-copy-btn {
+    flex: 1;
+    justify-content: center;
 }
 
 /* ── Room List Tabs ──────────────────────────────────────────────────────── */

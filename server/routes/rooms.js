@@ -66,6 +66,22 @@ const chatLimiter = rateLimit({
     message: { error: '채팅 메시지를 너무 빠르게 보내고 있습니다. 잠시 기다려주세요.' }
 });
 
+let roomChatSchemaReady = false;
+async function ensureRoomChatSchema() {
+    if (roomChatSchemaReady) return;
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS study_room_messages (
+            id          SERIAL PRIMARY KEY,
+            room_id     INTEGER NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,
+            user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            content     VARCHAR(500) NOT NULL,
+            created_at  TIMESTAMP DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_study_room_messages_room ON study_room_messages(room_id, created_at);
+    `);
+    roomChatSchemaReady = true;
+}
+
 // GET /api/rooms/my — list rooms I have joined
 router.get('/my', roomsReadLimiter, requireAuth, async (req, res) => {
     try {
@@ -455,6 +471,8 @@ router.get('/:id/messages', roomsReadLimiter, requireAuth, async (req, res) => {
     if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
 
     try {
+        await ensureRoomChatSchema();
+
         const memberCheck = await pool.query(
             `SELECT 1 FROM study_room_members WHERE room_id = $1 AND user_id = $2`,
             [roomId, req.session.userId]
@@ -486,6 +504,8 @@ router.post('/:id/messages', chatLimiter, requireAuth, async (req, res) => {
     if (!content) return res.status(400).json({ error: '내용을 입력해주세요.' });
 
     try {
+        await ensureRoomChatSchema();
+
         const memberCheck = await pool.query(
             `SELECT 1 FROM study_room_members WHERE room_id = $1 AND user_id = $2`,
             [roomId, req.session.userId]

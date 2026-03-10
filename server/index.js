@@ -613,24 +613,60 @@ app.get('/robots.txt', (req, res) => {
         ].join('\n'));
 });
 
-app.get('/sitemap.xml', async (req, res) => {
+app.get('/sitemap.xml', (req, res) => {
     const baseUrl = getSiteBaseUrl(req);
-        const now = new Date().toISOString();
+    const now = new Date().toISOString();
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <sitemap>
+        <loc>${escapeXml(`${baseUrl}/sitemap-pages.xml`)}</loc>
+        <lastmod>${escapeXml(now)}</lastmod>
+    </sitemap>
+    <sitemap>
+        <loc>${escapeXml(`${baseUrl}/sitemap-community-posts.xml`)}</loc>
+        <lastmod>${escapeXml(now)}</lastmod>
+    </sitemap>
+</sitemapindex>`;
 
-        let postRows = [];
-        try {
-            const posts = await pool.query(
-                `SELECT id, created_at
-                 FROM community_posts
-                 ORDER BY created_at DESC
-                 LIMIT 500`
-            );
-            postRows = posts.rows;
-        } catch (err) {
-            console.error('[seo] sitemap community posts', err.message);
-        }
+    res.setHeader('Cache-Control', 'public, max-age=900');
+    res.type('application/xml').send(xml);
+});
 
-        const postUrls = postRows.map((row) => `
+app.get('/sitemap-pages.xml', (req, res) => {
+    const baseUrl = getSiteBaseUrl(req);
+    const now = new Date().toISOString();
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>${escapeXml(`${baseUrl}/community/`)}</loc>
+        <lastmod>${escapeXml(now)}</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>${escapeXml(`${baseUrl}/login/`)}</loc>
+        <lastmod>${escapeXml(now)}</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.7</priority>
+    </url>
+</urlset>`;
+
+    res.setHeader('Cache-Control', 'public, max-age=900');
+    res.type('application/xml').send(xml);
+});
+
+app.get('/sitemap-community-posts.xml', async (req, res) => {
+    const baseUrl = getSiteBaseUrl(req);
+
+    try {
+        const posts = await pool.query(
+            `SELECT id, created_at
+             FROM community_posts
+             ORDER BY created_at DESC`
+        );
+
+        const postUrls = posts.rows.map((row) => `
     <url>
         <loc>${escapeXml(`${baseUrl}/community/post/${row.id}`)}</loc>
         <lastmod>${escapeXml(new Date(row.created_at).toISOString())}</lastmod>
@@ -640,22 +676,15 @@ app.get('/sitemap.xml', async (req, res) => {
 
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    <url>
-        <loc>${baseUrl}/community/</loc>
-        <lastmod>${now}</lastmod>
-        <changefreq>daily</changefreq>
-        <priority>0.9</priority>
-    </url>
-    <url>
-        <loc>${baseUrl}/login/</loc>
-        <lastmod>${now}</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.7</priority>
-    </url>
     ${postUrls}
 </urlset>`;
 
-        res.type('application/xml').send(xml);
+        res.setHeader('Cache-Control', 'public, max-age=900');
+        return res.type('application/xml').send(xml);
+    } catch (err) {
+        console.error('[seo] sitemap community posts', err.message);
+        return res.status(500).type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>');
+    }
 });
 
 // Legacy URL compatibility: redirect old internal paths to clean public paths
@@ -698,6 +727,21 @@ initSchema()
             },
             transports: ['websocket', 'polling'],
         });
+
+        io.on('connection', (socket) => {
+            socket.on('room:join', (data) => {
+                const roomId = parseInt(data?.roomId, 10);
+                if (!roomId) return;
+                socket.join(`room:${roomId}`);
+            });
+
+            socket.on('room:leave', (data) => {
+                const roomId = parseInt(data?.roomId, 10);
+                if (!roomId) return;
+                socket.leave(`room:${roomId}`);
+            });
+        });
+
         app.set('io', io);
         worldManager.setup(io);
 

@@ -53,6 +53,32 @@
         ],
     };
 
+    const PROP_LAYOUTS = {
+        plant:  { x: 16, y: 74 },
+        coffee: { x: 36, y: 76 },
+        clock:  { x: 80, y: 26 },
+        lamp:   { x: 70, y: 63 },
+        trophy: { x: 86, y: 71 },
+        pizza:  { x: 52, y: 79 },
+        cat:    { x: 27, y: 80 },
+        books:  { x: 61, y: 73 },
+        ac:     { x: 84, y: 18 },
+        star:   { x: 15, y: 22 },
+        music:  { x: 43, y: 72 },
+        cookie: { x: 58, y: 81 },
+    };
+
+    const WALLPAPER_REALISM_BONUS = {
+        default: 2,
+        blossom: 8,
+        night: 12,
+        dawn: 10,
+        coral: 9,
+        forest: 11,
+        library: 13,
+        space: 14,
+    };
+
     const GroupRooms = {
         myRooms: [],
         activeRoomId: null,
@@ -777,8 +803,12 @@
             const propsEl = document.getElementById('room-props-display');
             if (propsEl) {
                 const activeProps = (this._decor.props || []).map(k => ROOM_SHOP.props.find(p => p.key === k)).filter(Boolean);
-                propsEl.innerHTML = activeProps.map(p => `<span class="room-prop-badge" title="${esc(p.name)}">${p.emoji}</span>`).join('');
+                propsEl.innerHTML = activeProps.map((p, i) => {
+                    const pos = PROP_LAYOUTS[p.key] || { x: 14 + (i * 9), y: 78 - ((i % 3) * 8) };
+                    return `<span class="room-prop-badge" title="${esc(p.name)}" style="left:${pos.x}%;top:${pos.y}%;animation-delay:${(i % 5) * -0.55}s">${p.emoji}</span>`;
+                }).join('');
             }
+            this._renderDecorShowcase();
         },
 
         switchDecorTab(tab) {
@@ -792,6 +822,7 @@
             if (tab === 'wallpaper') this._renderWallpaperTab();
             else if (tab === 'props') this._renderPropsTab();
             else if (tab === 'contrib') this._renderContribTab().catch(() => {});
+            else if (tab === 'showcase') this._renderDecorShowcase();
         },
 
         _ownedKeys() {
@@ -942,6 +973,120 @@
             } catch (e) {
                 list.innerHTML = '<div class="donut-empty-msg">기여도를 불러올 수 없어요</div>';
             }
+        },
+
+        _getWallpaperName(key) {
+            const found = ROOM_SHOP.wallpapers.find(w => w.key === key);
+            return found ? found.name : '기본';
+        },
+
+        _getDecorSummary() {
+            const wallpaper = this._decor.wallpaper || 'default';
+            const propKeys = this._decor.props || [];
+            const propCount = propKeys.length;
+            const uniqueCount = new Set(propKeys).size;
+
+            const rareSet = new Set(['trophy', 'music', 'cat', 'ac', 'clock']);
+            const comfortSet = new Set(['plant', 'coffee', 'lamp', 'books', 'cookie']);
+            const rareCount = propKeys.filter(k => rareSet.has(k)).length;
+            const comfortCount = propKeys.filter(k => comfortSet.has(k)).length;
+
+            const base = 48;
+            const wallpaperBonus = WALLPAPER_REALISM_BONUS[wallpaper] || 4;
+            const densityBonus = Math.min(30, propCount * 5);
+            const varietyBonus = Math.min(8, uniqueCount * 2);
+            const balanceBonus = comfortCount >= 2 && rareCount >= 1 ? 6 : (comfortCount >= 1 ? 3 : 0);
+            const penalty = propCount === 0 ? 18 : (propCount > 8 ? 6 : 0);
+
+            const score = Math.max(20, Math.min(99, base + wallpaperBonus + densityBonus + varietyBonus + balanceBonus - penalty));
+
+            let grade = '꾸미기 시작';
+            if (score >= 90) grade = '전설의 쇼룸';
+            else if (score >= 80) grade = '자랑 가능한 시그니처 룸';
+            else if (score >= 70) grade = '완성도 높은 스터디룸';
+            else if (score >= 60) grade = '분위기 좋은 베이직 룸';
+
+            const moodMap = {
+                default: '미니멀하고 집중하기 좋은 기본 무드',
+                blossom: '포근하고 다정한 봄빛 무드',
+                night: '차분하게 몰입되는 야간 무드',
+                dawn: '긴장감 있는 새벽 러시 무드',
+                coral: '따뜻하고 활기찬 에너지 무드',
+                forest: '호흡이 편안해지는 자연 무드',
+                library: '실전 몰입형 하이엔드 서재 무드',
+                space: '스케일이 큰 SF 커맨드 무드',
+            };
+
+            return {
+                score,
+                grade,
+                wallpaper,
+                wallpaperName: this._getWallpaperName(wallpaper),
+                propCount,
+                mood: moodMap[wallpaper] || '집중형 커스텀 무드',
+            };
+        },
+
+        _renderDecorShowcase() {
+            const summary = this._getDecorSummary();
+            const roomName = document.getElementById('room-view-name')?.textContent?.trim() || '우리 방';
+
+            const chip = document.getElementById('room-decor-score-chip');
+            if (chip) {
+                chip.textContent = `REALISM ${summary.score}`;
+            }
+
+            const gradeEl = document.getElementById('room-showcase-grade');
+            const scoreEl = document.getElementById('room-showcase-score');
+            const moodEl = document.getElementById('room-showcase-mood');
+            const captionEl = document.getElementById('room-showcase-caption');
+
+            const caption = `${roomName} | ${summary.wallpaperName} 테마 + 소품 ${summary.propCount}개. 리얼리즘 ${summary.score}점으로 완성!`;
+            if (gradeEl) gradeEl.textContent = summary.grade;
+            if (scoreEl) scoreEl.textContent = String(summary.score);
+            if (moodEl) moodEl.textContent = summary.mood;
+            if (captionEl) captionEl.textContent = caption;
+
+            return { ...summary, caption, roomName };
+        },
+
+        _generateDecorShareText() {
+            const data = this._renderDecorShowcase();
+            const code = document.getElementById('room-view-code')?.textContent?.trim() || '';
+            const roomUrl = code ? `${location.origin}/room/${code}` : `${location.origin}/timer/`;
+            return `🏠 ${data.roomName}\n${data.caption}\n무드: ${data.mood}\n\n같이 꾸미고 공부하러 오기\n${roomUrl}`;
+        },
+
+        async copyDecorShowcaseText() {
+            const text = this._generateDecorShareText();
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('룸 자랑 문구를 복사했어요');
+            } catch {
+                prompt('아래 문구를 복사하세요:', text);
+            }
+        },
+
+        async shareDecorShowcase() {
+            const text = this._generateDecorShareText();
+            const code = document.getElementById('room-view-code')?.textContent?.trim() || '';
+            const roomUrl = code ? `${location.origin}/room/${code}` : `${location.origin}/timer/`;
+            const roomName = document.getElementById('room-view-name')?.textContent?.trim() || '그룹룸';
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: `P.A.T.H 룸 자랑 - ${roomName}`,
+                        text,
+                        url: roomUrl,
+                    });
+                    return;
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                }
+            }
+
+            await this.copyDecorShowcaseText();
         },
 
 

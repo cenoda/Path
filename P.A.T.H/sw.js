@@ -21,7 +21,6 @@ const APP_SHELL = [
 const NETWORK_FIRST_PATTERNS = [
   /^\/api\//,
   /^\/socket\.io\//,
-  /^\/uploads\//,
 ];
 
 // Routes that are fine with cache-first (versioned static assets)
@@ -59,6 +58,11 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Chrome may issue only-if-cached requests that throw inside SW fetch.
+  if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') {
+    return;
+  }
+
   // Only handle same-origin requests
   if (url.origin !== self.location.origin) {
     return;
@@ -66,6 +70,19 @@ self.addEventListener('fetch', (event) => {
 
   // Skip non-GET requests
   if (request.method !== 'GET') {
+    return;
+  }
+
+  // Never intercept protected/private uploads and proof image endpoints.
+  // Let the browser perform direct network requests with session cookies.
+  if (
+    url.pathname.startsWith('/uploads/') ||
+    url.pathname.startsWith('/api/auth/score-image/') ||
+    url.pathname.startsWith('/api/auth/gpa-image/') ||
+    url.pathname.startsWith('/api/auth/profile-image/') ||
+    url.pathname.startsWith('/api/messages/file/') ||
+    url.pathname.startsWith('/api/study/proof-image/')
+  ) {
     return;
   }
 

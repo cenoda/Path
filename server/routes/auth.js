@@ -111,6 +111,22 @@ async function isPrivilegedAdmin(userId) {
     return row.is_admin === true || row.admin_role === 'main' || row.admin_role === 'sub';
 }
 
+async function ownsImagePath(userId, columnName, imagePath) {
+        const allowedColumns = new Set(['score_image_url', 'gpa_image_url', 'profile_image_url']);
+        if (!allowedColumns.has(columnName)) return false;
+
+        const result = await pool.query(
+                `SELECT 1
+                     FROM users
+                    WHERE id = $1
+                        AND ${columnName} = $2
+                    LIMIT 1`,
+                [userId, imagePath]
+        );
+
+        return result.rows.length > 0;
+}
+
 const scoreStorage = multer.diskStorage({
     destination: (req, file, cb) => {
         const dir = path.join(__dirname, '../../uploads/scores');
@@ -480,10 +496,11 @@ router.post('/upload-score', requireAuth, upload.single('scoreImage'), async (re
 router.get('/score-image/:filename', requireAuth, async (req, res) => {
     const isAdmin = await isPrivilegedAdmin(req.session.userId);
     const filename = path.basename(req.params.filename);
+    const imagePath = `/uploads/scores/${filename}`;
 
     if (!isAdmin) {
-        const ownerMatch = filename.match(/^score_(\d+)_/);
-        if (!ownerMatch || parseInt(ownerMatch[1]) !== req.session.userId) {
+        const isOwner = await ownsImagePath(req.session.userId, 'score_image_url', imagePath);
+        if (!isOwner) {
             return res.status(403).json({ error: '접근 권한이 없습니다.' });
         }
     }
@@ -526,10 +543,11 @@ router.post('/toggle-gpa-public', requireAuth, async (req, res) => {
 router.get('/gpa-image/:filename', requireAuth, async (req, res) => {
     const isAdmin = await isPrivilegedAdmin(req.session.userId);
     const filename = path.basename(req.params.filename);
+    const imagePath = `/uploads/gpa/${filename}`;
 
     if (!isAdmin) {
-        const ownerMatch = filename.match(/^gpa_(\d+)_/);
-        if (!ownerMatch || parseInt(ownerMatch[1]) !== req.session.userId) {
+        const isOwner = await ownsImagePath(req.session.userId, 'gpa_image_url', imagePath);
+        if (!isOwner) {
             return res.status(403).json({ error: '접근 권한이 없습니다.' });
         }
     }
@@ -543,10 +561,11 @@ router.get('/gpa-image/:filename', requireAuth, async (req, res) => {
 router.get('/profile-image/:filename', requireAuth, async (req, res) => {
     const isAdmin = await isPrivilegedAdmin(req.session.userId);
     const filename = path.basename(req.params.filename);
+    const imagePath = `/uploads/profiles/${filename}`;
 
     if (!isAdmin) {
-        const ownerMatch = filename.match(/^profile_(\d+)_/);
-        if (!ownerMatch || parseInt(ownerMatch[1], 10) !== req.session.userId) {
+        const isOwner = await ownsImagePath(req.session.userId, 'profile_image_url', imagePath);
+        if (!isOwner) {
             return res.status(403).json({ error: '접근 권한이 없습니다.' });
         }
     }

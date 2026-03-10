@@ -122,6 +122,17 @@
             return r.json();
         },
 
+        async apiPatch(path, body) {
+            const r = await fetch(path, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(body)
+            });
+            if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || '서버 오류'); }
+            return r.json();
+        },
+
         // ── Load my rooms ────────────────────────────────────────────────────
         async loadMyRooms() {
             try {
@@ -169,12 +180,18 @@
             const sock = getSocket();
             if (sock) sock.emit('room:join', { roomId });
 
-            // Start leaderboard refresh
+            // Start leaderboard + stats refresh
             clearInterval(this.refreshInterval);
-            this.refreshInterval = setInterval(() => this.refreshLeaderboard(roomId), 15000);
+            this.refreshInterval = setInterval(() => {
+                this.refreshLeaderboard(roomId);
+                this.loadStats(roomId);
+            }, 15000);
 
-            await this.refreshLeaderboard(roomId);
-            await this.loadMessages(roomId);
+            await Promise.all([
+                this.refreshLeaderboard(roomId),
+                this.loadMessages(roomId),
+                this.loadStats(roomId),
+            ]);
             this.showRoomView(roomId);
         },
 
@@ -182,9 +199,104 @@
             try {
                 const data = await this.apiGet(`/api/rooms/${roomId}/leaderboard`);
                 this.leaderboard = data.leaderboard || [];
-                // Also update room meta from the member data
                 this.renderLeaderboard();
             } catch (e) {}
+        },
+
+        async loadStats(roomId) {
+            try {
+                const data = await this.apiGet(`/api/rooms/${roomId}/stats`);
+                this.renderDonutChart(data.today || []);
+                this.renderWeeklyChart(data.weekly || []);
+            } catch (e) {}
+        },
+
+        // ── Donut chart (SVG, stroke-dasharray technique) ─────────────────────
+        renderDonutChart(members) {
+            const segEl = document.getElementById('room-donut-segments');
+            const legendEl = document.getElementById('room-donut-legend');
+            const centerEl = document.getElementById('room-donut-center');
+            if (!segEl) return;
+
+            const COLORS = ['#3182F6','#00C471','#FF6B35','#8B5CF6','#F59E0B','#EC4899','#06B6D4','#84CC16'];
+            const active = members.filter(m => parseInt(m.today_sec, 10) > 0);
+            const total = active.reduce((s, m) => s + parseInt(m.today_sec, 10), 0);
+
+            // Empty state
+            if (total === 0) {
+                segEl.innerHTML = '';
+                if (centerEl) centerEl.innerHTML = '<div class="room-donut-center-val">—</div><div class="room-donut-center-label">공부 기록 없음</div>';
+                if (legendEl) legendEl.innerHTML = '<div class="donut-empty-msg">오늘 공부 기록이 없어요</div>';
+                return;
+            }
+
+            // Build SVG segments (r=15.9155 → circumference≈100)
+            let cumPct = 0;
+            segEl.innerHTML = active.map((m, i) => {
+                const pct = (parseInt(m.today_sec, 10) / total) * 100;
+                const offset = 25 - cumPct; // 25 = start at 12-o'clock
+                cumPct += pct;
+                return `<circle cx="20" cy="20" r="15.9155" fill="none"
+                    stroke="${COLORS[i % COLORS.length]}" stroke-width="3.5"
+                    stroke-dasharray="${pct.toFixed(3)} ${(100 - pct).toFixed(3)}"
+                    stroke-dashoffset="${offset.toFixed(3)}"
+                    stroke-linecap="butt"/>`;
+            }).join('');
+
+            // Center label: total time
+            const totalH = Math.floor(total / 3600);
+            const totalM = Math.floor((total % 3600) / 60);
+            if (centerEl) centerEl.innerHTML = `
+                <div class="room-donut-center-val">${totalH > 0 ? totalH + 'h' : totalM + 'm'}</div>
+                <div class="room-donut-center-label">총 공부</div>`;
+
+            // Legend
+            if (legendEl) legendEl.innerHTML = active.map((m, i) => {
+                const sec = parseInt(m.today_sec, 10);
+                const h = Math.floor(sec / 3600), min = Math.floor((sec % 3600) / 60);
+                const t = h > 0 ? `${h}h ${min}m` : `${min}분`;
+                const pct = Math.round((sec / total) * 100);
+                return `<div class="donut-legend-row">
+                    <span class="donut-legend-dot" style="background:${COLORS[i % COLORS.length]}"></span>
+                    <span class="donut-legend-name">${esc(m.nickname)}</span>
+                    <span class="donut-legend-time">${t}<span class="donut-legend-pct"> ${pct}%</span></span>
+                </div>`;
+            }).join('');
+        },
+
+        // ── Weekly bar chart ──────────────────────────────────────────────────
+        renderWeeklyChart(weekly) {
+            const el = document.getElementById('room-weekly-chart');
+            if (!el) return;
+
+            // Build a full 7-day map (today → 6 days ago)
+            const days = [];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const key = d.toISOString().slice(0, 10);
+                days.push({ key, label: ['일','월','화','수','목','금','토'][d.getDay()] });
+            }
+            const map = {};
+            weekly.forEach(r => { map[r.day] = parseInt(r.total_sec, 10); });
+
+            const maxSec = Math.max(...days.map(d => map[d.key] || 0), 1);
+            const todayKey = new Date().toISOString().slice(0, 10);
+
+            el.innerHTML = `<div class="weekly-bars">${days.map(d => {
+                const sec = map[d.key] || 0;
+                const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+                const label = sec > 0 ? (h > 0 ? `${h}h` : `${m}m`) : '';
+                const heightPct = Math.round((sec / maxSec) * 100);
+                const isToday = d.key === todayKey;
+                return `<div class="weekly-bar-col">
+                    <div class="weekly-bar-val">${label}</div>
+                    <div class="weekly-bar-track">
+                        <div class="weekly-bar-fill ${isToday ? 'weekly-bar-today' : ''}" style="height:${heightPct}%"></div>
+                    </div>
+                    <div class="weekly-bar-day ${isToday ? 'weekly-bar-day-today' : ''}">${d.label}</div>
+                </div>`;
+            }).join('')}</div>`;
         },
 
         async loadMessages(roomId) {
@@ -202,13 +314,19 @@
             if (listView) listView.classList.add('hidden');
             if (roomView) roomView.classList.remove('hidden');
 
-            const nameEl = document.getElementById('room-view-name');
-            const goalEl = document.getElementById('room-view-goal');
-            const codeEl = document.getElementById('room-view-code');
             if (room) {
+                const nameEl = document.getElementById('room-view-name');
+                const goalEl = document.getElementById('room-view-goal');
+                const codeEl = document.getElementById('room-view-code');
                 if (nameEl) nameEl.textContent = room.name;
                 if (goalEl) goalEl.textContent = room.goal || '';
                 if (codeEl) codeEl.textContent = room.invite_code;
+
+                // Show creator-only controls
+                const myId = typeof UI !== 'undefined' && UI.currentUser ? UI.currentUser.id : null;
+                const isCreator = myId && String(room.creator_id) === String(myId);
+                document.getElementById('room-settings-creator-section')?.classList.toggle('hidden', !isCreator);
+                document.getElementById('room-settings-delete-btn')?.classList.toggle('hidden', !isCreator);
             }
         },
 
@@ -415,12 +533,74 @@
             await this.handleJoinByCode(code);
         },
 
+        // ── Settings modal ────────────────────────────────────────────────────
+        showSettingsModal() {
+            const modal = document.getElementById('room-settings-modal');
+            if (!modal) return;
+            // Pre-fill edit fields
+            const room = this.myRooms.find(r => r.id === this.activeRoomId);
+            if (room) {
+                const nameEl = document.getElementById('room-edit-name');
+                const goalEl = document.getElementById('room-edit-goal');
+                const maxEl  = document.getElementById('room-edit-max');
+                if (nameEl) nameEl.value = room.name;
+                if (goalEl) goalEl.value = room.goal || '';
+                if (maxEl)  maxEl.value  = room.max_members;
+            }
+            modal.classList.remove('hidden');
+        },
+
+        hideSettingsModal() {
+            document.getElementById('room-settings-modal')?.classList.add('hidden');
+        },
+
+        async submitEditRoom() {
+            const name = document.getElementById('room-edit-name')?.value.trim();
+            const goal = document.getElementById('room-edit-goal')?.value.trim();
+            const maxMembers = parseInt(document.getElementById('room-edit-max')?.value, 10) || 10;
+            if (!name) { alert('방 이름을 입력해주세요.'); return; }
+
+            const btn = document.getElementById('room-edit-submit');
+            try {
+                if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
+                const data = await this.apiPatch(`/api/rooms/${this.activeRoomId}`, { name, goal, max_members: maxMembers });
+                // Update local data
+                const idx = this.myRooms.findIndex(r => r.id === this.activeRoomId);
+                if (idx !== -1) {
+                    this.myRooms[idx] = { ...this.myRooms[idx], ...data.room };
+                    document.getElementById('room-view-name').textContent = data.room.name;
+                    document.getElementById('room-view-goal').textContent = data.room.goal || '';
+                }
+                this.hideSettingsModal();
+                showToast('방 정보가 업데이트됐어요');
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = '변경 저장'; }
+            }
+        },
+
+        async deleteRoom() {
+            if (!this.activeRoomId) return;
+            if (!confirm('방을 삭제하면 모든 멤버가 퇴장되고 채팅 기록이 사라집니다. 정말 삭제하시겠습니까?')) return;
+            try {
+                await this.apiDelete(`/api/rooms/${this.activeRoomId}`);
+                this.hideSettingsModal();
+                this.backToList();
+                await this.loadMyRooms();
+                showToast('방이 삭제됐습니다.');
+            } catch (err) {
+                alert(err.message);
+            }
+        },
+
         // ── Leave room ────────────────────────────────────────────────────────
         async leaveCurrentRoom() {
             if (!this.activeRoomId) return;
             if (!confirm('방을 나가시겠습니까?')) return;
             try {
                 await this.apiDelete(`/api/rooms/${this.activeRoomId}/leave`);
+                this.hideSettingsModal();
                 this.backToList();
                 await this.loadMyRooms();
                 showToast('방을 나왔습니다.');

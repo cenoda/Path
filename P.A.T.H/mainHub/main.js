@@ -2596,6 +2596,8 @@ function initWorldSocket(user) {
         if (userId === null) return;
         _wsNearby.delete(userId);
         if (window.WorldScene && window.WorldScene.isReady) {
+            // Do not hard-remove immediately: scene side applies stale grace
+            // to avoid false left events causing flicker/disappear.
             window.WorldScene.updateWorldPlayers([..._wsNearby.values()], currentUser);
         }
     });

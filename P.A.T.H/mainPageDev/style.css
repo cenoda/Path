@@ -2503,3 +2503,271 @@ body.active .tab-panel {
 .room-copy-btn-secondary:hover {
     background: var(--accent-blue-light);
 }
+
+/* ─── Room settings button ─────────────────────────────────────────────────── */
+.room-settings-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, transform 0.2s;
+}
+.room-settings-btn:hover { background: var(--surface-hover); }
+.room-settings-btn:active { transform: rotate(45deg); }
+
+/* ─── Stats section ────────────────────────────────────────────────────────── */
+.room-stats-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 16px 10px;
+}
+
+.room-stat-card {
+    background: var(--surface-strong);
+    border-radius: var(--border-radius-md);
+    padding: 16px;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--line-color);
+    min-height: 0;
+}
+
+.room-stat-card-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+}
+
+/* ─── Donut chart ──────────────────────────────────────────────────────────── */
+.room-donut-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.room-donut-chart-container {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto;
+}
+
+.room-donut-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.room-donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.room-donut-center-val {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+    letter-spacing: -0.5px;
+}
+
+.room-donut-center-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
+.room-donut-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.donut-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+}
+
+.donut-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.donut-legend-name {
+    flex: 1;
+    color: var(--text-secondary);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.donut-legend-time {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.donut-legend-pct {
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.donut-empty-msg {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 12px 0;
+}
+
+/* ─── Weekly bar chart ─────────────────────────────────────────────────────── */
+.room-weekly-loading {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 20px 0;
+}
+
+.weekly-bars {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 4px;
+    height: 110px;
+}
+
+.weekly-bar-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    height: 100%;
+}
+
+.weekly-bar-val {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-muted);
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.weekly-bar-track {
+    flex: 1;
+    width: 100%;
+    background: var(--surface-soft);
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+}
+
+.weekly-bar-fill {
+    width: 100%;
+    background: var(--accent-blue-light);
+    border-radius: 4px;
+    min-height: 2px;
+    transition: height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.weekly-bar-today {
+    background: var(--accent-blue);
+}
+
+.weekly-bar-day {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.weekly-bar-day-today {
+    color: var(--accent-blue);
+    font-weight: 700;
+}
+
+/* ─── Settings modal ───────────────────────────────────────────────────────── */
+.room-settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--line-color);
+}
+
+.room-settings-group-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.room-btn-full {
+    width: 100%;
+    justify-content: center;
+    border-radius: var(--border-radius-sm);
+    padding: 14px;
+}
+
+.room-settings-danger-zone {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.room-settings-action {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--border-radius-sm);
+    border: none;
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    letter-spacing: -0.2px;
+}
+
+.room-settings-action-leave {
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+}
+.room-settings-action-leave:hover { background: var(--surface-hover); }
+
+.room-settings-action-delete {
+    background: rgba(240, 68, 82, 0.08);
+    color: var(--accent-red);
+}
+.room-settings-action-delete:hover { background: rgba(240, 68, 82, 0.14); }
+
+/* ─── Mobile: stack stats ──────────────────────────────────────────────────── */
+@media (max-width: 400px) {
+    .room-stats-section {
+        grid-template-columns: 1fr;
+    }
+}

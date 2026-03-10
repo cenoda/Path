@@ -3,15 +3,11 @@
  *
  * Architecture:
  *  - WORLD_SIZE  : 1,000,000 × 1,000,000 world-unit plane
- *  - CHUNK_SIZE  : each chunk covers 4,000 × 4,000 world units
- *  - VIEW_CHUNKS : player sees ±2 chunks in each direction (5×5 = 25 chunks)
  *  - WORLD_SEED  : fixed deterministic seed so all clients render the same props
  *
- * Spatial partitioning (Grid/Chunk system):
- *  Players are bucketed by chunk. When a player moves into a new chunk the
- *  server updates their socket.io room membership so they only receive
- *  position broadcasts from players in adjacent chunks (~25 chunks at most).
- *  This keeps network traffic proportional to local density, not total CCU.
+ * Sync model:
+ *  - Global realtime broadcast (no chunk/room partitioning for player presence)
+ *  - Each client receives all connected player snapshots and movement events
  *
  * Interaction broadcast:
  *  Interactable props (sky-islands, buildings, etc.) emit 'interaction:trigger'
@@ -22,14 +18,12 @@
 'use strict';
 
 const WORLD_SIZE       = 1000000; // total world width/height in world-units
-const CHUNK_SIZE       = 4000;    // world-units per chunk edge
-const VIEW_CHUNKS      = 2;       // ±chunks visible in each axis (5×5 grid)
 const WORLD_SEED       = 777;     // fixed seed distributed to every client
 const MAX_PROP_ID_LEN  = 64;      // maximum length of a prop identifier string
 
 // In-memory player registry
 // key: socket.id  →  { userId, nickname, university, balloon_skin, balloon_aura,
-//                      status_message, worldX, worldY, cx, cy }
+//                      status_message, worldX, worldY }
 const players = new Map();
 
 // In-memory interaction state
@@ -37,13 +31,6 @@ const players = new Map();
 const interactionState = new Map();
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-function chunkOf(worldX, worldY) {
-    return {
-        cx: Math.floor((worldX + WORLD_SIZE / 2) / CHUNK_SIZE),
-        cy: Math.floor((worldY + WORLD_SIZE / 2) / CHUNK_SIZE),
-    };
-}
 
 /** Returns the public player snapshot visible to other clients. */
 function playerPublic(p) {
@@ -98,8 +85,6 @@ function setup(io) {
                 worldX: Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, worldX)),
                 worldY: Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, worldY)),
             };
-            const { cx, cy } = chunkOf(clamped.worldX, clamped.worldY);
-
             players.set(socket.id, {
                 userId,
                 nickname,
@@ -109,7 +94,7 @@ function setup(io) {
                 balloon_skin,
                 balloon_aura,
                 status_message,
-                worldX: clamped.worldX, worldY: clamped.worldY, cx, cy,
+                worldX: clamped.worldX, worldY: clamped.worldY,
             });
 
             // Send the snapshot of nearby players.
@@ -135,12 +120,8 @@ function setup(io) {
             worldX = Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, Number(worldX) || 0));
             worldY = Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, Number(worldY) || 0));
 
-            const { cx, cy } = chunkOf(worldX, worldY);
-
             player.worldX = worldX;
             player.worldY = worldY;
-            player.cx = cx;
-            player.cy = cy;
 
             // Keep client-side nearby roster fresh while moving, even when the
             // player stays connected.
@@ -202,4 +183,4 @@ function setup(io) {
     });
 }
 
-module.exports = { setup, WORLD_SEED, WORLD_SIZE, CHUNK_SIZE };
+module.exports = { setup, WORLD_SEED, WORLD_SIZE };

@@ -468,488 +468,110 @@ const roomInviteLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 });
-
-/** Build a 1200×630 SVG card for use as og:image */
-function buildRoomOgSvg(roomName, goal, memberCount, maxMembers, activeCount, creatorNickname) {
-    const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const isActive = activeCount > 0;
-
-    // Truncate long text for SVG
-    const displayName = roomName.length > 22 ? roomName.slice(0, 22) + '…' : roomName;
-    const displayGoal = goal && goal.length > 44 ? goal.slice(0, 44) + '…' : (goal || '');
-
-    const statusLabel = isActive ? `🔥 ${activeCount}명 공부 중` : '📚 함께 공부해요';
-    const statusBg = isActive ? '#0a2e1a' : '#0a1a2e';
-    const statusColor = isActive ? '#00C471' : '#3182F6';
-    const statusBorder = isActive ? '#00C471' : '#3182F6';
-
-    const memberPct = maxMembers > 0 ? Math.round((memberCount / maxMembers) * 100) : 0;
-    const barWidth = Math.round(8.8 * memberPct); // 880px = 100%
-
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0D1B2A"/>
-      <stop offset="100%" stop-color="#111827"/>
-    </linearGradient>
-    <linearGradient id="accentGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#3182F6"/>
-      <stop offset="100%" stop-color="#60A5FA"/>
-    </linearGradient>
-    <linearGradient id="barGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#3182F6"/>
-      <stop offset="100%" stop-color="#60A5FA"/>
-    </linearGradient>
-    <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="120%">
-      <feDropShadow dx="0" dy="8" stdDeviation="24" flood-color="#000" flood-opacity="0.5"/>
-    </filter>
-  </defs>
-
-  <!-- Background -->
-  <rect width="1200" height="630" fill="url(#bgGrad)"/>
-
-  <!-- Subtle grid dots -->
-  <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-    <circle cx="20" cy="20" r="1" fill="#ffffff" opacity="0.04"/>
-  </pattern>
-  <rect width="1200" height="630" fill="url(#dots)"/>
-
-  <!-- Top accent bar -->
-  <rect x="0" y="0" width="1200" height="5" fill="url(#accentGrad)"/>
-
-  <!-- Main card -->
-  <rect x="80" y="70" width="1040" height="490" rx="28" fill="#161F2E" filter="url(#cardShadow)"/>
-
-  <!-- Card inner accent line -->
-  <rect x="80" y="70" width="1040" height="5" rx="3" fill="url(#accentGrad)" opacity="0.6"/>
-
-  <!-- P.A.T.H wordmark -->
-  <text x="120" y="148" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="13" font-weight="700" letter-spacing="5" fill="#3182F6">P.A.T.H</text>
-  <text x="193" y="148" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="13" fill="#4B5563" letter-spacing="0.5">그룹 타이머</text>
-
-  <!-- Separator -->
-  <line x1="120" y1="162" x2="1080" y2="162" stroke="#1E2D40" stroke-width="1"/>
-
-  <!-- Status badge -->
-  <rect x="120" y="184" width="220" height="36" rx="18" fill="${statusBg}" stroke="${statusBorder}" stroke-width="1.5"/>
-  <text x="230" y="207" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="14" font-weight="600" fill="${statusColor}" text-anchor="middle">${esc(statusLabel)}</text>
-
-  <!-- Room name -->
-  <text x="120" y="282" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="52" font-weight="800" fill="#F9FAFB" letter-spacing="-1.5">${esc(displayName)}</text>
-
-  <!-- Goal text -->
-  ${displayGoal ? `<text x="120" y="326" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="20" fill="#6B7280" letter-spacing="-0.3">${esc(displayGoal)}</text>` : ''}
-
-  <!-- Divider -->
-  <line x1="120" y1="${displayGoal ? 358 : 342}" x2="1080" y2="${displayGoal ? 358 : 342}" stroke="#1E2D40" stroke-width="1"/>
-
-  <!-- Stats row -->
-  <g transform="translate(120, ${displayGoal ? 385 : 369})">
-    <!-- Members stat -->
-    <rect x="0" y="0" width="230" height="100" rx="16" fill="#1A2438"/>
-    <text x="115" y="45" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="36" font-weight="800" fill="#F9FAFB" text-anchor="middle">${memberCount}</text>
-    <text x="115" y="72" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="13" fill="#6B7280" text-anchor="middle">현재 참여 인원</text>
-
-    <!-- Active stat -->
-    <rect x="250" y="0" width="230" height="100" rx="16" fill="${isActive ? '#0a2416' : '#1A2438'}"/>
-    <text x="365" y="45" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="36" font-weight="800" fill="${isActive ? '#00C471' : '#4B5563'}" text-anchor="middle">${activeCount}</text>
-    <text x="365" y="72" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="13" fill="${isActive ? '#00C471' : '#6B7280'}" text-anchor="middle">지금 공부 중</text>
-
-    <!-- Max stat -->
-    <rect x="500" y="0" width="230" height="100" rx="16" fill="#1A2438"/>
-    <text x="615" y="45" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="36" font-weight="800" fill="#F9FAFB" text-anchor="middle">${maxMembers}</text>
-    <text x="615" y="72" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="13" fill="#6B7280" text-anchor="middle">최대 인원</text>
-  </g>
-
-  <!-- Progress bar label -->
-  <text x="120" y="512" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="12" fill="#4B5563" letter-spacing="0.3">참여율 ${memberPct}%</text>
-  <text x="1080" y="512" font-family="'SF Pro Display','Segoe UI',-apple-system,sans-serif" font-size="12" fill="#4B5563" text-anchor="end">방장: ${esc(creatorNickname)}</text>
-
-  <!-- Progress bar track -->
-  <rect x="120" y="520" width="880" height="6" rx="3" fill="#1E2D40"/>
-  <!-- Progress bar fill -->
-  ${barWidth > 0 ? `<rect x="120" y="520" width="${barWidth}" height="6" rx="3" fill="url(#barGrad)"/>` : ''}
-</svg>`;
-}
-
-async function fetchRoomForInvite(code) {
-    const result = await pool.query(
-        `SELECT r.id, r.name, r.goal, r.invite_code, r.max_members,
-                u.nickname AS creator_nickname,
-                (SELECT COUNT(*) FROM study_room_members m WHERE m.room_id = r.id) AS member_count,
-                (SELECT COUNT(*) FROM study_room_members m2
-                 JOIN users u2 ON u2.id = m2.user_id
-                 WHERE m2.room_id = r.id AND u2.is_studying = TRUE) AS active_count
-         FROM study_rooms r
-         JOIN users u ON u.id = r.creator_id
-         WHERE r.invite_code = $1 AND r.is_active = TRUE`,
-        [code]
-    );
-    return result.rows[0] || null;
-}
-
-/** Dynamic OG image endpoint */
-app.get('/room/:code/card.svg', roomInviteLimiter, async (req, res) => {
-    const code = String(req.params.code || '').trim().toLowerCase().slice(0, 12);
-    if (!code) return res.status(400).end();
-
-    try {
-        const room = await fetchRoomForInvite(code);
-        if (!room) return res.status(404).end();
-
-        const svg = buildRoomOgSvg(
-            room.name,
-            room.goal || '',
-            parseInt(room.member_count, 10),
-            room.max_members,
-            parseInt(room.active_count, 10),
-            room.creator_nickname
-        );
-
-        res.setHeader('Content-Type', 'image/svg+xml');
-        res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-        return res.send(svg);
-    } catch (err) {
-        console.error('[room] GET /room/:code/card.svg', err.message);
-        return res.status(500).end();
-    }
-});
-
 app.get('/room/:code', roomInviteLimiter, async (req, res) => {
     const code = String(req.params.code || '').trim().toLowerCase().slice(0, 12);
     if (!code) return res.status(400).type('text/html').send('<h1>잘못된 요청</h1>');
 
     try {
-        const room = await fetchRoomForInvite(code);
+        const result = await pool.query(
+            `SELECT r.id, r.name, r.goal, r.invite_code, r.max_members,
+                    u.nickname AS creator_nickname,
+                    (SELECT COUNT(*) FROM study_room_members m WHERE m.room_id = r.id) AS member_count,
+                    (SELECT COUNT(*) FROM study_room_members m2
+                     JOIN users u2 ON u2.id = m2.user_id
+                     WHERE m2.room_id = r.id AND u2.is_studying = TRUE) AS active_count
+             FROM study_rooms r
+             JOIN users u ON u.id = r.creator_id
+             WHERE r.invite_code = $1 AND r.is_active = TRUE`,
+            [code]
+        );
 
         const baseUrl = getSiteBaseUrl(req);
         const canonical = `${baseUrl}/room/${code}`;
 
-        if (!room) {
+        if (!result.rows.length) {
             const html = `<!DOCTYPE html><html lang="ko"><head>
-<meta charset="UTF-8"><title>방을 찾을 수 없습니다 — P.A.T.H</title>
+<meta charset="UTF-8"><title>방을 찾을 수 없습니다 - P.A.T.H</title>
 <meta name="robots" content="noindex">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,'Malgun Gothic',sans-serif;background:#F9FAFB;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.card{background:#fff;border-radius:24px;padding:48px 32px;max-width:400px;width:100%;text-align:center;box-shadow:0 2px 24px rgba(0,0,0,.08)}
-.icon{font-size:48px;margin-bottom:16px}
-h1{font-size:20px;font-weight:700;color:#191F28;margin-bottom:8px}
-p{font-size:14px;color:#8B95A1;line-height:1.6;margin-bottom:24px}
-a{display:inline-block;background:#3182F6;color:#fff;text-decoration:none;border-radius:12px;padding:13px 28px;font-size:15px;font-weight:700}
-</style>
-</head><body>
-<div class="card">
-  <div class="icon">🔍</div>
-  <h1>방을 찾을 수 없어요</h1>
-  <p>초대 링크가 만료되었거나<br>잘못된 링크입니다.</p>
-  <a href="/timer/">P.A.T.H 열기</a>
-</div>
-</body></html>`;
+<style>body{font-family:sans-serif;text-align:center;padding:60px 20px;background:#0d0d0d;color:#fff}</style>
+</head><body><h1>방을 찾을 수 없습니다</h1><p>초대 링크가 만료되었거나 잘못된 링크입니다.</p>
+<a href="/timer/" style="color:#d4af37">타이머 페이지로 이동 →</a></body></html>`;
             return res.status(404).type('text/html').send(html);
         }
 
+        const room = result.rows[0];
         const memberCount = parseInt(room.member_count, 10);
         const activeCount = parseInt(room.active_count, 10);
         const maxMembers = room.max_members;
         const roomName = room.name;
         const goal = room.goal || '';
-        const isActive = activeCount > 0;
 
-        const ogTitle = isActive
-            ? `🔥 ${roomName} — 지금 ${activeCount}명 공부 중!`
-            : `📚 ${roomName} — 함께 공부해요`;
-        const ogDescription = isActive
-            ? `${goal ? goal + ' · ' : ''}${memberCount}/${maxMembers}명 참여 중 · 지금 ${activeCount}명이 달리고 있어요. 합류하시겠어요?`
-            : `${goal ? goal + ' · ' : ''}${memberCount}/${maxMembers}명 참여 중 · P.A.T.H 그룹 타이머에서 함께 공부해요.`;
-        const ogImage = `${baseUrl}/room/${encodeURIComponent(code)}/card.svg`;
+        const fireEmoji = activeCount > 0 ? '🔥' : '📚';
+        const statusText = activeCount > 0 ? `[${fireEmoji}불타는 중]` : '[📚준비 중]';
+        const ogTitle = `${statusText} ${escapeHtml(roomName)} (${memberCount}/${maxMembers}명)`;
+        const ogDescription = activeCount > 0
+            ? `지금 ${activeCount}명이 실시간으로 달리고 있습니다. 합류하시겠습니까?`
+            : `${goal ? escapeHtml(goal) : '목표를 향해 함께 공부하는 방'} - P.A.T.H 그룹 타이머`;
+        const ogImage = `${baseUrl}/icons/icon-512.png`;
 
         const html = `<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${escapeHtml(ogTitle)} | P.A.T.H</title>
+  <title>${ogTitle} | P.A.T.H</title>
   <meta name="description" content="${escapeHtml(ogDescription)}">
   <meta name="robots" content="noindex">
-
-  <!-- Open Graph -->
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="P.A.T.H">
   <meta property="og:title" content="${escapeHtml(ogTitle)}">
   <meta property="og:description" content="${escapeHtml(ogDescription)}">
   <meta property="og:url" content="${escapeHtml(canonical)}">
+  <meta property="og:site_name" content="P.A.T.H">
   <meta property="og:image" content="${escapeHtml(ogImage)}">
-  <meta property="og:image:type" content="image/svg+xml">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-
-  <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${escapeHtml(ogTitle)}">
   <meta name="twitter:description" content="${escapeHtml(ogDescription)}">
   <meta name="twitter:image" content="${escapeHtml(ogImage)}">
-
   <link rel="canonical" href="${escapeHtml(canonical)}">
-
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{
-      font-family:'Apple SD Gothic Neo',-apple-system,BlinkMacSystemFont,'Malgun Gothic','Noto Sans KR',sans-serif;
-      background:#F2F4F6;
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      padding:24px;
-      -webkit-font-smoothing:antialiased;
-    }
-
-    /* Card */
-    .card{
-      background:#fff;
-      border-radius:28px;
-      padding:0;
-      max-width:420px;
-      width:100%;
-      box-shadow:0 4px 32px rgba(0,0,0,.1);
-      overflow:hidden;
-    }
-
-    /* Card header strip */
-    .card-header{
-      background:linear-gradient(135deg,#0D1B2A 0%,#1a2535 100%);
-      padding:28px 28px 24px;
-      position:relative;
-      overflow:hidden;
-    }
-    .card-header::before{
-      content:'';
-      position:absolute;
-      top:0;left:0;right:0;
-      height:3px;
-      background:linear-gradient(90deg,#3182F6,#60A5FA);
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:6px;
-      margin-bottom:18px;
-    }
-    .brand-logo{
-      font-size:11px;
-      font-weight:800;
-      letter-spacing:4px;
-      color:#3182F6;
-    }
-    .brand-sep{
-      width:1px;height:12px;background:#2a3a4a;
-    }
-    .brand-text{
-      font-size:11px;
-      color:#4B5563;
-      letter-spacing:0.5px;
-    }
-
-    .status-pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:5px 12px;
-      border-radius:50px;
-      font-size:12px;
-      font-weight:700;
-      margin-bottom:12px;
-      background:${isActive ? 'rgba(0,196,113,0.15)' : 'rgba(49,130,246,0.15)'};
-      color:${isActive ? '#00C471' : '#3182F6'};
-      border:1px solid ${isActive ? 'rgba(0,196,113,0.4)' : 'rgba(49,130,246,0.4)'};
-    }
-    .status-dot{
-      width:6px;height:6px;border-radius:50%;
-      background:${isActive ? '#00C471' : '#3182F6'};
-      ${isActive ? 'animation:pulse 1.4s ease-in-out infinite;' : ''}
-    }
-    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
-
-    .room-name{
-      font-size:24px;
-      font-weight:800;
-      color:#F9FAFB;
-      line-height:1.25;
-      letter-spacing:-0.5px;
-      margin-bottom:6px;
-      word-break:keep-all;
-    }
-    .room-goal{
-      font-size:14px;
-      color:#6B7280;
-      letter-spacing:-0.1px;
-      line-height:1.5;
-    }
-
-    /* Card body */
-    .card-body{
-      padding:24px 28px;
-    }
-
-    /* Stats */
-    .stats{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:10px;
-      margin-bottom:20px;
-    }
-    .stat{
-      background:#F9FAFB;
-      border-radius:16px;
-      padding:14px 8px 12px;
-      text-align:center;
-    }
-    .stat-val{
-      font-size:26px;
-      font-weight:800;
-      color:#191F28;
-      line-height:1;
-      margin-bottom:5px;
-    }
-    .stat-val.active{color:#00C471}
-    .stat-label{
-      font-size:11px;
-      color:#8B95A1;
-      font-weight:500;
-    }
-
-    /* Progress bar */
-    .progress-wrap{
-      margin-bottom:24px;
-    }
-    .progress-meta{
-      display:flex;
-      justify-content:space-between;
-      font-size:12px;
-      color:#8B95A1;
-      margin-bottom:6px;
-    }
-    .progress-track{
-      height:6px;
-      background:#F2F4F6;
-      border-radius:3px;
-      overflow:hidden;
-    }
-    .progress-fill{
-      height:100%;
-      width:${Math.round((memberCount / maxMembers) * 100)}%;
-      background:linear-gradient(90deg,#3182F6,#60A5FA);
-      border-radius:3px;
-      transition:width .4s ease;
-    }
-
-    /* CTA */
-    .join-btn{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      width:100%;
-      background:#3182F6;
-      color:#fff;
-      text-decoration:none;
-      border-radius:14px;
-      padding:16px;
-      font-size:16px;
-      font-weight:700;
-      letter-spacing:-0.2px;
-      transition:background .15s, transform .1s, box-shadow .15s;
-      box-shadow:0 4px 16px rgba(49,130,246,.3);
-    }
-    .join-btn:hover{background:#1b64da;box-shadow:0 6px 20px rgba(49,130,246,.4)}
-    .join-btn:active{transform:scale(.98)}
-
-    .join-note{
-      text-align:center;
-      font-size:12px;
-      color:#AEB5C0;
-      margin-top:12px;
-    }
-
-    /* Footer */
-    .card-footer{
-      padding:14px 28px;
-      border-top:1px solid #F2F4F6;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-    }
-    .creator-info{
-      font-size:12px;
-      color:#AEB5C0;
-    }
-    .path-mark{
-      font-size:11px;
-      font-weight:700;
-      letter-spacing:2px;
-      color:#D1D5DB;
-    }
+    body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:#0d0d0d;color:#f0f0f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{background:#151515;border:1px solid #2a2a2a;border-radius:20px;padding:36px 28px;max-width:440px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+    .badge{display:inline-block;background:#1a1a2e;color:#d4af37;border:1px solid #d4af37;border-radius:999px;padding:4px 14px;font-size:12px;font-weight:700;letter-spacing:1px;margin-bottom:16px}
+    h1{font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.4}
+    .goal{color:#888;font-size:14px;margin-bottom:20px;line-height:1.5}
+    .stats{display:flex;gap:12px;justify-content:center;margin-bottom:24px}
+    .stat{background:#1e1e1e;border-radius:12px;padding:12px 18px;flex:1}
+    .stat-val{font-size:22px;font-weight:800;color:#d4af37}
+    .stat-label{font-size:11px;color:#666;margin-top:2px}
+    .active-pill{display:inline-flex;align-items:center;gap:6px;background:#1a2e1a;color:#4caf50;border:1px solid #4caf50;border-radius:999px;padding:5px 14px;font-size:13px;font-weight:600;margin-bottom:24px}
+    .active-dot{width:8px;height:8px;background:#4caf50;border-radius:50%;animation:pulse 1.2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .join-btn{display:block;width:100%;background:linear-gradient(135deg,#d4af37,#f0c040);color:#000;border:none;border-radius:12px;padding:16px;font-size:17px;font-weight:800;cursor:pointer;text-decoration:none;margin-bottom:12px;transition:opacity .2s}
+    .join-btn:hover{opacity:.9}
+    .login-note{font-size:12px;color:#555}
+    .creator{font-size:12px;color:#555;margin-top:16px}
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="card-header">
-      <div class="brand">
-        <span class="brand-logo">P.A.T.H</span>
-        <span class="brand-sep"></span>
-        <span class="brand-text">그룹 타이머</span>
-      </div>
-
-      <div class="status-pill">
-        <span class="status-dot"></span>
-        ${isActive ? `${activeCount}명 지금 공부 중` : '멤버 모집 중'}
-      </div>
-
-      <h1 class="room-name">${escapeHtml(roomName)}</h1>
-      ${goal ? `<p class="room-goal">${escapeHtml(goal)}</p>` : ''}
+    <div class="badge">P.A.T.H 그룹 타이머</div>
+    <h1>${escapeHtml(roomName)}</h1>
+    ${goal ? `<p class="goal">${escapeHtml(goal)}</p>` : ''}
+    <div class="stats">
+      <div class="stat"><div class="stat-val">${memberCount}</div><div class="stat-label">참여 중</div></div>
+      <div class="stat"><div class="stat-val">${maxMembers}</div><div class="stat-label">최대 인원</div></div>
+      <div class="stat"><div class="stat-val">${activeCount}</div><div class="stat-label">지금 공부 중</div></div>
     </div>
-
-    <div class="card-body">
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-val">${memberCount}</div>
-          <div class="stat-label">참여 인원</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val ${isActive ? 'active' : ''}">${activeCount}</div>
-          <div class="stat-label">공부 중</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val">${maxMembers}</div>
-          <div class="stat-label">최대 인원</div>
-        </div>
-      </div>
-
-      <div class="progress-wrap">
-        <div class="progress-meta">
-          <span>참여율</span>
-          <span>${memberCount}/${maxMembers}명</span>
-        </div>
-        <div class="progress-track"><div class="progress-fill"></div></div>
-      </div>
-
-      <a class="join-btn" href="/timer/?join=${encodeURIComponent(code)}">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1l8 8-8 8M1 9h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        지금 합류하기
-      </a>
-      <p class="join-note">로그인이 필요합니다 · 계정이 없으면 회원가입 후 이용하세요</p>
-    </div>
-
-    <div class="card-footer">
-      <span class="creator-info">방장 ${escapeHtml(room.creator_nickname)}</span>
-      <span class="path-mark">P.A.T.H</span>
-    </div>
+    ${activeCount > 0 ? `<div class="active-pill"><span class="active-dot"></span>${activeCount}명 실시간으로 달리는 중</div>` : ''}
+    <a class="join-btn" href="/timer/?join=${encodeURIComponent(code)}">⚔️ 방 합류하기</a>
+    <div class="login-note">로그인이 필요합니다. 계정이 없으면 회원가입 후 이용하세요.</div>
+    <div class="creator">방장: ${escapeHtml(room.creator_nickname)}</div>
   </div>
+  <script>
+    // If user lands here from KakaoTalk/external, redirect to timer join page
+    // This allows the page to serve OG tags while still functioning as a join gateway
+  </script>
 </body>
 </html>`;
 

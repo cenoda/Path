@@ -237,6 +237,109 @@ router.delete('/:id/leave', roomsWriteLimiter, requireAuth, async (req, res) => 
     }
 });
 
+// PATCH /api/rooms/:id — edit room info (creator only)
+router.patch('/:id', roomsWriteLimiter, requireAuth, async (req, res) => {
+    const roomId = parseInt(req.params.id, 10);
+    if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
+
+    const name = String(req.body.name || '').trim().slice(0, 60);
+    const goal = String(req.body.goal || '').trim().slice(0, 100);
+    const maxMembers = Math.max(2, Math.min(50, parseInt(req.body.max_members, 10) || 10));
+    if (!name) return res.status(400).json({ error: '방 이름을 입력해주세요.' });
+
+    try {
+        const check = await pool.query(
+            `SELECT creator_id,
+                    (SELECT COUNT(*) FROM study_room_members WHERE room_id = $1) AS member_count
+             FROM study_rooms WHERE id = $1 AND is_active = TRUE`,
+            [roomId]
+        );
+        if (!check.rows.length) return res.status(404).json({ error: '방을 찾을 수 없습니다.' });
+        if (check.rows[0].creator_id !== req.session.userId)
+            return res.status(403).json({ error: '방장만 수정할 수 있습니다.' });
+        if (maxMembers < parseInt(check.rows[0].member_count, 10))
+            return res.status(400).json({ error: '현재 멤버 수보다 최대 인원을 작게 설정할 수 없습니다.' });
+
+        const result = await pool.query(
+            `UPDATE study_rooms SET name = $1, goal = $2, max_members = $3
+             WHERE id = $4 RETURNING *`,
+            [name, goal || null, maxMembers, roomId]
+        );
+        res.json({ ok: true, room: result.rows[0] });
+    } catch (err) {
+        console.error('rooms PATCH error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+// DELETE /api/rooms/:id — delete room (creator only, soft-delete)
+router.delete('/:id', roomsWriteLimiter, requireAuth, async (req, res) => {
+    const roomId = parseInt(req.params.id, 10);
+    if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
+
+    try {
+        const check = await pool.query(
+            `SELECT creator_id FROM study_rooms WHERE id = $1 AND is_active = TRUE`,
+            [roomId]
+        );
+        if (!check.rows.length) return res.status(404).json({ error: '방을 찾을 수 없습니다.' });
+        if (check.rows[0].creator_id !== req.session.userId)
+            return res.status(403).json({ error: '방장만 삭제할 수 있습니다.' });
+
+        await pool.query(`UPDATE study_rooms SET is_active = FALSE WHERE id = $1`, [roomId]);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('rooms DELETE error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+// GET /api/rooms/:id/stats — today donut + weekly bar data
+router.get('/:id/stats', roomsReadLimiter, requireAuth, async (req, res) => {
+    const roomId = parseInt(req.params.id, 10);
+    if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
+
+    try {
+        const memberCheck = await pool.query(
+            `SELECT 1 FROM study_room_members WHERE room_id = $1 AND user_id = $2`,
+            [roomId, req.session.userId]
+        );
+        if (!memberCheck.rows.length) return res.status(403).json({ error: '방 멤버가 아닙니다.' });
+
+        const [todayRes, weeklyRes] = await Promise.all([
+            pool.query(
+                `SELECT u.id, u.nickname,
+                        COALESCE(SUM(sr.duration_sec), 0) AS today_sec
+                 FROM study_room_members m
+                 JOIN users u ON u.id = m.user_id
+                 LEFT JOIN study_records sr ON sr.user_id = u.id
+                     AND sr.result = 'SUCCESS'
+                     AND sr.created_at >= CURRENT_DATE
+                 WHERE m.room_id = $1
+                 GROUP BY u.id, u.nickname
+                 ORDER BY today_sec DESC`,
+                [roomId]
+            ),
+            pool.query(
+                `SELECT DATE(sr.created_at AT TIME ZONE 'Asia/Seoul') AS day,
+                        COALESCE(SUM(sr.duration_sec), 0) AS total_sec
+                 FROM study_records sr
+                 JOIN study_room_members m ON m.user_id = sr.user_id AND m.room_id = $1
+                 WHERE sr.result = 'SUCCESS'
+                   AND sr.created_at >= (NOW() AT TIME ZONE 'Asia/Seoul')::date - INTERVAL '6 days'
+                 GROUP BY DATE(sr.created_at AT TIME ZONE 'Asia/Seoul')
+                 ORDER BY day ASC`,
+                [roomId]
+            )
+        ]);
+
+        res.json({ today: todayRes.rows, weekly: weeklyRes.rows });
+    } catch (err) {
+        console.error('rooms/:id/stats error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
 // GET /api/rooms/:id/leaderboard — daily leaderboard
 router.get('/:id/leaderboard', roomsReadLimiter, requireAuth, async (req, res) => {
     const roomId = parseInt(req.params.id, 10);

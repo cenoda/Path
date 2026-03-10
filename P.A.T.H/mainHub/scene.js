@@ -19,6 +19,7 @@ const CHUNK_SIZE        = 4000;    // spatial-partition chunk edge (world-units)
 const DRAG_SENSITIVITY  = 0.55;    // 0..1 – lower = less sensitive mouse/touch drag
 const WORLD_HALF        = WORLD_SIZE / 2;   // convenience: max |world coord|
 const REMOTE_POS_LERP   = 0.12;    // lerp factor for remote player position interpolation
+const REMOTE_STALE_REMOVE_MS = 12000; // grace period before removing unseen remote balloons
 
 const AURA_COLORS = {
     none: null,
@@ -1043,7 +1044,7 @@ const WorldScene = {
         this._updateBalloonAura(group, auraId, isMe);
 
         this.scene.add(group);
-        this.balloons.set(user.id, { group, user, isMe });
+        this.balloons.set(user.id, { group, user, isMe, lastSeenAt: Date.now() });
         if (isMe) this.myBalloon = this.balloons.get(user.id);
 
         group.userData.clickable = true;
@@ -1232,6 +1233,7 @@ const WorldScene = {
     updateWorldPlayers(players, me) {
         const isLight = this.isLight;
         const isLightMode = isLight;
+        const now = Date.now();
 
         // In realtime-only mode, ensure local player balloon exists here
         // (setUsers() may no longer run for world rendering).
@@ -1257,7 +1259,7 @@ const WorldScene = {
         if (me) keepIds.add(me.id);
 
         this.balloons.forEach((b, id) => {
-            if (!b.isMe && !keepIds.has(id)) {
+            if (!b.isMe && !keepIds.has(id) && now - (b.lastSeenAt || 0) > REMOTE_STALE_REMOVE_MS) {
                 this.scene.remove(b.group);
                 this.balloons.delete(id);
             }
@@ -1273,6 +1275,7 @@ const WorldScene = {
 
             if (this.balloons.has(user.id)) {
                 const b = this.balloons.get(user.id);
+                b.lastSeenAt = now;
                 b.group.position.set(sx, sy, sz);
                 b.group.userData.baseY = sy;
                 this._updateBalloonColor(b.group, skinId);
@@ -1295,6 +1298,7 @@ const WorldScene = {
     moveWorldPlayer(userId, worldX, worldY) {
         const b = this.balloons.get(userId);
         if (!b || b.isMe) return;
+        b.lastSeenAt = Date.now();
         const sx = worldToScene(worldX);
         const sy = worldToScene(worldY);
         b.group.userData.baseY = sy;

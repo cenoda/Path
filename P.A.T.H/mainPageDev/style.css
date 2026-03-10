@@ -427,6 +427,100 @@ body:not(.light) .balloon-badge {
     letter-spacing: -0.01em;
 }
 
+.balloon-ai-report {
+    grid-column: 1 / -1;
+    position: relative;
+    border: 1px solid rgba(49, 130, 246, 0.2);
+    border-radius: 18px;
+    background:
+        linear-gradient(165deg, rgba(49, 130, 246, 0.14) 0%, rgba(49, 130, 246, 0.05) 44%, rgba(255, 255, 255, 0.92) 100%),
+        var(--surface-strong);
+    box-shadow: 0 14px 28px rgba(49, 130, 246, 0.12), var(--shadow-soft);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+}
+
+.balloon-ai-report::after {
+    content: '';
+    position: absolute;
+    top: -58px;
+    right: -44px;
+    width: 160px;
+    height: 160px;
+    border-radius: 999px;
+    background: radial-gradient(circle at center, rgba(49, 130, 246, 0.2) 0%, rgba(49, 130, 246, 0) 72%);
+    pointer-events: none;
+}
+
+.balloon-ai-kicker {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--accent-blue-strong);
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(49, 130, 246, 0.22);
+    background: rgba(255, 255, 255, 0.82);
+}
+
+.balloon-ai-headline {
+    color: var(--text-primary);
+    font-size: clamp(1.02rem, 1.55vw, 1.2rem);
+    line-height: 1.5;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+}
+
+.balloon-ai-detail {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.68;
+}
+
+.balloon-ai-meta {
+    margin-top: 4px;
+    align-self: flex-start;
+    color: var(--accent-blue-strong);
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--accent-blue-light);
+    border: 1px solid rgba(49, 130, 246, 0.2);
+    border-radius: 10px;
+    padding: 6px 10px;
+}
+
+body:not(.light) .balloon-ai-report {
+    border-color: rgba(125, 183, 255, 0.36);
+    background:
+        linear-gradient(165deg, rgba(49, 130, 246, 0.24) 0%, rgba(15, 31, 56, 0.78) 58%, rgba(19, 26, 40, 0.96) 100%),
+        var(--surface-strong);
+    box-shadow: 0 16px 28px rgba(9, 18, 31, 0.52);
+}
+
+body:not(.light) .balloon-ai-kicker {
+    color: #d7e9ff;
+    border-color: rgba(125, 183, 255, 0.4);
+    background: rgba(13, 30, 53, 0.7);
+}
+
+body:not(.light) .balloon-ai-detail {
+    color: #c0cad8;
+}
+
+body:not(.light) .balloon-ai-meta {
+    color: #cfe5ff;
+    background: rgba(49, 130, 246, 0.22);
+    border-color: rgba(125, 183, 255, 0.34);
+}
+
 @keyframes balloonFloat {
     0%,
     100% {
@@ -1705,6 +1799,16 @@ body.active .tab-panel {
 
     .balloon-copy {
         font-size: 12px;
+    }
+
+    .balloon-ai-report {
+        border-radius: 14px;
+        padding: 14px;
+    }
+
+    .balloon-ai-detail {
+        font-size: 13px;
+        line-height: 1.6;
     }
 
     .balloon-badge {

@@ -546,13 +546,26 @@ const UI = {
         const rows = (universityInfo?.departments || [])
             .map((dept) => {
                 if (selectedCategory && dept?.category !== selectedCategory) return null;
-                const cut = Number(dept?.admissions?.정시?.환산컷);
-                if (!Number.isFinite(cut)) return null;
+                const jeongsi = dept?.admissions?.정시 || {};
+                const standardCut = Number(jeongsi.표준점수합);
+                const convertedCut = Number(jeongsi.환산컷);
+                const candidates = [];
+                if (Number.isFinite(standardCut)) {
+                    candidates.push({ cut: standardCut, label: '표준점수합' });
+                }
+                if (Number.isFinite(convertedCut)) {
+                    candidates.push({ cut: convertedCut, label: '환산컷' });
+                }
+                if (candidates.length === 0) return null;
+
+                const bestCut = candidates.sort((a, b) => Math.abs(total - a.cut) - Math.abs(total - b.cut))[0];
+                const cut = bestCut.cut;
                 const gap = Math.round((total - cut) * 100) / 100;
                 return {
                     name: dept.name,
                     category: dept.category,
                     cut,
+                    cutLabel: bestCut.label,
                     gap,
                     absGap: Math.abs(gap)
                 };
@@ -563,8 +576,8 @@ const UI = {
 
         if (rows.length === 0) {
             return selectedCategory
-                ? `<div class="scorecalc-meta">${this.escapeHtml(selectedCategory)} 카테고리에는 환산컷 비교 가능한 학과가 없습니다.</div>`
-                : '<div class="scorecalc-meta">학과별 환산컷 데이터가 없어 비교 결과를 표시할 수 없습니다.</div>';
+                ? `<div class="scorecalc-meta">${this.escapeHtml(selectedCategory)} 카테고리에는 정시 컷 데이터(표준점수합/환산컷)가 없습니다.</div>`
+                : '<div class="scorecalc-meta">학과별 정시 컷 데이터(표준점수합/환산컷)가 없어 비교 결과를 표시할 수 없습니다.</div>';
         }
 
         const listHtml = rows.map((row) => {
@@ -573,7 +586,7 @@ const UI = {
             const gapText = `${row.gap >= 0 ? '+' : ''}${row.gap.toFixed(2)}`;
             return `<li>
                 <span>${this.escapeHtml(row.name)} (${this.escapeHtml(row.category || '기타')})</span>
-                <span>컷 ${row.cut.toFixed(2)} / <b class="${cls}">${gapText} ${state}</b></span>
+                <span>${row.cutLabel} ${row.cut.toFixed(2)} / <b class="${cls}">${gapText} ${state}</b></span>
             </li>`;
         }).join('');
 

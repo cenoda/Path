@@ -1086,8 +1086,8 @@ const WorldScene = {
         b.isBackground = false;
         b.user = { ...b.user, ...me };
         b.group.userData.user = b.user;
-        b.group.position.x = 0;
-        b.group.userData.baseY = 0;
+        if (!Number.isFinite(b.group.position.x)) b.group.position.x = 0;
+        if (!Number.isFinite(b.group.userData.baseY)) b.group.userData.baseY = 0;
         b.group.visible = true;
         this._updateBalloonColor(b.group, skinId);
         this._updateBalloonAura(b.group, auraId, true);

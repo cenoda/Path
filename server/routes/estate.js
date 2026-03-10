@@ -237,17 +237,16 @@ router.post('/buy-ticket', async (req, res) => {
 });
 
 const BALLOON_SKINS = {
-    'default': { id: 'default', name: '기본 열기구', price: 0, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '기본 제공 열기구' },
-    'rainbow': { id: 'rainbow', name: '무지개 열기구', price: 2000, darkImg: 'balloon_rainbow.png', lightImg: 'balloon_rainbow.png', desc: '화려한 무지개 열기구' },
-    'pastel': { id: 'pastel', name: '파스텔 열기구', price: 3000, darkImg: 'balloon_pastel.png', lightImg: 'balloon_pastel.png', desc: '차분한 파스텔톤 열기구' },
-    'redstripes': { id: 'redstripes', name: '레드 스트라이프', price: 4000, darkImg: 'balloon_redstripes.png', lightImg: 'balloon_redstripes.png', desc: '강렬한 레드 스트라이프 열기구' },
-    'golden': { id: 'golden', name: '황금 열기구', price: 5000, darkImg: 'balloon_golden.png', lightImg: 'balloon_golden.png', desc: '고급스러운 황금빛 열기구' },
-    'cosmic': { id: 'cosmic', name: '우주 열기구', price: 6500, darkImg: 'balloon_cosmic.png', lightImg: 'balloon_cosmic.png', desc: '신비로운 우주 테마 열기구' },
-    'sunset': { id: 'sunset', name: '석양 열기구', price: 8000, darkImg: 'balloon_sunset.png', lightImg: 'balloon_sunset.png', desc: '아름다운 석양 그라데이션 열기구' },
-    'emerald': { id: 'emerald', name: '에메랄드 열기구', price: 9500, darkImg: 'balloon_emerald.png', lightImg: 'balloon_emerald.png', desc: '고귀한 에메랄드빛 열기구' },
-    'phoenix': { id: 'phoenix', name: '불사조 열기구', price: 11000, darkImg: 'balloon_phoenix.png', lightImg: 'balloon_phoenix.png', desc: '화염 속 불사조 열기구' },
-    'galaxy': { id: 'galaxy', name: '은하수 열기구', price: 13000, darkImg: 'balloon_galaxy.png', lightImg: 'balloon_galaxy.png', desc: '찬란한 은하수 열기구' },
-    'diamond': { id: 'diamond', name: '다이아몬드 열기구', price: 15000, darkImg: 'balloon_diamond.png', lightImg: 'balloon_diamond.png', desc: '최고급 다이아몬드 열기구' }
+    'default': { id: 'default', name: '기본 열기구', price: 0, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '처음부터 제공되는 기본 스킨' },
+    'aurora': { id: 'aurora', name: '오로라 웨이브', price: 2200, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '오로라처럼 흐르는 네온 그라데이션' },
+    'magma': { id: 'magma', name: '마그마 코어', price: 3600, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '용암 결이 살아있는 고열 스킨' },
+    'cobalt': { id: 'cobalt', name: '코발트 러너', price: 4800, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '짙은 청색과 은색 라인의 레이싱 무드' },
+    'ivory': { id: 'ivory', name: '아이보리 클래식', price: 6200, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '크림 화이트와 골드 트림의 정석 클래식' },
+    'mint': { id: 'mint', name: '민트 브리즈', price: 7600, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '민트와 크림이 섞인 산뜻한 프리미엄 톤' },
+    'midnight': { id: 'midnight', name: '미드나잇 노바', price: 9100, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '별빛이 스며드는 딥 네이비 테마' },
+    'royale': { id: 'royale', name: '로열 벨벳', price: 10800, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '버건디와 샴페인 골드의 왕실 컬러' },
+    'prism': { id: 'prism', name: '프리즘 스펙트럼', price: 12600, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '각도마다 달라 보이는 스펙트럼 글로우' },
+    'obsidian': { id: 'obsidian', name: '옵시디언 엣지', price: 14800, darkImg: 'balloon_dark.png', lightImg: 'balloon_light.png', desc: '블랙 글래스와 전기 민트 엣지 하이라이트' }
 };
 
 const BALLOON_AURAS = {

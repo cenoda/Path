@@ -2986,6 +2986,26 @@ body.active .tab-panel {
     overflow: hidden;
 }
 
+.room-sheet-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: var(--surface-hover);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+.room-sheet-close-btn:hover {
+    background: var(--surface-soft);
+    color: var(--text-primary);
+}
+
 .room-decor-header {
     display: flex;
     align-items: center;

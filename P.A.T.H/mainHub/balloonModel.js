@@ -546,11 +546,11 @@ export function create3DBalloon(scale, colorScheme, isMe) {
         group.add(cable);
     });
 
-    // ── 불꽃 (플레이어 본인 + phoenix 항상) ─────────────────
-    if (isMe || colorScheme === 'phoenix') {
-        const flameColor  = colorScheme === 'phoenix' ? 0xff3300 : 0xff7a1a;
-        const midColor    = colorScheme === 'phoenix' ? 0xff8800 : 0xffba40;
-        const innerColor  = colorScheme === 'phoenix' ? 0xffcc00 : 0xffe08a;
+    // ── 불꽃 (플레이어 본인 + magma 항상) ───────────────────
+    if (isMe || colorScheme === 'magma') {
+        const flameColor  = colorScheme === 'magma' ? 0xff3300 : 0xff7a1a;
+        const midColor    = colorScheme === 'magma' ? 0xff8800 : 0xffba40;
+        const innerColor  = colorScheme === 'magma' ? 0xffcc00 : 0xffe08a;
         const coreColor   = 0xffffff;
         const baseY       = basketGroup.position.y + scale * 21.5;
 

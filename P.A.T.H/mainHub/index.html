@@ -18,6 +18,7 @@
     </script>
     <!-- socket.io client – loaded before scene.js so it is available globally -->
     <script src="/socket.io/socket.io.js"></script>
+    <script src="balloonSkins.js?v=10"></script>
     <script type="module" src="scene.js?v=8"></script>
 </head>
 <body>
@@ -402,5 +403,80 @@
     <script src="/shared/nav.js?v=4"></script>
     <script src="bg.js?v=5"></script>
     <script src="main.js?v=9"></script>
+    <script>
+    // 프로필 커스터마이저 – main.js 리셋 대비 index.html에 보관
+    (function () {
+        var _pendingFile = null;
+
+        function _esc(s) {
+            if (!s) return '';
+            var d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        window.openProfileCustomizer = function () {
+            var user = window.currentUser;
+            if (!user) return;
+            _pendingFile = null;
+            var modal = document.getElementById('modal-profile-custom');
+            if (!modal) return;
+            var nick = document.getElementById('profile-nick-input');
+            if (nick) nick.value = user.nickname || '';
+            var preview = document.getElementById('profile-avatar-preview');
+            if (preview) {
+                if (user.profile_image_url) {
+                    preview.innerHTML = '<img src="' + _esc(user.profile_image_url) + '" alt="preview">';
+                } else {
+                    preview.textContent = (user.nickname || '?').charAt(0).toUpperCase();
+                }
+            }
+            var err = document.getElementById('profile-save-err');
+            if (err) err.textContent = '';
+            modal.classList.remove('hidden');
+        };
+
+        window.closeProfileCustomizer = function () {
+            var modal = document.getElementById('modal-profile-custom');
+            if (modal) modal.classList.add('hidden');
+            _pendingFile = null;
+        };
+
+        window.onProfileImageSelected = function (input) {
+            var file = input && input.files && input.files[0];
+            if (!file) return;
+            _pendingFile = file;
+            var reader = new FileReader();
+            reader.onload = function (ev) {
+                var preview = document.getElementById('profile-avatar-preview');
+                if (preview) preview.innerHTML = '<img src="' + _esc(ev.target.result) + '" alt="preview">';
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.saveProfileCustomizer = function () {
+            var nick = (document.getElementById('profile-nick-input') || {}).value || '';
+            nick = nick.trim();
+            var errEl = document.getElementById('profile-save-err');
+            var saveBtn = document.getElementById('profile-save-btn');
+            if (!nick) { if (errEl) errEl.textContent = '닉네임을 입력해주세요.'; return; }
+            if (errEl) errEl.textContent = '';
+            if (saveBtn) saveBtn.disabled = true;
+            var fd = new FormData();
+            fd.append('nickname', nick);
+            if (_pendingFile) fd.append('profileImage', _pendingFile);
+            fetch('/api/auth/profile-custom', { method: 'POST', body: fd, credentials: 'include' })
+                .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+                .then(function (data) {
+                    if (!data || !data.ok) { if (errEl) errEl.textContent = data && data.error || '오류가 발생했습니다.'; return; }
+                    if (window.currentUser) window.currentUser = data.user;
+                    if (typeof window.updateHUD === 'function') window.updateHUD(data.user);
+                    window.closeProfileCustomizer();
+                })
+                .catch(function () { if (errEl) errEl.textContent = '저장 중 오류가 발생했습니다.'; })
+                .finally(function () { if (saveBtn) saveBtn.disabled = false; });
+        };
+    })();
+    </script>
 </body>
 </html>

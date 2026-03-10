@@ -119,10 +119,11 @@
         },
 
         bindRoomUiEvents() {
-            this._bind(document.getElementById('rooms-open-create'), () => this.showCreateModal());
-            this._bind(document.getElementById('rooms-open-join'),    () => this.showJoinModal());
-            this._bind(document.getElementById('room-create-cancel'), () => this.hideCreateModal());
-            this._bind(document.getElementById('room-join-cancel'),   () => this.hideJoinModal());
+            this._bind(document.getElementById('rooms-open-create'),    () => this.showCreateModal());
+            this._bind(document.getElementById('rooms-open-join'),       () => this.showJoinModal());
+            this._bind(document.getElementById('room-create-cancel'),   () => this.hideCreateModal());
+            this._bind(document.getElementById('room-join-cancel'),      () => this.hideJoinModal());
+            this._bind(document.getElementById('room-decor-close-btn'), () => this.hideDecorModal());
 
             const createForm = document.getElementById('room-create-form');
             if (createForm) {

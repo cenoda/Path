@@ -296,6 +296,26 @@
             e.preventDefault();
             e.stopPropagation();
         }, { capture: true });
+
+        // onchange 속성 폴백 – 토글/셀렉트 등 inline onchange가 차단된 환경 대응
+        if (inlineBlocked) {
+            document.addEventListener('change', function (e) {
+                var target = e.target;
+                if (!target) return;
+                var expr = target.getAttribute('onchange');
+                if (!expr) return;
+                runInlineOnclick(expr, e, target);
+            }, { capture: true });
+
+            // oninput 폴백 – 검색 입력 등
+            document.addEventListener('input', function (e) {
+                var target = e.target;
+                if (!target) return;
+                var expr = target.getAttribute('oninput');
+                if (!expr) return;
+                runInlineOnclick(expr, e, target);
+            }, { capture: true });
+        }
     }
 
     if (document.readyState === 'loading') {

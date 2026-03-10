@@ -509,6 +509,13 @@ function _normalizeUserId(value) {
     return Number.isFinite(n) ? n : null;
 }
 
+function _normalizedCurrentUserForWorld() {
+    if (!currentUser) return null;
+    const id = _normalizeUserId(currentUser.id);
+    if (id === null) return null;
+    return { ...currentUser, id };
+}
+
 // ── 랭킹 패널 ────────────────────────────────────────────────────────
 async function loadRankPanel(tab) {
     const listEl = document.getElementById('rank-list');
@@ -2587,7 +2594,7 @@ function initWorldSocket(user) {
             _wsNearby.set(id, { ...p, id });
         });
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], currentUser);
+            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], _normalizedCurrentUserForWorld());
         }
     });
 
@@ -2597,7 +2604,7 @@ function initWorldSocket(user) {
         if (id === null) return;
         _wsNearby.set(id, { ...player, id });
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], currentUser);
+            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], _normalizedCurrentUserForWorld());
         }
     });
 
@@ -2620,7 +2627,7 @@ function initWorldSocket(user) {
         if (window.WorldScene && window.WorldScene.isReady) {
             // Do not hard-remove immediately: scene side applies stale grace
             // to avoid false left events causing flicker/disappear.
-            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], currentUser);
+            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], _normalizedCurrentUserForWorld());
         }
     });
 
@@ -2634,7 +2641,7 @@ function initWorldSocket(user) {
         if (balloon_aura) p.balloon_aura = balloon_aura;
         if (status_message !== undefined) p.status_message = status_message;
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], currentUser);
+            window.WorldScene.updateWorldPlayers([..._wsNearby.values()], _normalizedCurrentUserForWorld());
         }
     });
 

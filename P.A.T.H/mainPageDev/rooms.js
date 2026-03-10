@@ -64,6 +64,15 @@
         creatingRoom: false,
         // decor state
         _decor: { wallpaper: 'default', props: [], owned: [] },
+        // public browse state
+        _browseTab: 'my',
+        _publicRooms: [],
+        _publicSort: 'study',
+        _publicSearchQ: '',
+        _publicPage: 1,
+        _publicHasMore: false,
+        _publicLoading: false,
+        _searchTimer: null,
 
         // ── Init ────────────────────────────────────────────────────────────
         async init() {
@@ -200,6 +209,136 @@
                     <div class="room-card-meta">${members}/${room.max_members}명 · 초대코드 ${room.invite_code}</div>
                 </div>`;
             }).join('');
+        },
+
+        // ── List view tabs ───────────────────────────────────────────────────
+        switchListTab(tab) {
+            this._browseTab = tab;
+            document.querySelectorAll('.room-list-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+            const myPanel = document.getElementById('room-list-panel-my');
+            const pubPanel = document.getElementById('room-list-panel-public');
+            if (tab === 'my') {
+                myPanel && myPanel.classList.remove('hidden');
+                pubPanel && pubPanel.classList.add('hidden');
+            } else {
+                myPanel && myPanel.classList.add('hidden');
+                pubPanel && pubPanel.classList.remove('hidden');
+                if (!this._publicRooms.length && !this._publicLoading) {
+                    this.loadPublicRooms();
+                }
+            }
+        },
+
+        // ── Public rooms ─────────────────────────────────────────────────────
+        async loadPublicRooms(append = false) {
+            if (this._publicLoading) return;
+            this._publicLoading = true;
+            const listEl = document.getElementById('room-public-list');
+            const moreBtn = document.getElementById('room-public-load-more');
+            if (!append && listEl) {
+                listEl.innerHTML = '<div class="rooms-loading">불러오는 중…</div>';
+            }
+            try {
+                const params = new URLSearchParams({
+                    sort: this._publicSort,
+                    page: this._publicPage,
+                });
+                if (this._publicSearchQ) params.set('q', this._publicSearchQ);
+                const data = await this.apiGet(`/api/rooms/public?${params}`);
+                if (append) {
+                    this._publicRooms = [...this._publicRooms, ...(data.rooms || [])];
+                } else {
+                    this._publicRooms = data.rooms || [];
+                }
+                this._publicHasMore = data.has_more;
+                this.renderPublicRooms();
+                if (moreBtn) moreBtn.classList.toggle('hidden', !this._publicHasMore);
+            } catch (e) {
+                if (listEl) listEl.innerHTML = '<div class="rooms-empty"><div class="rooms-empty-icon">😕</div><div class="rooms-empty-text">불러올 수 없어요</div></div>';
+            } finally {
+                this._publicLoading = false;
+            }
+        },
+
+        renderPublicRooms() {
+            const listEl = document.getElementById('room-public-list');
+            if (!listEl) return;
+            if (!this._publicRooms.length) {
+                listEl.innerHTML = `<div class="rooms-empty">
+                    <div class="rooms-empty-icon">🔍</div>
+                    <div class="rooms-empty-text">공개된 방이 없어요</div>
+                    <div class="rooms-empty-sub">방장이 공개로 설정한 방만 표시됩니다</div>
+                </div>`;
+                return;
+            }
+            const myRoomIds = new Set(this.myRooms.map(r => r.id));
+            const isSortByStudy = this._publicSort === 'study';
+            listEl.innerHTML = this._publicRooms.map((room, i) => {
+                const members = parseInt(room.member_count, 10) || 0;
+                const todaySec = parseInt(room.today_sec, 10) || 0;
+                const isMember = myRoomIds.has(room.id);
+                const rankBadge = isSortByStudy && i < 3
+                    ? `<span class="room-rank-badge rank-${i}">${['🥇','🥈','🥉'][i]}</span>`
+                    : (isSortByStudy ? `<span class="room-rank-badge rank-n">#${i+1}</span>` : '');
+                const actionBtn = isMember
+                    ? `<button class="room-public-action-btn room-public-action-open" onclick="GroupRooms.openRoom(${room.id})">열기</button>`
+                    : `<button class="room-public-action-btn" onclick="GroupRooms.joinPublicRoom('${room.invite_code}')">입장하기</button>`;
+                return `<div class="room-card room-card-public">
+                    <div class="room-card-header">
+                        <div class="room-card-name-row">
+                            ${rankBadge}
+                            <span class="room-card-name">${esc(room.name)}</span>
+                        </div>
+                        ${actionBtn}
+                    </div>
+                    ${room.goal ? `<div class="room-card-goal">${esc(room.goal)}</div>` : ''}
+                    <div class="room-card-meta">
+                        <span>👥 ${members}/${room.max_members}명</span>
+                        <span>·</span>
+                        <span>📖 오늘 ${_fmtHM(todaySec)}</span>
+                        <span>·</span>
+                        <span class="room-creator-label">by ${esc(room.creator_nickname)}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        },
+
+        async joinPublicRoom(inviteCode) {
+            try {
+                await this.handleJoinByCode(inviteCode);
+                // Re-render public list to update the button state
+                this.renderPublicRooms();
+            } catch (e) {
+                // handleJoinByCode already shows alert
+            }
+        },
+
+        setPublicSort(sort) {
+            if (this._publicSort === sort) return;
+            this._publicSort = sort;
+            this._publicPage = 1;
+            this._publicRooms = [];
+            document.querySelectorAll('.room-sort-pill').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.sort === sort);
+            });
+            this.loadPublicRooms();
+        },
+
+        _onPublicSearch(q) {
+            this._publicSearchQ = q;
+            clearTimeout(this._searchTimer);
+            this._searchTimer = setTimeout(() => {
+                this._publicPage = 1;
+                this._publicRooms = [];
+                this.loadPublicRooms();
+            }, 400);
+        },
+
+        async loadMorePublic() {
+            this._publicPage += 1;
+            await this.loadPublicRooms(true);
         },
 
         // ── Open room ────────────────────────────────────────────────────────

@@ -337,14 +337,41 @@ function toggleTheme() {
                     <p class="rooms-subtitle">함께 공부하고, 서로를 자극하세요</p>
                 </div>
             </div>
-            <div class="rooms-actions">
-                <button id="rooms-open-create" class="room-btn-primary" onclick="GroupRooms.showCreateModal()">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                    방 만들기
-                </button>
-                <button id="rooms-open-join" class="room-btn-ghost" onclick="GroupRooms.showJoinModal()">코드로 입장</button>
+
+            <!-- List view tabs -->
+            <div class="room-list-tabs">
+                <button class="room-list-tab active" data-tab="my" onclick="GroupRooms.switchListTab('my')">내 방</button>
+                <button class="room-list-tab" data-tab="public" onclick="GroupRooms.switchListTab('public')">공개 방 탐색</button>
             </div>
-            <div id="rooms-list" class="rooms-list"></div>
+
+            <!-- My rooms panel -->
+            <div id="room-list-panel-my" class="room-list-panel">
+                <div class="rooms-actions">
+                    <button id="rooms-open-create" class="room-btn-primary" onclick="GroupRooms.showCreateModal()">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        방 만들기
+                    </button>
+                    <button id="rooms-open-join" class="room-btn-ghost" onclick="GroupRooms.showJoinModal()">코드로 입장</button>
+                </div>
+                <div id="rooms-list" class="rooms-list"></div>
+            </div>
+
+            <!-- Public rooms browse panel -->
+            <div id="room-list-panel-public" class="room-list-panel hidden">
+                <div class="room-public-controls">
+                    <div class="room-search-wrap">
+                        <svg class="room-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                        <input id="room-search-input" class="room-search-input" type="text" placeholder="방 이름, 목표 검색..." oninput="GroupRooms._onPublicSearch(this.value)">
+                    </div>
+                    <div class="room-sort-pills">
+                        <button class="room-sort-pill active" data-sort="study" onclick="GroupRooms.setPublicSort('study')">공부량순</button>
+                        <button class="room-sort-pill" data-sort="members" onclick="GroupRooms.setPublicSort('members')">인원순</button>
+                        <button class="room-sort-pill" data-sort="new" onclick="GroupRooms.setPublicSort('new')">최신순</button>
+                    </div>
+                </div>
+                <div id="room-public-list" class="rooms-list"></div>
+                <button id="room-public-load-more" class="room-load-more-btn hidden" onclick="GroupRooms.loadMorePublic()">더 보기</button>
+            </div>
         </div>
 
         <!-- Room Detail View -->
@@ -506,6 +533,18 @@ function toggleTheme() {
                         <div class="room-field">
                             <label class="room-field-label">최대 인원</label>
                             <input id="room-edit-max" class="room-input" type="number" min="2" max="50">
+                        </div>
+                        <div class="room-field">
+                            <div class="room-field-toggle-row">
+                                <div>
+                                    <div class="room-field-label">공개 방</div>
+                                    <div class="room-field-hint">공개 방은 누구나 검색하여 입장할 수 있어요</div>
+                                </div>
+                                <label class="room-toggle-switch">
+                                    <input type="checkbox" id="room-edit-public">
+                                    <span class="room-toggle-slider"></span>
+                                </label>
+                            </div>
                         </div>
                         <button id="room-edit-submit" type="button" class="room-btn-primary room-btn-full" onclick="GroupRooms.submitEditRoom()">변경 저장</button>
                     </div>

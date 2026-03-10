@@ -517,11 +517,6 @@ router.post('/:id/messages', chatLimiter, requireAuth, async (req, res) => {
 
 // ── 방 꾸미기 API ─────────────────────────────────────────────────────────────
 
-// GET /api/rooms/shop — room shop catalog (static)
-router.get('/shop', roomsReadLimiter, requireAuth, (req, res) => {
-    res.json({ shop: ROOM_SHOP });
-});
-
 // GET /api/rooms/:id/decor — current room decor state + owned items
 router.get('/:id/decor', roomsReadLimiter, requireAuth, async (req, res) => {
     const roomId = parseInt(req.params.id, 10);

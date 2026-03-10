@@ -1722,8 +1722,8 @@ body.active .tab-panel {
 #tab-rooms {
     overflow-y: auto;
     padding: 0;
-    display: flex;
     flex-direction: column;
+    align-items: stretch;
 }
 
 /* ── List View ─────────────────────────────── */

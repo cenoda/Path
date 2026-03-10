@@ -53,49 +53,45 @@
         },
 
         bindTabSwitch() {
-            const btn = document.getElementById('tab-rooms-btn');
-            if (btn) {
-                btn.onclick = () => {
-                    if (typeof UI !== 'undefined' && UI.switchTab) {
-                        UI.switchTab('rooms');
-                    }
-                };
-            }
+            this._bind(document.getElementById('tab-rooms-btn'), () => {
+                if (typeof UI !== 'undefined' && UI.switchTab) UI.switchTab('rooms');
+            });
+        },
+
+        _bind(el, handler) {
+            if (!el) return;
+            el.removeAttribute('onclick');
+            el.onclick = null;
+            let _t = 0;
+            el.addEventListener('pointerup', (e) => {
+                if (e.pointerType !== 'touch') return;
+                const now = Date.now();
+                if (now - _t < 250) return;
+                _t = now;
+                e.preventDefault();
+                e.stopPropagation();
+                handler(e);
+            }, { passive: false });
+            el.addEventListener('click', (e) => {
+                const now = Date.now();
+                if (now - _t < 350) { e.preventDefault(); e.stopPropagation(); return; }
+                handler(e);
+            });
         },
 
         bindRoomUiEvents() {
-            const openCreateBtn = document.getElementById('rooms-open-create');
-            const openJoinBtn = document.getElementById('rooms-open-join');
-            const createCancelBtn = document.getElementById('room-create-cancel');
-            const joinCancelBtn = document.getElementById('room-join-cancel');
+            this._bind(document.getElementById('rooms-open-create'), () => this.showCreateModal());
+            this._bind(document.getElementById('rooms-open-join'),    () => this.showJoinModal());
+            this._bind(document.getElementById('room-create-cancel'), () => this.hideCreateModal());
+            this._bind(document.getElementById('room-join-cancel'),   () => this.hideJoinModal());
+
             const createForm = document.getElementById('room-create-form');
-            const joinForm = document.getElementById('room-join-form');
-
-            if (openCreateBtn) {
-                openCreateBtn.removeAttribute('onclick');
-                openCreateBtn.addEventListener('click', () => this.showCreateModal());
-            }
-
-            if (openJoinBtn) {
-                openJoinBtn.removeAttribute('onclick');
-                openJoinBtn.addEventListener('click', () => this.showJoinModal());
-            }
-
-            if (createCancelBtn) {
-                createCancelBtn.removeAttribute('onclick');
-                createCancelBtn.addEventListener('click', () => this.hideCreateModal());
-            }
-
-            if (joinCancelBtn) {
-                joinCancelBtn.removeAttribute('onclick');
-                joinCancelBtn.addEventListener('click', () => this.hideJoinModal());
-            }
-
             if (createForm) {
                 createForm.removeAttribute('onsubmit');
                 createForm.addEventListener('submit', (e) => this.submitCreateRoom(e));
             }
 
+            const joinForm = document.getElementById('room-join-form');
             if (joinForm) {
                 joinForm.removeAttribute('onsubmit');
                 joinForm.addEventListener('submit', (e) => this.submitJoinRoom(e));

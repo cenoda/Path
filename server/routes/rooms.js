@@ -14,6 +14,34 @@ function generateInviteCode() {
     return crypto.randomBytes(6).toString('hex'); // 12-char hex
 }
 
+// ── 방 꾸미기 샵 카탈로그 ──────────────────────────────────────────────────────
+const ROOM_SHOP = {
+    wallpapers: [
+        { key: 'default',  name: '기본',        price: 0,    emoji: '⬜', gradients: ['#f8f9fa', '#e9ecef'], description: '깔끔한 기본 배경' },
+        { key: 'blossom',  name: '벚꽃',         price: 500,  emoji: '🌸', gradients: ['#fce4ec', '#f8bbd9'], description: '봄날 벚꽃이 흩날려요' },
+        { key: 'night',    name: '별밤',          price: 800,  emoji: '🌙', gradients: ['#0d1b4b', '#1a2a6c'], description: '별빛 가득한 밤하늘' },
+        { key: 'dawn',     name: '새벽',          price: 1000, emoji: '🌅', gradients: ['#312060', '#5c3380'], description: '새벽의 신비로운 분위기' },
+        { key: 'coral',    name: '산호',          price: 1200, emoji: '🪸', gradients: ['#fff3e0', '#ffe0b2'], description: '따뜻한 산호빛 감성' },
+        { key: 'forest',   name: '숲속',          price: 1500, emoji: '🌿', gradients: ['#e8f5e9', '#c8e6c9'], description: '초록빛 숲 속의 고요함' },
+        { key: 'library',  name: '황금 도서관',   price: 3000, emoji: '📖', gradients: ['#3e2723', '#4e342e'], description: '지식의 전당, 황금빛 서재' },
+        { key: 'space',    name: '우주',          price: 5000, emoji: '🚀', gradients: ['#050510', '#0a0520'], description: '광활한 우주 속 나만의 공간' },
+    ],
+    props: [
+        { key: 'plant',     name: '화분',    emoji: '🌱', price: 200  },
+        { key: 'coffee',    name: '커피',    emoji: '☕', price: 150  },
+        { key: 'clock',     name: '탁상시계', emoji: '⏰', price: 300  },
+        { key: 'lamp',      name: '스탠드',   emoji: '💡', price: 250  },
+        { key: 'trophy',    name: '트로피',   emoji: '🏆', price: 1000 },
+        { key: 'pizza',     name: '피자',    emoji: '🍕', price: 100  },
+        { key: 'cat',       name: '고양이',   emoji: '🐱', price: 500  },
+        { key: 'books',     name: '책더미',   emoji: '📚', price: 200  },
+        { key: 'ac',        name: '에어컨',   emoji: '❄️', price: 800  },
+        { key: 'star',      name: '별',       emoji: '⭐', price: 300  },
+        { key: 'music',     name: '스피커',   emoji: '🎵', price: 400  },
+        { key: 'cookie',    name: '쿠키',    emoji: '🍪', price: 100  },
+    ],
+};
+
 const roomsReadLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 60,
@@ -435,6 +463,186 @@ router.post('/:id/messages', chatLimiter, requireAuth, async (req, res) => {
         res.json({ ok: true, message: msg });
     } catch (err) {
         console.error('rooms/:id/messages POST error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+// ── 방 꾸미기 API ─────────────────────────────────────────────────────────────
+
+// GET /api/rooms/shop — room shop catalog (static)
+router.get('/shop', roomsReadLimiter, requireAuth, (req, res) => {
+    res.json({ shop: ROOM_SHOP });
+});
+
+// GET /api/rooms/:id/decor — current room decor state + owned items
+router.get('/:id/decor', roomsReadLimiter, requireAuth, async (req, res) => {
+    const roomId = parseInt(req.params.id, 10);
+    if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
+
+    try {
+        const memberCheck = await pool.query(
+            `SELECT 1 FROM study_room_members WHERE room_id = $1 AND user_id = $2`,
+            [roomId, req.session.userId]
+        );
+        if (!memberCheck.rows.length) return res.status(403).json({ error: '방 멤버가 아닙니다.' });
+
+        const [ownedRes, stateRes] = await Promise.all([
+            pool.query(
+                `SELECT roi.item_key, roi.category, roi.purchased_by, u.nickname AS purchased_by_nickname
+                 FROM room_owned_items roi
+                 JOIN users u ON u.id = roi.purchased_by
+                 WHERE roi.room_id = $1`,
+                [roomId]
+            ),
+            pool.query(
+                `SELECT wallpaper_key, prop_keys FROM room_decor_state WHERE room_id = $1`,
+                [roomId]
+            ),
+        ]);
+
+        const state = stateRes.rows[0] || { wallpaper_key: 'default', prop_keys: [] };
+        res.json({ owned: ownedRes.rows, wallpaper: state.wallpaper_key, props: state.prop_keys });
+    } catch (err) {
+        console.error('rooms/:id/decor GET error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+// POST /api/rooms/:id/shop/buy — buy item from shop (costs personal gold)
+router.post('/:id/shop/buy', roomsWriteLimiter, requireAuth, async (req, res) => {
+    const roomId = parseInt(req.params.id, 10);
+    const itemKey = String(req.body.item_key || '').trim();
+    if (!roomId || !itemKey) return res.status(400).json({ error: '잘못된 요청' });
+
+    // Resolve item from catalog
+    let item = null, category = null;
+    for (const [cat, list] of [['wallpaper', ROOM_SHOP.wallpapers], ['prop', ROOM_SHOP.props]]) {
+        const found = list.find(i => i.key === itemKey);
+        if (found) { item = found; category = cat; break; }
+    }
+    if (!item) return res.status(404).json({ error: '존재하지 않는 아이템입니다.' });
+    if (item.price === 0) return res.status(400).json({ error: '이 아이템은 구매 불필요합니다.' });
+
+    let client;
+    try {
+        client = await pool.connect();
+
+        const memberCheck = await client.query(
+            `SELECT 1 FROM study_room_members WHERE room_id = $1 AND user_id = $2`,
+            [roomId, req.session.userId]
+        );
+        if (!memberCheck.rows.length) return res.status(403).json({ error: '방 멤버가 아닙니다.' });
+
+        const alreadyOwned = await client.query(
+            `SELECT 1 FROM room_owned_items WHERE room_id = $1 AND item_key = $2`,
+            [roomId, itemKey]
+        );
+        if (alreadyOwned.rows.length) return res.status(400).json({ error: '이미 구매된 아이템입니다.' });
+
+        await client.query('BEGIN');
+
+        const goldRes = await client.query(
+            `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
+            [item.price, req.session.userId]
+        );
+        if (!goldRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `골드가 부족합니다. ${item.price.toLocaleString()}G 필요` });
+        }
+
+        await client.query(
+            `INSERT INTO room_owned_items (room_id, item_key, category, purchased_by) VALUES ($1, $2, $3, $4)`,
+            [roomId, itemKey, category, req.session.userId]
+        );
+
+        await client.query(
+            `INSERT INTO room_gold_contributed (room_id, user_id, total_gold) VALUES ($1, $2, $3)
+             ON CONFLICT (room_id, user_id) DO UPDATE SET total_gold = room_gold_contributed.total_gold + $3`,
+            [roomId, req.session.userId, item.price]
+        );
+
+        await client.query('COMMIT');
+        res.json({ ok: true, new_gold: goldRes.rows[0].gold });
+    } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
+        console.error('rooms/:id/shop/buy error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// POST /api/rooms/:id/decor/equip — update equipped wallpaper + props
+router.post('/:id/decor/equip', roomsWriteLimiter, requireAuth, async (req, res) => {
+    const roomId = parseInt(req.params.id, 10);
+    if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
+
+    const { wallpaper, props } = req.body;
+
+    try {
+        const memberCheck = await pool.query(
+            `SELECT 1 FROM study_room_members WHERE room_id = $1 AND user_id = $2`,
+            [roomId, req.session.userId]
+        );
+        if (!memberCheck.rows.length) return res.status(403).json({ error: '방 멤버가 아닙니다.' });
+
+        // Build set of owned item keys (default wallpaper always available)
+        const ownedRes = await pool.query(
+            `SELECT item_key FROM room_owned_items WHERE room_id = $1`,
+            [roomId]
+        );
+        const owned = new Set(ownedRes.rows.map(r => r.item_key));
+        owned.add('default');
+
+        const newWallpaper = (typeof wallpaper === 'string' && owned.has(wallpaper))
+            ? wallpaper : null;
+        const newProps = Array.isArray(props)
+            ? props.filter(k => typeof k === 'string' && owned.has(k)).slice(0, 9)
+            : null;
+
+        const sets = ['updated_at = NOW()'];
+        const vals = [roomId, 'default', '[]'];
+        if (newWallpaper !== null) { sets.push(`wallpaper_key = $${vals.push(newWallpaper)}`); }
+        if (newProps !== null)     { sets.push(`prop_keys = $${vals.push(JSON.stringify(newProps))}`); }
+
+        await pool.query(
+            `INSERT INTO room_decor_state (room_id, wallpaper_key, prop_keys)
+             VALUES ($1, $2, $3::jsonb)
+             ON CONFLICT (room_id) DO UPDATE SET ${sets.join(', ')}`,
+            vals
+        );
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('rooms/:id/decor/equip error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+// GET /api/rooms/:id/contributions — member gold contribution leaderboard
+router.get('/:id/contributions', roomsReadLimiter, requireAuth, async (req, res) => {
+    const roomId = parseInt(req.params.id, 10);
+    if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
+
+    try {
+        const memberCheck = await pool.query(
+            `SELECT 1 FROM study_room_members WHERE room_id = $1 AND user_id = $2`,
+            [roomId, req.session.userId]
+        );
+        if (!memberCheck.rows.length) return res.status(403).json({ error: '방 멤버가 아닙니다.' });
+
+        const result = await pool.query(
+            `SELECT u.id, u.nickname,
+                    COALESCE(rgc.total_gold, 0) AS total_gold
+             FROM study_room_members m
+             JOIN users u ON u.id = m.user_id
+             LEFT JOIN room_gold_contributed rgc ON rgc.room_id = $1 AND rgc.user_id = u.id
+             WHERE m.room_id = $1
+             ORDER BY total_gold DESC`,
+            [roomId]
+        );
+        res.json({ contributions: result.rows });
+    } catch (err) {
+        console.error('rooms/:id/contributions error:', err);
         res.status(500).json({ error: '서버 오류' });
     }
 });

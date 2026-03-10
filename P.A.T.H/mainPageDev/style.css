@@ -2771,3 +2771,368 @@ body.active .tab-panel {
         grid-template-columns: 1fr;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   방 꾸미기 — 벽지 / 소품 / 샵 / 기여도
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 방 비주얼 (룸 씬) ─────────────────────────────────────── */
+.room-visual {
+    position: relative;
+    margin: 0 16px 10px;
+    height: 110px;
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    transition: background 0.5s ease;
+    border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* ── 벽지 배경 ──────────────────────────────────────────────── */
+.wallpaper-default { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); }
+.wallpaper-blossom { background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 60%, #fce4ec 100%); }
+.wallpaper-night   {
+    background: linear-gradient(160deg, #0d1b4b 0%, #1a2a6c 100%);
+    background-image: radial-gradient(ellipse at 20% 20%, rgba(255,255,255,0.08) 1px, transparent 1px),
+                      radial-gradient(ellipse at 60% 40%, rgba(255,255,255,0.06) 1px, transparent 1px),
+                      radial-gradient(ellipse at 80% 15%, rgba(255,255,255,0.05) 1px, transparent 1px),
+                      radial-gradient(ellipse at 40% 70%, rgba(255,255,255,0.07) 1px, transparent 1px),
+                      linear-gradient(160deg, #0d1b4b 0%, #1a2a6c 100%);
+}
+.wallpaper-dawn    { background: linear-gradient(160deg, #312060 0%, #5c3380 50%, #7b4fa6 100%); }
+.wallpaper-coral   { background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 60%, #ffcc80 100%); }
+.wallpaper-forest  { background: linear-gradient(160deg, #e8f5e9 0%, #c8e6c9 60%, #a5d6a7 100%); }
+.wallpaper-library {
+    background: linear-gradient(160deg, #3e2723 0%, #4e342e 60%, #5d4037 100%);
+    background-image: repeating-linear-gradient(
+        90deg, transparent, transparent 20px,
+        rgba(255,193,7,0.05) 20px, rgba(255,193,7,0.05) 21px
+    ), linear-gradient(160deg, #3e2723 0%, #4e342e 100%);
+}
+.wallpaper-space   {
+    background: radial-gradient(ellipse at 30% 40%, #1a0a3d 0%, #050510 60%);
+    background-image: radial-gradient(ellipse at 15% 25%, rgba(100,70,255,0.15) 0%, transparent 40%),
+                      radial-gradient(ellipse at 75% 65%, rgba(70,130,255,0.1) 0%, transparent 35%),
+                      radial-gradient(ellipse at 30% 40%, #1a0a3d 0%, #050510 100%);
+}
+
+/* ── 소품 배지 ──────────────────────────────────────────────── */
+.room-props-display {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 12px;
+    pointer-events: none;
+}
+
+.room-prop-badge {
+    font-size: 26px;
+    line-height: 1;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.15));
+    animation: propFloat 3s ease-in-out infinite;
+}
+.room-prop-badge:nth-child(2n) { animation-delay: -1s; }
+.room-prop-badge:nth-child(3n) { animation-delay: -2s; }
+
+@keyframes propFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+/* ── 꾸미기 열기 버튼 ─────────────────────────────────────── */
+.room-decor-open-btn {
+    position: absolute;
+    bottom: 8px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: none;
+    border-radius: 50px;
+    padding: 6px 12px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.room-decor-open-btn:hover { background: rgba(255,255,255,0.95); }
+.room-decor-open-btn:active { transform: scale(0.95); }
+
+/* ── 꾸미기 시트 ─────────────────────────────────────────── */
+.room-sheet-tall {
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.room-decor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.room-decor-gold-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: rgba(255, 179, 0, 0.1);
+    padding: 5px 12px;
+    border-radius: 50px;
+}
+
+/* ── 탭 ──────────────────────────────────────────────────── */
+.room-decor-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface-soft);
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+}
+
+.room-decor-tab {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.room-decor-tab.active {
+    background: var(--surface-strong);
+    color: var(--text-primary);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+/* ── 탭 패널 ─────────────────────────────────────────────── */
+.room-decor-panel {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.room-decor-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+/* ── 벽지 그리드 ────────────────────────────────────────── */
+.room-wallpaper-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding-bottom: 16px;
+}
+
+.room-wp-card {
+    border-radius: 14px;
+    border: 2px solid transparent;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    background: var(--surface-soft);
+}
+.room-wp-card:active { transform: scale(0.97); }
+.room-wp-active { border-color: var(--accent-blue); }
+
+.room-wp-preview {
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.room-wp-emoji { font-size: 28px; }
+
+.room-wp-check {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    background: var(--accent-blue);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.room-wp-info {
+    padding: 8px 10px;
+    background: var(--surface-strong);
+}
+
+.room-wp-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+}
+
+.room-wp-tag {
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 50px;
+    display: inline-block;
+    padding: 2px 8px;
+}
+.room-wp-owned { background: rgba(0,196,113,0.12); color: #00a85a; }
+.room-wp-price { background: rgba(255,179,0,0.12); color: #cc8800; }
+
+/* ── 소품 그리드 ────────────────────────────────────────── */
+.room-props-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding-bottom: 16px;
+}
+
+.room-prop-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 14px 8px 10px;
+    background: var(--surface-soft);
+    border-radius: 14px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.room-prop-item:active { transform: scale(0.95); }
+.room-prop-on {
+    border-color: var(--accent-blue);
+    background: var(--accent-blue-light);
+}
+
+.room-prop-emoji { font-size: 28px; line-height: 1; }
+
+.room-prop-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.room-prop-tag {
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 50px;
+    padding: 2px 8px;
+}
+.room-prop-tag-on     { background: var(--accent-blue); color: #fff; }
+.room-prop-tag-owned  { background: rgba(0,196,113,0.12); color: #00a85a; }
+.room-prop-tag-price  { background: rgba(255,179,0,0.12); color: #cc8800; }
+
+/* ── 기여도 ─────────────────────────────────────────────── */
+.room-contrib-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 16px;
+}
+
+.room-contrib-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--surface-soft);
+    border-radius: 12px;
+}
+.room-contrib-me {
+    background: var(--accent-blue-light);
+    border: 1px solid rgba(49,130,246,0.2);
+}
+
+.room-contrib-rank {
+    font-size: 18px;
+    width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.room-contrib-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.room-contrib-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.room-contrib-you {
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--accent-blue);
+    color: #fff;
+    border-radius: 50px;
+    padding: 1px 7px;
+}
+
+.room-contrib-bar-wrap {
+    height: 5px;
+    background: rgba(0,0,0,0.07);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.room-contrib-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-blue), #60a5fa);
+    border-radius: 3px;
+    min-width: 2px;
+    transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.room-contrib-gold {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.room-contrib-gold-val {
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+}
+
+.room-contrib-pct {
+    font-size: 11px;
+    color: var(--text-muted);
+}

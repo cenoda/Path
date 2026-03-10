@@ -362,6 +362,15 @@ function toggleTheme() {
                 </button>
             </div>
 
+            <!-- Room Visual -->
+            <div id="room-visual" class="room-visual wallpaper-default">
+                <div id="room-props-display" class="room-props-display"></div>
+                <button class="room-decor-open-btn" onclick="GroupRooms.showDecorModal()">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13 3a1 1 0 00-1.4 0L5 9.6 3 11l1.4 1.4 1.4-2L12.4 4.4A1 1 0 0013 3zM2 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    방 꾸미기
+                </button>
+            </div>
+
             <div class="room-invite-row">
                 <div class="room-invite-info">
                     <span class="room-invite-label">초대 코드</span>
@@ -506,6 +515,47 @@ function toggleTheme() {
                 <div class="room-settings-danger-zone">
                     <button class="room-settings-action room-settings-action-leave" onclick="GroupRooms.leaveCurrentRoom()">방 나가기</button>
                     <button id="room-settings-delete-btn" class="room-settings-action room-settings-action-delete hidden" onclick="GroupRooms.deleteRoom()">방 삭제하기</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Room Decoration Bottom Sheet -->
+        <div id="room-decor-modal" class="room-sheet-backdrop hidden" onclick="if(event.target===this)GroupRooms.hideDecorModal()">
+            <div class="room-sheet room-sheet-tall">
+                <div class="room-sheet-handle"></div>
+
+                <!-- Header -->
+                <div class="room-decor-header">
+                    <h2 class="room-sheet-title" style="margin:0">방 꾸미기</h2>
+                    <div class="room-decor-gold-badge">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="#FFB300" opacity=".2"/><circle cx="8" cy="8" r="4" fill="#FFB300"/></svg>
+                        <span id="room-decor-gold-val">—</span>G
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="room-decor-tabs">
+                    <button class="room-decor-tab active" data-tab="wallpaper" onclick="GroupRooms.switchDecorTab('wallpaper')">벽지</button>
+                    <button class="room-decor-tab" data-tab="props" onclick="GroupRooms.switchDecorTab('props')">소품</button>
+                    <button class="room-decor-tab" data-tab="contrib" onclick="GroupRooms.switchDecorTab('contrib')">기여도</button>
+                </div>
+
+                <!-- Wallpaper tab -->
+                <div id="room-decor-wallpaper" class="room-decor-panel">
+                    <div id="room-wallpaper-grid" class="room-wallpaper-grid"></div>
+                </div>
+
+                <!-- Props tab -->
+                <div id="room-decor-props" class="room-decor-panel hidden">
+                    <p class="room-decor-hint">소품을 구매하면 방에 배치됩니다. (최대 9개)</p>
+                    <div id="room-props-grid" class="room-props-grid"></div>
+                </div>
+
+                <!-- Contribution tab -->
+                <div id="room-decor-contrib" class="room-decor-panel hidden">
+                    <div id="room-contrib-list" class="room-contrib-list">
+                        <div class="room-weekly-loading">불러오는 중…</div>
+                    </div>
                 </div>
             </div>
         </div>

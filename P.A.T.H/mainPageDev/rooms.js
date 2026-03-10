@@ -25,6 +25,34 @@
     }
 
     // ── State ─────────────────────────────────────────────────────────────────
+    // ── Room shop catalog (mirrors server ROOM_SHOP) ──────────────────────────
+    const ROOM_SHOP = {
+        wallpapers: [
+            { key: 'default', name: '기본',       price: 0,    emoji: '⬜', gradients: ['#f8f9fa', '#e9ecef'] },
+            { key: 'blossom', name: '벚꽃',        price: 500,  emoji: '🌸', gradients: ['#fce4ec', '#f8bbd9'] },
+            { key: 'night',   name: '별밤',         price: 800,  emoji: '🌙', gradients: ['#0d1b4b', '#1a2a6c'] },
+            { key: 'dawn',    name: '새벽',         price: 1000, emoji: '🌅', gradients: ['#312060', '#5c3380'] },
+            { key: 'coral',   name: '산호',         price: 1200, emoji: '🪸', gradients: ['#fff3e0', '#ffe0b2'] },
+            { key: 'forest',  name: '숲속',         price: 1500, emoji: '🌿', gradients: ['#e8f5e9', '#c8e6c9'] },
+            { key: 'library', name: '황금 도서관',  price: 3000, emoji: '📖', gradients: ['#3e2723', '#4e342e'] },
+            { key: 'space',   name: '우주',         price: 5000, emoji: '🚀', gradients: ['#050510', '#0a0520'] },
+        ],
+        props: [
+            { key: 'plant',  name: '화분',   emoji: '🌱', price: 200  },
+            { key: 'coffee', name: '커피',   emoji: '☕', price: 150  },
+            { key: 'clock',  name: '탁상시계', emoji: '⏰', price: 300  },
+            { key: 'lamp',   name: '스탠드',  emoji: '💡', price: 250  },
+            { key: 'trophy', name: '트로피',  emoji: '🏆', price: 1000 },
+            { key: 'pizza',  name: '피자',   emoji: '🍕', price: 100  },
+            { key: 'cat',    name: '고양이',  emoji: '🐱', price: 500  },
+            { key: 'books',  name: '책더미',  emoji: '📚', price: 200  },
+            { key: 'ac',     name: '에어컨',  emoji: '❄️', price: 800  },
+            { key: 'star',   name: '별',      emoji: '⭐', price: 300  },
+            { key: 'music',  name: '스피커',  emoji: '🎵', price: 400  },
+            { key: 'cookie', name: '쿠키',   emoji: '🍪', price: 100  },
+        ],
+    };
+
     const GroupRooms = {
         myRooms: [],
         activeRoomId: null,
@@ -34,6 +62,8 @@
         activityLog: [],
         refreshInterval: null,
         creatingRoom: false,
+        // decor state
+        _decor: { wallpaper: 'default', props: [], owned: [] },
 
         // ── Init ────────────────────────────────────────────────────────────
         async init() {
@@ -191,6 +221,7 @@
                 this.refreshLeaderboard(roomId),
                 this.loadMessages(roomId),
                 this.loadStats(roomId),
+                this._loadDecor(),
             ]);
             this.showRoomView(roomId);
         },
@@ -553,6 +584,211 @@
         hideSettingsModal() {
             document.getElementById('room-settings-modal')?.classList.add('hidden');
         },
+
+        // ── Decoration ────────────────────────────────────────────────────────
+        async showDecorModal() {
+            const modal = document.getElementById('room-decor-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            // Update gold display
+            const myGold = typeof UI !== 'undefined' && UI.currentUser ? UI.currentUser.gold : null;
+            const goldEl = document.getElementById('room-decor-gold-val');
+            if (goldEl && myGold !== null) goldEl.textContent = myGold.toLocaleString();
+            // Load & render
+            await this._loadDecor();
+            this.switchDecorTab('wallpaper');
+        },
+
+        hideDecorModal() {
+            document.getElementById('room-decor-modal')?.classList.add('hidden');
+        },
+
+        async _loadDecor() {
+            if (!this.activeRoomId) return;
+            try {
+                const data = await this.apiGet(`/api/rooms/${this.activeRoomId}/decor`);
+                this._decor = { wallpaper: data.wallpaper || 'default', props: data.props || [], owned: data.owned || [] };
+                this._applyRoomVisual();
+            } catch (e) {}
+        },
+
+        _applyRoomVisual() {
+            const visual = document.getElementById('room-visual');
+            if (!visual) return;
+            // Swap wallpaper class
+            ROOM_SHOP.wallpapers.forEach(w => visual.classList.remove(`wallpaper-${w.key}`));
+            visual.classList.add(`wallpaper-${this._decor.wallpaper || 'default'}`);
+            // Render props
+            const propsEl = document.getElementById('room-props-display');
+            if (propsEl) {
+                const activeProps = (this._decor.props || []).map(k => ROOM_SHOP.props.find(p => p.key === k)).filter(Boolean);
+                propsEl.innerHTML = activeProps.map(p => `<span class="room-prop-badge" title="${esc(p.name)}">${p.emoji}</span>`).join('');
+            }
+        },
+
+        switchDecorTab(tab) {
+            document.querySelectorAll('.room-decor-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+            document.querySelectorAll('.room-decor-panel').forEach(panel => panel.classList.add('hidden'));
+            const panel = document.getElementById(`room-decor-${tab}`);
+            if (panel) panel.classList.remove('hidden');
+
+            if (tab === 'wallpaper') this._renderWallpaperTab();
+            else if (tab === 'props') this._renderPropsTab();
+            else if (tab === 'contrib') this._renderContribTab().catch(() => {});
+        },
+
+        _ownedKeys() {
+            const owned = new Set(this._decor.owned.map(o => o.item_key));
+            owned.add('default');
+            return owned;
+        },
+
+        _renderWallpaperTab() {
+            const grid = document.getElementById('room-wallpaper-grid');
+            if (!grid) return;
+            const owned = this._ownedKeys();
+            const current = this._decor.wallpaper || 'default';
+
+            grid.innerHTML = ROOM_SHOP.wallpapers.map(w => {
+                const isOwned = owned.has(w.key);
+                const isActive = w.key === current;
+                return `<div class="room-wp-card ${isActive ? 'room-wp-active' : ''}" onclick="GroupRooms._onWallpaperClick('${w.key}', ${isOwned})">
+                    <div class="room-wp-preview wallpaper-${w.key}">
+                        <span class="room-wp-emoji">${w.emoji}</span>
+                        ${isActive ? '<span class="room-wp-check">✓</span>' : ''}
+                    </div>
+                    <div class="room-wp-info">
+                        <div class="room-wp-name">${esc(w.name)}</div>
+                        ${isOwned
+                            ? `<div class="room-wp-tag room-wp-owned">${isActive ? '적용 중' : '보유'}</div>`
+                            : `<div class="room-wp-tag room-wp-price">🪙 ${w.price.toLocaleString()}G</div>`
+                        }
+                    </div>
+                </div>`;
+            }).join('');
+        },
+
+        async _onWallpaperClick(key, isOwned) {
+            if (!isOwned) {
+                await this._buyItem(key);
+            } else {
+                await this._equipWallpaper(key);
+            }
+        },
+
+        async _equipWallpaper(key) {
+            if (!this.activeRoomId) return;
+            try {
+                await this.apiPost(`/api/rooms/${this.activeRoomId}/decor/equip`, { wallpaper: key, props: this._decor.props });
+                this._decor.wallpaper = key;
+                this._applyRoomVisual();
+                this._renderWallpaperTab();
+                showToast('벽지가 바뀌었어요!');
+            } catch (e) { alert(e.message); }
+        },
+
+        _renderPropsTab() {
+            const grid = document.getElementById('room-props-grid');
+            if (!grid) return;
+            const owned = this._ownedKeys();
+            const active = new Set(this._decor.props || []);
+
+            grid.innerHTML = ROOM_SHOP.props.map(p => {
+                const isOwned = owned.has(p.key);
+                const isOn = active.has(p.key);
+                return `<div class="room-prop-item ${isOn ? 'room-prop-on' : ''}" onclick="GroupRooms._onPropClick('${p.key}', ${isOwned}, ${isOn})">
+                    <div class="room-prop-emoji">${p.emoji}</div>
+                    <div class="room-prop-name">${esc(p.name)}</div>
+                    ${isOwned
+                        ? `<div class="room-prop-tag ${isOn ? 'room-prop-tag-on' : 'room-prop-tag-owned'}">${isOn ? '배치 중' : '보유'}</div>`
+                        : `<div class="room-prop-tag room-prop-tag-price">🪙 ${p.price.toLocaleString()}G</div>`
+                    }
+                </div>`;
+            }).join('');
+        },
+
+        async _onPropClick(key, isOwned, isOn) {
+            if (!isOwned) {
+                await this._buyItem(key);
+                return;
+            }
+            // Toggle prop on/off
+            let props = [...(this._decor.props || [])];
+            if (isOn) {
+                props = props.filter(k => k !== key);
+            } else {
+                if (props.length >= 9) { showToast('소품은 최대 9개까지 배치할 수 있어요'); return; }
+                props.push(key);
+            }
+            try {
+                await this.apiPost(`/api/rooms/${this.activeRoomId}/decor/equip`, { wallpaper: this._decor.wallpaper, props });
+                this._decor.props = props;
+                this._applyRoomVisual();
+                this._renderPropsTab();
+            } catch (e) { alert(e.message); }
+        },
+
+        async _buyItem(key) {
+            if (!this.activeRoomId) return;
+            const all = [...ROOM_SHOP.wallpapers, ...ROOM_SHOP.props];
+            const item = all.find(i => i.key === key);
+            if (!item) return;
+            if (!confirm(`"${item.name}"을(를) ${item.price.toLocaleString()}G에 구매할까요?`)) return;
+            try {
+                const data = await this.apiPost(`/api/rooms/${this.activeRoomId}/shop/buy`, { item_key: key });
+                // Update gold in UI
+                if (typeof UI !== 'undefined' && UI.currentUser) {
+                    UI.currentUser.gold = data.new_gold;
+                    if (UI.elements && UI.elements.goldVal) UI.elements.goldVal.textContent = data.new_gold.toLocaleString();
+                    const goldEl = document.getElementById('room-decor-gold-val');
+                    if (goldEl) goldEl.textContent = data.new_gold.toLocaleString();
+                }
+                this._decor.owned.push({ item_key: key });
+                showToast(`"${item.name}" 구매 완료! 🎉`);
+                // Re-render current tab
+                const activeTab = document.querySelector('.room-decor-tab.active')?.dataset.tab;
+                if (activeTab) this.switchDecorTab(activeTab);
+            } catch (e) { alert(e.message); }
+        },
+
+        async _renderContribTab() {
+            const list = document.getElementById('room-contrib-list');
+            if (!list) return;
+            list.innerHTML = '<div class="room-weekly-loading">불러오는 중…</div>';
+            try {
+                const data = await this.apiGet(`/api/rooms/${this.activeRoomId}/contributions`);
+                const contribs = data.contributions || [];
+                const total = contribs.reduce((s, c) => s + parseInt(c.total_gold, 10), 0);
+                const myId = typeof UI !== 'undefined' && UI.currentUser ? UI.currentUser.id : null;
+
+                list.innerHTML = contribs.length === 0
+                    ? '<div class="donut-empty-msg">아직 기여 내역이 없어요<br>소품을 구매해서 방을 꾸며보세요!</div>'
+                    : contribs.map((c, i) => {
+                        const gold = parseInt(c.total_gold, 10);
+                        const pct = total > 0 ? Math.round((gold / total) * 100) : 0;
+                        const isMe = String(c.id) === String(myId);
+                        const rankEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
+                        return `<div class="room-contrib-row ${isMe ? 'room-contrib-me' : ''}">
+                            <span class="room-contrib-rank">${rankEmoji}</span>
+                            <div class="room-contrib-info">
+                                <div class="room-contrib-name">${esc(c.nickname)}${isMe ? ' <span class="room-contrib-you">나</span>' : ''}</div>
+                                <div class="room-contrib-bar-wrap">
+                                    <div class="room-contrib-bar" style="width:${pct}%"></div>
+                                </div>
+                            </div>
+                            <div class="room-contrib-gold">
+                                <span class="room-contrib-gold-val">${gold.toLocaleString()}G</span>
+                                <span class="room-contrib-pct">${pct}%</span>
+                            </div>
+                        </div>`;
+                    }).join('');
+            } catch (e) {
+                list.innerHTML = '<div class="donut-empty-msg">기여도를 불러올 수 없어요</div>';
+            }
+        },
+
 
         async submitEditRoom() {
             const name = document.getElementById('room-edit-name')?.value.trim();

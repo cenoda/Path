@@ -3,7 +3,7 @@
  * Provides offline support and caching for the PWA
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `path-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `path-dynamic-${CACHE_VERSION}`;
 
@@ -21,6 +21,7 @@ const APP_SHELL = [
 const NETWORK_FIRST_PATTERNS = [
   /^\/api\//,
   /^\/socket\.io\//,
+  /^\/uploads\//,
 ];
 
 // Routes that are fine with cache-first (versioned static assets)

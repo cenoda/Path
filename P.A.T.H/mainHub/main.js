@@ -16,11 +16,11 @@ const BALLOON_SKINS = {
 
 const BALLOON_AURAS = {
     'none': { id: 'none', name: '없음', price: 0, desc: '기본 상태' },
-    'sun': { id: 'sun', name: '태양 후광', price: 2500, desc: '따뜻한 황금빛 후광' },
-    'frost': { id: 'frost', name: '서리 오오라', price: 4200, desc: '차가운 푸른빛 기류' },
+    'sun': { id: 'sun', name: '태양 후광', price: 2500, priceDiamond: 0, desc: '따뜻한 황금빛 후광' },
+    'frost': { id: 'frost', name: '서리 오오라', price: 4200, priceDiamond: 16, desc: '차가운 푸른빛 기류' },
     'forest': { id: 'forest', name: '숲의 숨결', price: 5200, desc: '초록빛 생명 에너지' },
-    'cosmic': { id: 'cosmic', name: '코스믹 링', price: 6800, desc: '우주 먼지 같은 잔광' },
-    'royal': { id: 'royal', name: '로열 크라운', price: 9000, desc: '보랏빛 왕관형 오오라' }
+    'cosmic': { id: 'cosmic', name: '코스믹 링', price: 6800, priceDiamond: 24, desc: '우주 먼지 같은 잔광' },
+    'royal': { id: 'royal', name: '로열 크라운', price: 9000, priceDiamond: 32, desc: '보랏빛 왕관형 오오라' }
 };
 
 function getBalloonSrc(skinId, isLight) {
@@ -143,14 +143,6 @@ let dragStartX, dragStartY;
 let mapOffsetX = 0, mapOffsetY = 0;
 let scale = 1.0;
 let currentRankTab = 'total';
-
-function refreshUserIdentifierUI() {
-    const code = currentUser?.user_code || '-';
-    const settingsCode = document.getElementById('settings-user-code');
-    const accountCode = document.getElementById('account-user-code');
-    if (settingsCode) settingsCode.textContent = code;
-    if (accountCode) accountCode.textContent = code;
-}
 
 function getOnboardingDoneKey(userId) {
     return `${ONBOARDING_DONE_PREFIX}${userId}`;
@@ -360,7 +352,6 @@ async function initHub() {
 
         const meData = await meRes.json();
         currentUser = meData.user;
-        refreshUserIdentifierUI();
 
         let topPct = 100;
         if (rankMeRes.ok) {
@@ -470,9 +461,14 @@ async function loadUniversitiesCache() {
 }
 
 function renderOtherUsers(users) {
-    // World balloons are now driven only by realtime socket nearby snapshots.
-    // Ranking/search data is kept for UI panels, not scene placement.
-    return;
+    // Once realtime socket is active, world players are controlled by
+    // players:nearby / player:enter / player:moved events.
+    if (worldSocket) return;
+
+    const isLight = document.body.classList.contains('light');
+    if (window.WorldScene && window.WorldScene.isReady) {
+        window.WorldScene.setUsers(users, currentUser, isLight);
+    }
 }
 
 function _normalizeUserId(value) {
@@ -1302,18 +1298,21 @@ function getBalloonColors(colorScheme) {
 
 // Create 3D balloon model (matches scene.js)
 function make3DBalloonPreview(scale, colorScheme) {
-    const group = new THREE.Group();
+    const Three = globalThis.THREE;
+    if (!Three) throw new Error('THREE is not available');
+
+    const group = new Three.Group();
     const colors = getBalloonColors(colorScheme);
 
     // Main balloon envelope (spherical shape)
-    const balloonGeo = new THREE.SphereGeometry(scale * 40, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.75);
-    const balloonMat = new THREE.MeshStandardMaterial({
+    const balloonGeo = new Three.SphereGeometry(scale * 40, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.75);
+    const balloonMat = new Three.MeshStandardMaterial({
         color: colors.primary,
         roughness: 0.7,
         metalness: 0.1,
-        side: THREE.DoubleSide
+        side: Three.DoubleSide
     });
-    const balloonMesh = new THREE.Mesh(balloonGeo, balloonMat);
+    const balloonMesh = new Three.Mesh(balloonGeo, balloonMat);
     balloonMesh.position.y = scale * 20;
     group.add(balloonMesh);
 
@@ -1321,16 +1320,16 @@ function make3DBalloonPreview(scale, colorScheme) {
     const numStripes = 8;
     for (let i = 0; i < numStripes; i++) {
         const angle = (i / numStripes) * Math.PI * 2;
-        const stripeGeo = new THREE.PlaneGeometry(scale * 8, scale * 60);
-        const stripeMat = new THREE.MeshStandardMaterial({
+        const stripeGeo = new Three.PlaneGeometry(scale * 8, scale * 60);
+        const stripeMat = new Three.MeshStandardMaterial({
             color: colors.secondary,
             roughness: 0.7,
             metalness: 0.1,
-            side: THREE.DoubleSide,
+            side: Three.DoubleSide,
             transparent: true,
             opacity: 0.6
         });
-        const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+        const stripe = new Three.Mesh(stripeGeo, stripeMat);
         stripe.position.x = Math.cos(angle) * scale * 35;
         stripe.position.z = Math.sin(angle) * scale * 35;
         stripe.position.y = scale * 20;
@@ -1339,29 +1338,29 @@ function make3DBalloonPreview(scale, colorScheme) {
     }
 
     // Top cap of balloon
-    const capGeo = new THREE.SphereGeometry(scale * 8, 12, 8);
-    const capMat = new THREE.MeshStandardMaterial({
+    const capGeo = new Three.SphereGeometry(scale * 8, 12, 8);
+    const capMat = new Three.MeshStandardMaterial({
         color: colors.accent,
         roughness: 0.6,
         metalness: 0.2
     });
-    const cap = new THREE.Mesh(capGeo, capMat);
+    const cap = new Three.Mesh(capGeo, capMat);
     cap.position.y = scale * 50;
     group.add(cap);
 
     // Basket (rectangular box)
-    const basketGeo = new THREE.BoxGeometry(scale * 20, scale * 15, scale * 20);
-    const basketMat = new THREE.MeshStandardMaterial({
+    const basketGeo = new Three.BoxGeometry(scale * 20, scale * 15, scale * 20);
+    const basketMat = new Three.MeshStandardMaterial({
         color: 0x8b6914,
         roughness: 0.9,
         metalness: 0.0
     });
-    const basket = new THREE.Mesh(basketGeo, basketMat);
+    const basket = new Three.Mesh(basketGeo, basketMat);
     basket.position.y = scale * -25;
     group.add(basket);
 
     // Basket ropes connecting to balloon
-    const ropeMat = new THREE.MeshStandardMaterial({
+    const ropeMat = new Three.MeshStandardMaterial({
         color: 0x654321,
         roughness: 0.95,
         metalness: 0.0
@@ -1375,8 +1374,8 @@ function make3DBalloonPreview(scale, colorScheme) {
     ];
 
     ropePositions.forEach(pos => {
-        const ropeGeo = new THREE.CylinderGeometry(scale * 0.5, scale * 0.5, scale * 35, 4);
-        const rope = new THREE.Mesh(ropeGeo, ropeMat);
+        const ropeGeo = new Three.CylinderGeometry(scale * 0.5, scale * 0.5, scale * 35, 4);
+        const rope = new Three.Mesh(ropeGeo, ropeMat);
         rope.position.set(pos.x, scale * -5, pos.z);
         group.add(rope);
     });
@@ -1386,6 +1385,9 @@ function make3DBalloonPreview(scale, colorScheme) {
 
 // Create a mini 3D scene for a balloon preview
 function createBalloonPreviewCanvas(skinId, size = 80) {
+    const Three = globalThis.THREE;
+    if (!Three) throw new Error('THREE is not available');
+
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -1394,21 +1396,21 @@ function createBalloonPreviewCanvas(skinId, size = 80) {
     canvas.style.display = 'block';
     canvas.style.margin = '0 auto 6px';
 
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    const renderer = new Three.WebGLRenderer({ canvas, alpha: true, antialias: true });
     renderer.setSize(size, size);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const scene = new THREE.Scene();
+    const scene = new Three.Scene();
 
-    const camera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
+    const camera = new Three.PerspectiveCamera(45, 1, 1, 1000);
     camera.position.set(0, 0, 120);
     camera.lookAt(0, 0, 0);
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new Three.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new Three.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(5, 10, 7);
     scene.add(directionalLight);
 
@@ -1456,7 +1458,8 @@ function createSkinPreviewElement(skin, isLight, size = 80) {
     };
 
     try {
-        if (typeof THREE === 'undefined' || !THREE || !THREE.WebGLRenderer) return fallbackImg;
+        const Three = globalThis.THREE;
+        if (!Three || !Three.WebGLRenderer) return fallbackImg;
         return createBalloonPreviewCanvas(skin?.id || 'default', size);
     } catch (_) {
         return fallbackImg;
@@ -1577,11 +1580,13 @@ async function renderShopContent(tab) {
             const auraData = auraRes.ok ? await auraRes.json() : { auras: [], owned: ['none'], equipped: 'none' };
             const { auras, owned, equipped } = auraData;
             const myGold = currentUser?.gold || 0;
+            const myDiamond = currentUser?.diamond || 0;
 
             container.innerHTML = `
                 <div style="padding:10px 0 6px;">
                     <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:12px;">
                         보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
+                        &nbsp;|&nbsp; 보유 다이아: <strong style="color:#6fd6ff">${myDiamond}D</strong>
                     </div>
                     <div id="aura-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
                 </div>
@@ -1619,10 +1624,14 @@ async function renderShopContent(tab) {
 
                 const priceDiv = document.createElement('div');
                 priceDiv.style.cssText = 'font-size:10px;color:#666;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:3px;';
-                if (aura.price === 0) {
+                const goldPrice = Number(aura.price || 0);
+                const diamondPrice = Number(aura.priceDiamond || 0);
+                if (goldPrice === 0 && diamondPrice === 0) {
                     priceDiv.textContent = '무료';
+                } else if (diamondPrice > 0) {
+                    priceDiv.innerHTML = `<img src="assets/coin.png" style="width:10px;height:10px;">${goldPrice.toLocaleString()}G&nbsp;|&nbsp;<span style="color:#6fd6ff">${diamondPrice}D</span>`;
                 } else {
-                    priceDiv.innerHTML = `<img src="assets/coin.png" style="width:10px;height:10px;">${aura.price.toLocaleString()}G`;
+                    priceDiv.innerHTML = `<img src="assets/coin.png" style="width:10px;height:10px;">${goldPrice.toLocaleString()}G`;
                 }
                 card.appendChild(priceDiv);
 
@@ -1632,10 +1641,16 @@ async function renderShopContent(tab) {
                     btnDiv.innerHTML = '✓ 장착 중';
                 } else if (isOwned) {
                     btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="equipAura('${aura.id}')">장착</button>`;
-                } else if (aura.price === 0) {
-                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buyAura('${aura.id}', 0)">획득</button>`;
+                } else if (goldPrice === 0 && diamondPrice === 0) {
+                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buyAura('${aura.id}', 'gold')">획득</button>`;
+                } else if (diamondPrice > 0) {
+                    btnDiv.style.cssText = 'display:flex;gap:6px;justify-content:center;';
+                    btnDiv.innerHTML = `
+                        <button class="shop-btn" style="padding:4px 8px;font-size:10px;" onclick="buyAura('${aura.id}', 'gold')">골드 구매</button>
+                        <button class="shop-btn" style="padding:4px 8px;font-size:10px;border-color:#6fd6ff;color:#6fd6ff;" onclick="buyAura('${aura.id}', 'diamond')">다이아 구매</button>
+                    `;
                 } else {
-                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buyAura('${aura.id}', ${aura.price})">${aura.price.toLocaleString()}G 구매</button>`;
+                    btnDiv.innerHTML = `<button class="shop-btn" style="padding:4px 12px;font-size:10px;" onclick="buyAura('${aura.id}', 'gold')">${goldPrice.toLocaleString()}G 구매</button>`;
                 }
                 card.appendChild(btnDiv);
 
@@ -1762,21 +1777,30 @@ async function equipSkin(skinId) {
     } catch (e) { alert('오류 발생'); }
 }
 
-async function buyAura(auraId, price) {
+async function buyAura(auraId, currency = 'gold') {
     const aura = BALLOON_AURAS[auraId];
     if (!aura) return;
-    if (price > 0 && !confirm(`[${aura.name}]을 ${price.toLocaleString()}G에 구매하시겠습니까?`)) return;
+    const useDiamond = currency === 'diamond';
+    const goldPrice = Number(aura.price || 0);
+    const diamondPrice = Number(aura.priceDiamond || 0);
+    if (useDiamond && diamondPrice <= 0) {
+        alert('이 오오라는 다이아 구매를 지원하지 않습니다.');
+        return;
+    }
+    if (!useDiamond && goldPrice > 0 && !confirm(`[${aura.name}]을 ${goldPrice.toLocaleString()}G에 구매하시겠습니까?`)) return;
+    if (useDiamond && !confirm(`[${aura.name}]을 ${diamondPrice}D에 구매하시겠습니까?`)) return;
     try {
         const r = await fetch('/api/estate/buy-aura', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ aura_id: auraId })
+            body: JSON.stringify({ aura_id: auraId, currency })
         });
         const data = await r.json();
         if (!r.ok) { alert(data.error || '구매 실패'); return; }
         if (currentUser) {
             currentUser.gold = data.user.gold;
+            currentUser.diamond = data.user.diamond;
             currentUser.owned_auras = data.user.owned_auras;
             updateHUD(currentUser);
         }
@@ -1930,84 +1954,6 @@ async function saveCamSettings() {
 function loadSettingsPanel() {
     loadUiSettings();
     loadCamSettings();
-    refreshUserIdentifierUI();
-}
-
-function setAccountSecurityMessage(text, isError) {
-    const el = document.getElementById('account-security-msg');
-    if (!el) return;
-    el.textContent = text || '';
-    el.style.color = isError ? 'var(--red)' : 'var(--accent-gold)';
-}
-
-function openAccountSecurityModal() {
-    refreshUserIdentifierUI();
-    const currentEl = document.getElementById('pw-current');
-    const nextEl = document.getElementById('pw-next');
-    const confirmEl = document.getElementById('pw-next-confirm');
-    if (currentEl) currentEl.value = '';
-    if (nextEl) nextEl.value = '';
-    if (confirmEl) confirmEl.value = '';
-    setAccountSecurityMessage('', false);
-    document.getElementById('modal-account-security')?.classList.remove('hidden');
-}
-
-async function copyMyUserCode() {
-    const code = currentUser?.user_code;
-    if (!code) {
-        setAccountSecurityMessage('식별코드를 찾을 수 없습니다.', true);
-        return;
-    }
-    try {
-        if (navigator?.clipboard?.writeText) {
-            await navigator.clipboard.writeText(code);
-            setAccountSecurityMessage('식별코드를 복사했습니다.', false);
-            return;
-        }
-    } catch (e) {}
-    setAccountSecurityMessage('브라우저에서 클립보드 복사를 지원하지 않습니다.', true);
-}
-
-async function submitPasswordChange() {
-    const currentPassword = document.getElementById('pw-current')?.value || '';
-    const newPassword = document.getElementById('pw-next')?.value || '';
-    const newPasswordConfirm = document.getElementById('pw-next-confirm')?.value || '';
-
-    if (!newPassword || newPassword.length < 8) {
-        setAccountSecurityMessage('새 비밀번호는 8자 이상이어야 합니다.', true);
-        return;
-    }
-    if (newPassword !== newPasswordConfirm) {
-        setAccountSecurityMessage('새 비밀번호 확인이 일치하지 않습니다.', true);
-        return;
-    }
-
-    try {
-        const r = await fetch('/api/auth/change-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                current_password: currentPassword,
-                new_password: newPassword
-            })
-        });
-        const data = await r.json();
-        if (!r.ok) {
-            setAccountSecurityMessage(data.error || '비밀번호 변경에 실패했습니다.', true);
-            return;
-        }
-
-        setAccountSecurityMessage('비밀번호가 변경되었습니다.', false);
-        const currentEl = document.getElementById('pw-current');
-        const nextEl = document.getElementById('pw-next');
-        const confirmEl = document.getElementById('pw-next-confirm');
-        if (currentEl) currentEl.value = '';
-        if (nextEl) nextEl.value = '';
-        if (confirmEl) confirmEl.value = '';
-    } catch (e) {
-        setAccountSecurityMessage('네트워크 오류가 발생했습니다.', true);
-    }
 }
 
 window.loadSettingsPanel = loadSettingsPanel;
@@ -2742,7 +2688,6 @@ startCoordinateSyncLoop();
 
 document.addEventListener('DOMContentLoaded', () => {
     const teleportBtn = document.getElementById('btn-teleport');
-    const profileUnit = document.querySelector('.profile-unit');
 
     if (teleportBtn) {
         teleportBtn.addEventListener('pointerup', (e) => {
@@ -2754,15 +2699,6 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             e.stopPropagation();
             openTeleportDialog();
-        });
-    }
-
-    if (profileUnit) {
-        profileUnit.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                openAccountSecurityModal();
-            }
         });
     }
 });
@@ -2798,56 +2734,42 @@ async function saveStatusMsg(e) {
 
 // ── 프로필 커스터마이저 ────────────────────────────────────────────
 let pendingProfileImageFile = null;
-let profileModalOpenedAt = 0;
-
-function getNicknameInitial(nick) {
-    return (nick || '?').charAt(0).toUpperCase();
-}
-
-function getProfileImageSrc(user) {
-    return user?.profile_image_url || null;
-}
-
-function updateProfilePreview(imgSrc, nick) {
-    const preview = document.getElementById('profile-avatar-preview');
-    if (!preview) return;
-    const initial = getNicknameInitial(nick || (currentUser && currentUser.nickname));
-    if (imgSrc) {
-        preview.innerHTML = `<img src="${esc(imgSrc)}" alt="preview">`;
-    } else {
-        preview.textContent = initial;
-    }
-}
 
 function openProfileCustomizer() {
     if (!currentUser) return;
-    profileModalOpenedAt = Date.now();
     pendingProfileImageFile = null;
     const modal = document.getElementById('modal-profile-custom');
     if (!modal) return;
     const nickInput = document.getElementById('profile-nick-input');
     if (nickInput) nickInput.value = currentUser.nickname || '';
-    updateProfilePreview(getProfileImageSrc(currentUser), currentUser.nickname);
+    const preview = document.getElementById('profile-avatar-preview');
+    if (preview) {
+        if (currentUser.profile_image_url) {
+            preview.innerHTML = '<img src="' + esc(currentUser.profile_image_url) + '" alt="preview">';
+        } else {
+            preview.textContent = (currentUser.nickname || '?').charAt(0).toUpperCase();
+        }
+    }
     modal.classList.remove('hidden');
 }
-window.openProfileCustomizer = openProfileCustomizer;
 
 function closeProfileCustomizer() {
     const modal = document.getElementById('modal-profile-custom');
     if (modal) modal.classList.add('hidden');
     pendingProfileImageFile = null;
 }
-window.closeProfileCustomizer = closeProfileCustomizer;
 
 function onProfileImageSelected(input) {
     const file = input && input.files && input.files[0];
     if (!file) return;
     pendingProfileImageFile = file;
     const reader = new FileReader();
-    reader.onload = (ev) => updateProfilePreview(ev.target.result, null);
+    reader.onload = function(ev) {
+        const preview = document.getElementById('profile-avatar-preview');
+        if (preview) preview.innerHTML = '<img src="' + ev.target.result + '" alt="preview">';
+    };
     reader.readAsDataURL(file);
 }
-window.onProfileImageSelected = onProfileImageSelected;
 
 async function saveProfileCustomizer() {
     const nickInput = document.getElementById('profile-nick-input');
@@ -2863,10 +2785,7 @@ async function saveProfileCustomizer() {
         if (pendingProfileImageFile) fd.append('profileImage', pendingProfileImageFile);
         const r = await fetch('/api/auth/profile-custom', { method: 'POST', body: fd, credentials: 'include' });
         const data = r.ok ? await r.json() : null;
-        if (!data || !data.ok) {
-            if (errEl) errEl.textContent = data?.error || '저장 중 오류가 발생했습니다.';
-            return;
-        }
+        if (!data || !data.ok) { if (errEl) errEl.textContent = data && data.error || '저장 중 오류가 발생했습니다.'; return; }
         currentUser = data.user;
         updateHUD(currentUser);
         closeProfileCustomizer();
@@ -2876,59 +2795,60 @@ async function saveProfileCustomizer() {
         if (saveBtn) saveBtn.disabled = false;
     }
 }
-window.saveProfileCustomizer = saveProfileCustomizer;
 
-// ── 버튼 바인딩 (터치/WebView 이중 호출 방지) ─────────────────────
+// ── 버튼 바인딩 헬퍼 ─────────────────────────────────────────────
 function bindBtn(el, handler) {
     if (!el) return;
     el.removeAttribute('onclick');
-    let _lastTap = 0;
-    el.addEventListener('pointerup', (e) => {
+    el.onclick = null;
+    let _t = 0;
+    el.addEventListener('pointerup', function(e) {
         if (e.pointerType !== 'touch') return;
-        const now = Date.now();
-        if (now - _lastTap < 250) return;
-        _lastTap = now;
+        var now = Date.now();
+        if (now - _t < 250) return;
+        _t = now;
         e.preventDefault();
         e.stopPropagation();
-        handler();
+        handler(e);
     }, { passive: false });
-    el.addEventListener('click', (e) => {
-        const now = Date.now();
-        if (now - _lastTap < 350) { e.preventDefault(); e.stopPropagation(); return; }
-        handler();
+    el.addEventListener('click', function(e) {
+        var now = Date.now();
+        if (now - _t < 350) { e.preventDefault(); e.stopPropagation(); return; }
+        handler(e);
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    // ── onclick 속성 문자열을 파싱하여 핸들러 생성 ──────────────────
-    // el.onclick이 null인 환경(CSP/WebView inline 차단)에서도 동작
+// ── DOMContentLoaded: 모든 정적 onclick을 명시적 리스너로 교체 ───
+document.addEventListener('DOMContentLoaded', function() {
+    // onclick 속성 문자열을 파싱 → window.* 함수 호출 핸들러 생성
+    // el.onclick이 null인 환경(WebView/CSP inline 차단)에서도 동작
     function parseAttrHandler(el, attrName) {
-        const attr = (el.getAttribute(attrName) || '').trim();
+        var attr = (el.getAttribute(attrName) || '').trim();
         if (!attr) return null;
 
         // window.location.href = 'url'
-        const navM = attr.match(/^window\.location\.href\s*=\s*['"]([^'"]+)['"]\s*;?$/);
-        if (navM) { const url = navM[1]; return () => { window.location.href = url; }; }
+        var navM = attr.match(/^window\.location\.href\s*=\s*['"]([^'"]+)['"]\s*;?$/);
+        if (navM) { var url = navM[1]; return function() { window.location.href = url; }; }
 
         // document.getElementById('id').method()
-        const domM = attr.match(/^document\.getElementById\(['"]([^'"]+)['"]\)\.(\w+)\(\)\s*;?$/);
+        var domM = attr.match(/^document\.getElementById\(['"]([^'"]+)['"]\)\.(\w+)\(\)\s*;?$/);
         if (domM) {
-            const id = domM[1], method = domM[2];
-            return () => { const t = document.getElementById(id); if (t) t[method](); };
+            var elId = domM[1], method = domM[2];
+            return function() { var t = document.getElementById(elId); if (t) t[method](); };
         }
 
-        // functionName(arg1, arg2, ...)
-        const callM = attr.match(/^([\w$]+)\((.*)\)\s*;?$/);
+        // functionName(args...)
+        var callM = attr.match(/^([\w$]+)\((.*)\)\s*;?$/);
         if (!callM) return null;
-        const fn = window[callM[1]];
+        var fn = window[callM[1]];
         if (typeof fn !== 'function') return null;
-        const rawArgs = callM[2].trim() ? callM[2].trim().split(',').map(s => s.trim()) : [];
+        var rawArgs = callM[2].trim() ? callM[2].trim().split(',').map(function(s) { return s.trim(); }) : [];
 
-        return (e) => {
-            const args = rawArgs.map(a => {
+        return function(e) {
+            var args = rawArgs.map(function(a) {
                 if (a === 'this') return el;
                 if (a === 'event') return e;
-                const q = a.match(/^['"](.*)['"]$/);
+                var q = a.match(/^['"](.*)['"]$/);
                 if (q) return q[1];
                 if (a !== '' && !isNaN(+a)) return +a;
                 return undefined;
@@ -2937,57 +2857,57 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // ── 정적 HTML의 모든 onclick을 명시적 이벤트 리스너로 교체 ──────
-    document.querySelectorAll('[onclick]').forEach(el => {
-        const handler = parseAttrHandler(el, 'onclick');
+    // onclick 교체
+    document.querySelectorAll('[onclick]').forEach(function(el) {
+        var handler = parseAttrHandler(el, 'onclick');
         if (!handler) return;
         el.removeAttribute('onclick');
         el.onclick = null;
-        let _t = 0;
-        el.addEventListener('pointerup', (e) => {
+        var _t = 0;
+        el.addEventListener('pointerup', function(e) {
             if (e.pointerType !== 'touch') return;
-            const now = Date.now();
+            var now = Date.now();
             if (now - _t < 250) return;
             _t = now;
             e.preventDefault();
             e.stopPropagation();
             handler(e);
         }, { passive: false });
-        el.addEventListener('click', (e) => {
-            const now = Date.now();
+        el.addEventListener('click', function(e) {
+            var now = Date.now();
             if (now - _t < 350) { e.preventDefault(); e.stopPropagation(); return; }
             handler(e);
         });
     });
 
-    // ── onchange 교체 ───────────────────────────────────────────────
-    document.querySelectorAll('[onchange]').forEach(el => {
-        const handler = parseAttrHandler(el, 'onchange');
+    // onchange 교체
+    document.querySelectorAll('[onchange]').forEach(function(el) {
+        var handler = parseAttrHandler(el, 'onchange');
         if (!handler) return;
         el.removeAttribute('onchange');
         el.onchange = null;
         el.addEventListener('change', handler);
     });
 
-    // ── oninput 교체 (검색) ─────────────────────────────────────────
-    const searchInput = document.getElementById('global-search');
+    // oninput 교체 (검색)
+    var searchInput = document.getElementById('global-search');
     if (searchInput) {
         searchInput.removeAttribute('oninput');
-        searchInput.addEventListener('input', () => onSearch(searchInput.value));
+        searchInput.addEventListener('input', function() { onSearch(searchInput.value); });
     }
 
-    // ── onkeydown 교체 (메시지 입력) ───────────────────────────────
-    const chatInput = document.getElementById('chat-input');
+    // onkeydown 교체 (채팅 입력)
+    var chatInput = document.getElementById('chat-input');
     if (chatInput) {
         chatInput.removeAttribute('onkeydown');
-        chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+        chatInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') sendMessage(); });
     }
 
-    // ── 프로필 버튼 (onclick 속성 없음, 직접 연결) ─────────────────
-    bindBtn(document.getElementById('tutorial-profile'), () => openProfileCustomizer());
+    // 프로필 버튼 (onclick 속성 없음 → bindBtn으로 직접 연결)
+    bindBtn(document.getElementById('tutorial-profile'), function() { openProfileCustomizer(); });
 });
 
-// Keep inline handlers stable for all browsers/build modes.
+// ── window 전역 노출 (inline handler fallback 및 scene.js 참조) ──
 window.togglePanel = togglePanel;
 window.doLogout = doLogout;
 window.closeModal = closeModal;
@@ -3017,6 +2937,10 @@ window.focusUser = focusUser;
 window.openTeleportDialog = openTeleportDialog;
 window.doTeleport = doTeleport;
 window.saveStatusMsg = saveStatusMsg;
+window.openProfileCustomizer = openProfileCustomizer;
+window.closeProfileCustomizer = closeProfileCustomizer;
+window.onProfileImageSelected = onProfileImageSelected;
+window.saveProfileCustomizer = saveProfileCustomizer;
 window.goToCommunity = goToCommunity;
 window.goToTimer = goToTimer;
 window.openAccountSecurityModal = openAccountSecurityModal;

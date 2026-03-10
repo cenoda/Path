@@ -252,11 +252,11 @@ const BALLOON_SKINS = {
 
 const BALLOON_AURAS = {
     'none': { id: 'none', name: '없음', price: 0, desc: '기본 상태' },
-    'sun': { id: 'sun', name: '태양 후광', price: 2500, desc: '따뜻한 황금빛 후광' },
-    'frost': { id: 'frost', name: '서리 오오라', price: 4200, desc: '차가운 푸른빛 기류' },
+    'sun': { id: 'sun', name: '태양 후광', price: 2500, priceDiamond: 0, desc: '따뜻한 황금빛 후광' },
+    'frost': { id: 'frost', name: '서리 오오라', price: 4200, priceDiamond: 16, desc: '차가운 푸른빛 기류' },
     'forest': { id: 'forest', name: '숲의 숨결', price: 5200, desc: '초록빛 생명 에너지' },
-    'cosmic': { id: 'cosmic', name: '코스믹 링', price: 6800, desc: '우주 먼지 같은 잔광' },
-    'royal': { id: 'royal', name: '로열 크라운', price: 9000, desc: '보랏빛 왕관형 오오라' }
+    'cosmic': { id: 'cosmic', name: '코스믹 링', price: 6800, priceDiamond: 24, desc: '우주 먼지 같은 잔광' },
+    'royal': { id: 'royal', name: '로열 크라운', price: 9000, priceDiamond: 32, desc: '보랏빛 왕관형 오오라' }
 };
 
 router.get('/skins', async (req, res) => {
@@ -341,14 +341,21 @@ router.post('/equip-skin', async (req, res) => {
 
 router.post('/buy-aura', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
-    const { aura_id } = req.body;
+    const { aura_id, currency = 'gold' } = req.body;
     const aura = BALLOON_AURAS[aura_id];
     if (!aura) return res.status(400).json({ error: '존재하지 않는 오오라입니다.' });
+    const payCurrency = currency === 'diamond' ? 'diamond' : 'gold';
+    const goldPrice = Number(aura.price || 0);
+    const diamondPrice = Number(aura.priceDiamond || 0);
+
+    if (payCurrency === 'diamond' && diamondPrice <= 0) {
+        return res.status(400).json({ error: '이 오오라는 다이아 구매를 지원하지 않습니다.' });
+    }
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const userRes = await client.query('SELECT gold, owned_auras FROM users WHERE id = $1 FOR UPDATE', [req.session.userId]);
+        const userRes = await client.query('SELECT gold, diamond, owned_auras FROM users WHERE id = $1 FOR UPDATE', [req.session.userId]);
         const user = userRes.rows[0];
         const owned = (user.owned_auras || 'none').split(',').map(s => s.trim()).filter(Boolean);
 
@@ -356,20 +363,37 @@ router.post('/buy-aura', async (req, res) => {
             await client.query('ROLLBACK');
             return res.status(400).json({ error: '이미 보유한 오오라입니다.' });
         }
-        if (user.gold < aura.price) {
+        if (payCurrency === 'diamond') {
+            if ((user.diamond || 0) < diamondPrice) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: `다이아가 부족합니다. 필요: ${diamondPrice}D` });
+            }
+        } else if (user.gold < goldPrice) {
             await client.query('ROLLBACK');
-            return res.status(400).json({ error: `골드가 부족합니다. 필요: ${aura.price.toLocaleString()}G` });
+            return res.status(400).json({ error: `골드가 부족합니다. 필요: ${goldPrice.toLocaleString()}G` });
         }
 
         owned.push(aura_id);
         const newOwned = owned.join(',');
-        const final = await client.query(
-            `UPDATE users SET gold = gold - $1, owned_auras = $2 WHERE id = $3
-             RETURNING id, gold, diamond, balloon_aura, owned_auras`,
-            [aura.price, newOwned, req.session.userId]
-        );
+        const final = payCurrency === 'diamond'
+            ? await client.query(
+                `UPDATE users SET diamond = diamond - $1, owned_auras = $2 WHERE id = $3
+                 RETURNING id, gold, diamond, balloon_aura, owned_auras`,
+                [diamondPrice, newOwned, req.session.userId]
+            )
+            : await client.query(
+                `UPDATE users SET gold = gold - $1, owned_auras = $2 WHERE id = $3
+                 RETURNING id, gold, diamond, balloon_aura, owned_auras`,
+                [goldPrice, newOwned, req.session.userId]
+            );
         await client.query('COMMIT');
-        res.json({ ok: true, spent: aura.price, user: final.rows[0] });
+        res.json({
+            ok: true,
+            currency: payCurrency,
+            spentGold: payCurrency === 'gold' ? goldPrice : 0,
+            spentDiamond: payCurrency === 'diamond' ? diamondPrice : 0,
+            user: final.rows[0]
+        });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ error: '서버 오류' });

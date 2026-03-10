@@ -100,6 +100,12 @@ function requireAuth(req, res, next) {
     next();
 }
 
+function setPrivateNoStore(res) {
+    res.setHeader('Cache-Control', 'no-store, private, max-age=0, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+}
+
 // 메시지 첨부 파일 조회 (대화 참여자만 접근 가능)
 router.get('/file/:filename', requireAuth, async (req, res) => {
     const filename = String(req.params.filename || '').trim();
@@ -128,6 +134,7 @@ router.get('/file/:filename', requireAuth, async (req, res) => {
             return res.status(404).json({ error: '파일이 존재하지 않습니다' });
         }
 
+        setPrivateNoStore(res);
         return res.sendFile(absolutePath);
     } catch (err) {
         console.error('messages/file 오류:', err.message);

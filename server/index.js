@@ -189,18 +189,33 @@ app.use('/api/community', require('./routes/community'));
 app.use('/api/rooms', require('./routes/rooms'));
 
 app.use('/uploads/scores/:filename', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, private, max-age=0, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.redirect(`/api/auth/score-image/${req.params.filename}`);
 });
 app.use('/uploads/gpa/:filename', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, private, max-age=0, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.redirect(`/api/auth/gpa-image/${req.params.filename}`);
 });
 app.use('/uploads/profiles/:filename', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, private, max-age=0, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.redirect(`/api/auth/profile-image/${req.params.filename}`);
 });
 app.use('/uploads/messages/:filename', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, private, max-age=0, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.redirect(`/api/messages/file/${req.params.filename}`);
 });
 app.use('/uploads/study-proofs/:filename', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, private, max-age=0, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.redirect(`/api/study/proof-image/${req.params.filename}`);
 });
 app.use('/uploads/community', express.static(path.join(projectRoot, 'uploads', 'community'), {

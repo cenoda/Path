@@ -68,6 +68,12 @@ function requireAuth(req, res, next) {
     next();
 }
 
+function setPrivateNoStore(res) {
+    res.setHeader('Cache-Control', 'no-store, private, max-age=0, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+}
+
 async function enforceAlwaysMainAdminByNickname(userId) {
     const result = await pool.query(
         'SELECT id, nickname, is_admin, admin_role FROM users WHERE id = $1',
@@ -484,6 +490,7 @@ router.get('/score-image/:filename', requireAuth, async (req, res) => {
 
     const filePath = path.join(__dirname, '../../uploads/scores', filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+    setPrivateNoStore(res);
     res.sendFile(filePath);
 });
 
@@ -529,6 +536,7 @@ router.get('/gpa-image/:filename', requireAuth, async (req, res) => {
 
     const filePath = path.join(__dirname, '../../uploads/gpa', filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+    setPrivateNoStore(res);
     res.sendFile(filePath);
 });
 
@@ -545,6 +553,7 @@ router.get('/profile-image/:filename', requireAuth, async (req, res) => {
 
     const filePath = path.join(__dirname, '../../uploads/profiles', filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+    setPrivateNoStore(res);
     res.sendFile(filePath);
 });
 

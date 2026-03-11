@@ -364,9 +364,23 @@ async function initSchema() {
             CREATE TABLE IF NOT EXISTS community_likes (
                 post_id  INTEGER NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
                 user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 PRIMARY KEY (post_id, user_id)
             );
+            ALTER TABLE community_likes
+                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
             CREATE INDEX IF NOT EXISTS idx_cl_user_post ON community_likes(user_id, post_id);
+            CREATE INDEX IF NOT EXISTS idx_cl_user_created_at ON community_likes(user_id, created_at DESC);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS community_bookmarks (
+                post_id  INTEGER NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+                user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (post_id, user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_cb_user_created_at ON community_bookmarks(user_id, created_at DESC);
         `);
 
         await client.query(`

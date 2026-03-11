@@ -107,6 +107,14 @@ const WorldScene = {
         speed: 0.6,
         longPressTimer: null,
     },
+    movementEase: {
+        velX: 0,
+        velY: 0,
+        velZ: 0,
+        touchIntentX: 0,
+        touchIntentY: 0,
+        touchIntentZ: 0,
+    },
     touchTuning: {
         altitudeZone: 0.72,
         longPressMs: 320,
@@ -124,6 +132,10 @@ const WorldScene = {
         rotationSmoothAlpha: 0.3,
         rotationImpulseClampPx: 14,
         maxOrbitVel: 0.085,
+        moveEaseAccel: 0.34,
+        moveEaseDamping: 0.7,
+        touchIntentDecay: 0.45,
+        minVelocityCutoff: 0.02,
         cruiseMinSpeed: 0.22,
         cruiseResponsePx: 120,
         cruiseStartSpeed: 0.6,
@@ -390,6 +402,10 @@ const WorldScene = {
             this._groundHaze.material.uniforms.uColorA.value.copy(hazeNightA).lerp(hazeDayA, mix);
             this._groundHaze.material.uniforms.uColorB.value.copy(hazeNightB).lerp(hazeDayB, mix);
             this._groundHaze.material.uniforms.uOpacity.value = 0.2 + mix * 0.16;
+        }
+
+        if (this._gridHelper?.material) {
+            this._gridHelper.material.opacity = 0.28 - mix * 0.18;
         }
 
         if (this._fireflies?.material) {
@@ -1474,6 +1490,11 @@ const WorldScene = {
     _setupInput() {
         const canvas = this.renderer.domElement;
         let pointerButton = -1;
+        const touchFilter = {
+            moveDX: 0,
+            moveDY: 0,
+            altitudeDY: 0,
+        };
 
         canvas.addEventListener('pointerdown', (e) => {
             if (e.target.closest?.('.glass-panel,.hud-header,.fab-rail,.pill-action-wrap')) return;
@@ -1504,6 +1525,9 @@ const WorldScene = {
                 this.isDragging = false;
 
                 if (mode === 'travel' && this.oneHandCruise.active) {
+                    touchFilter.moveDX = 0;
+                    touchFilter.moveDY = 0;
+                    touchFilter.altitudeDY = 0;
                     this.oneHandCruise.pointerId = e.pointerId;
                     this.oneHandCruise.anchorX = e.clientX;
                     this.oneHandCruise.anchorY = e.clientY;
@@ -1515,6 +1539,8 @@ const WorldScene = {
                 if (mode === 'travel') {
                     const tune2 = this.touchTuning || {};
                     const longPressMs = Number.isFinite(tune2.longPressMs) ? tune2.longPressMs : 320;
+                    touchFilter.moveDX = 0;
+                    touchFilter.moveDY = 0;
                     this.springActive = false;
                     this._showTravelHint(true, '화면 드래그 이동 · 길게 누르면 원핸드 순항');
                     this._clearOneHandLongPressTimer();
@@ -1565,15 +1591,20 @@ const WorldScene = {
             this.lastPointer = { x: e.clientX, y: e.clientY };
 
             if (e.pointerType === 'touch' && this.touchGesture?.pointerId === e.pointerId) {
+                const tune = this.touchTuning || {};
                 const movedNow = Math.hypot(dx, dy);
                 this.balloonDragDist += movedNow;
                 this.touchGesture.moved += movedNow;
+                const touchDeadzonePx = Number.isFinite(tune.touchDeadzonePx) ? tune.touchDeadzonePx : 1.4;
+                const rawDX = Math.abs(dx) < touchDeadzonePx ? 0 : dx;
+                const rawDY = Math.abs(dy) < touchDeadzonePx ? 0 : dy;
 
                 if (this.touchGesture.mode === 'altitude') {
                     this._clearOneHandLongPressTimer();
-                    const tune = this.touchTuning || {};
                     const altitudeSwipeGain = Number.isFinite(tune.altitudeSwipeGain) ? tune.altitudeSwipeGain : 1.8;
-                    const dz = (-dy) * altitudeSwipeGain;
+                    const altitudeSmoothAlpha = Number.isFinite(tune.altitudeSmoothAlpha) ? tune.altitudeSmoothAlpha : 0.34;
+                    touchFilter.altitudeDY += (rawDY - touchFilter.altitudeDY) * altitudeSmoothAlpha;
+                    const dz = (-touchFilter.altitudeDY) * altitudeSwipeGain;
                     this._applyPlayerWorldDelta(0, 0, dz);
                     return;
                 }
@@ -1584,7 +1615,6 @@ const WorldScene = {
                     return;
                 }
 
-                const tune = this.touchTuning || {};
                 const cancelLongPressPx = Number.isFinite(tune.cancelLongPressPx) ? tune.cancelLongPressPx : 14;
                 if (this.touchGesture.mode === 'travel' && this.touchGesture.moved > cancelLongPressPx) {
                     this._clearOneHandLongPressTimer();
@@ -1595,11 +1625,14 @@ const WorldScene = {
                 forward.y = 0;
                 forward.normalize();
                 const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+                const touchSmoothAlpha = Number.isFinite(tune.touchSmoothAlpha) ? tune.touchSmoothAlpha : 0.38;
+                touchFilter.moveDX += (rawDX - touchFilter.moveDX) * touchSmoothAlpha;
+                touchFilter.moveDY += (rawDY - touchFilter.moveDY) * touchSmoothAlpha;
                 const dragMoveScale = Number.isFinite(tune.dragMoveScale) ? tune.dragMoveScale : 0.0023;
                 const moveScale = this.orbitRadius * dragMoveScale;
                 this._applyPlayerWorldDelta(
-                    (right.x * dx + forward.x * (-dy)) * moveScale / WORLD_SCALE,
-                    (right.z * dx + forward.z * (-dy)) * moveScale / WORLD_SCALE,
+                    (right.x * touchFilter.moveDX + forward.x * (-touchFilter.moveDY)) * moveScale / WORLD_SCALE,
+                    (right.z * touchFilter.moveDX + forward.z * (-touchFilter.moveDY)) * moveScale / WORLD_SCALE,
                     0
                 );
                 return;
@@ -1680,6 +1713,9 @@ const WorldScene = {
 
                 this._clearOneHandLongPressTimer();
                 this.touchGesture = null;
+                touchFilter.moveDX = 0;
+                touchFilter.moveDY = 0;
+                touchFilter.altitudeDY = 0;
                 this.ignoreNextClickUntil = Date.now() + 260;
             }
             if (this.isDraggingBalloon) {
@@ -1781,6 +1817,8 @@ const WorldScene = {
             prevCenterX: 0,
             prevCenterY: 0,
             prevDist: 0,
+            filteredDX: 0,
+            filteredDY: 0,
         };
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
@@ -1799,6 +1837,8 @@ const WorldScene = {
                 twoTouchState.prevCenterX = (x1 + x2) * 0.5;
                 twoTouchState.prevCenterY = (y1 + y2) * 0.5;
                 twoTouchState.prevDist = Math.hypot(x1 - x2, y1 - y2);
+                twoTouchState.filteredDX = 0;
+                twoTouchState.filteredDY = 0;
             }
         }, { passive: false });
         canvas.addEventListener('touchmove', (e) => {
@@ -1822,9 +1862,20 @@ const WorldScene = {
                 const tiltSpeed = Number.isFinite(tune.twoFingerTiltSpeed)
                     ? tune.twoFingerTiltSpeed
                     : ORBIT_ROTATE_SPEED * 0.38;
+                const rotationDeadzonePx = Number.isFinite(tune.rotationDeadzonePx) ? tune.rotationDeadzonePx : 1.8;
+                const rotationSmoothAlpha = Number.isFinite(tune.rotationSmoothAlpha) ? tune.rotationSmoothAlpha : 0.3;
+                const rotationImpulseClampPx = Number.isFinite(tune.rotationImpulseClampPx) ? tune.rotationImpulseClampPx : 14;
 
-                this.orbitVelTheta += -dCenterX * rotateSpeed;
-                this.orbitVelPhi += dCenterY * tiltSpeed;
+                const rawRotDX = Math.abs(dCenterX) < rotationDeadzonePx ? 0 : dCenterX;
+                const rawRotDY = Math.abs(dCenterY) < rotationDeadzonePx ? 0 : dCenterY;
+                twoTouchState.filteredDX += (rawRotDX - twoTouchState.filteredDX) * rotationSmoothAlpha;
+                twoTouchState.filteredDY += (rawRotDY - twoTouchState.filteredDY) * rotationSmoothAlpha;
+
+                const clampedRotDX = Math.max(-rotationImpulseClampPx, Math.min(rotationImpulseClampPx, twoTouchState.filteredDX));
+                const clampedRotDY = Math.max(-rotationImpulseClampPx, Math.min(rotationImpulseClampPx, twoTouchState.filteredDY));
+
+                this.orbitVelTheta += -clampedRotDX * rotateSpeed;
+                this.orbitVelPhi += clampedRotDY * tiltSpeed;
 
                 this.orbitTargetRadius += (twoTouchState.prevDist - dist) * 1.5;
                 this.orbitTargetRadius = Math.max(ORBIT_MIN_RADIUS, Math.min(ORBIT_MAX_RADIUS, this.orbitTargetRadius));
@@ -2180,6 +2231,11 @@ const WorldScene = {
         this.orbitVelTheta *= ORBIT_DAMPING;
         this.orbitVelPhi *= ORBIT_DAMPING;
 
+        const tune = this.touchTuning || {};
+        const maxOrbitVel = Number.isFinite(tune.maxOrbitVel) ? tune.maxOrbitVel : 0.085;
+        this.orbitVelTheta = Math.max(-maxOrbitVel, Math.min(maxOrbitVel, this.orbitVelTheta));
+        this.orbitVelPhi = Math.max(-maxOrbitVel, Math.min(maxOrbitVel, this.orbitVelPhi));
+
         // Clamp phi to prevent flipping
         this.orbitPhi = Math.max(ORBIT_MIN_PHI, Math.min(ORBIT_MAX_PHI, this.orbitPhi));
 
@@ -2393,6 +2449,15 @@ const WorldScene = {
         this.skyIslands.forEach((island) => {
             const floatHeight = Math.sin(t * island.userData.floatSpeed + island.userData.floatPhase) * 15;
             island.position.y = island.userData.baseY + floatHeight;
+
+            if (island.userData.rimRing) {
+                island.userData.rimRing.rotation.z += 0.004;
+                island.userData.rimRing.material.opacity = 0.18 + Math.sin(t * 1.2 + island.userData.floatPhase) * 0.08;
+            }
+            if (island.userData.beaconCore?.material) {
+                island.userData.beaconCore.rotation.y += 0.01;
+                island.userData.beaconCore.material.emissiveIntensity = 0.85 + Math.sin(t * 1.8 + island.userData.floatPhase) * 0.35;
+            }
             
             // 라벨 회전 (항상 카메라 방향)
             island.children.forEach(child => {

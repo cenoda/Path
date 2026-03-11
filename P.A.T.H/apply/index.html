@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>입시 지원 - P.A.T.H</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <noscript><link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet"></noscript>
+    <link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<!-- 헤더 -->
+<header class="app-header">
+    <button class="header-back" onclick="history.back()">←</button>
+    <h1>입시 지원</h1>
+    <div class="header-tickets" id="header-tickets">🎫 0</div>
+</header>
+
+<!-- 탭 -->
+<nav class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('score')" data-tab="score">내 점수</button>
+    <button class="tab-btn" onclick="switchTab('apply')" data-tab="apply">원서 접수</button>
+    <button class="tab-btn" onclick="switchTab('result')" data-tab="result">결과 확인</button>
+</nav>
+
+<!-- ── 탭1: 내 점수 ──────────────────────────────────────────────── -->
+<div class="tab-content active" id="tab-score">
+
+    <div id="score-status-wrap"></div>
+
+    <div class="card">
+        <div class="card-title">국어</div>
+        <div class="field-row">
+            <div class="field">
+                <label>선택 과목</label>
+                <select id="korean_subject">
+                    <option value="">선택</option>
+                    <option value="화법과작문">화법과작문</option>
+                    <option value="언어와매체">언어와매체</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>표준점수</label>
+                <input type="number" id="korean_std" placeholder="예) 135" min="0" max="200">
+            </div>
+        </div>
+        <div class="field">
+            <label>백분위</label>
+            <input type="number" id="korean_percentile" placeholder="예) 96" min="0" max="100" step="0.1">
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">수학</div>
+        <div class="field-row">
+            <div class="field">
+                <label>선택 과목</label>
+                <select id="math_subject">
+                    <option value="">선택</option>
+                    <option value="확률과통계">확률과통계</option>
+                    <option value="미적분">미적분</option>
+                    <option value="기하">기하</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>표준점수</label>
+                <input type="number" id="math_std" placeholder="예) 140" min="0" max="200">
+            </div>
+        </div>
+        <div class="field">
+            <label>백분위</label>
+            <input type="number" id="math_percentile" placeholder="예) 98" min="0" max="100" step="0.1">
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">영어</div>
+        <div class="field">
+            <label>등급 (1~9)</label>
+            <select id="english_grade">
+                <option value="">선택</option>
+                <option value="1">1등급</option>
+                <option value="2">2등급</option>
+                <option value="3">3등급</option>
+                <option value="4">4등급</option>
+                <option value="5">5등급</option>
+                <option value="6">6등급</option>
+                <option value="7">7등급</option>
+                <option value="8">8등급</option>
+                <option value="9">9등급</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">탐구 영역</div>
+        <div class="field">
+            <label>탐구1 과목</label>
+            <input type="text" id="explore1_subject" placeholder="예) 생명과학I">
+        </div>
+        <div class="field-row">
+            <div class="field">
+                <label>표준점수</label>
+                <input type="number" id="explore1_std" placeholder="예) 68" min="0" max="100">
+            </div>
+            <div class="field">
+                <label>백분위</label>
+                <input type="number" id="explore1_percentile" placeholder="예) 95" min="0" max="100" step="0.1">
+            </div>
+        </div>
+        <div class="divider"></div>
+        <div class="field">
+            <label>탐구2 과목 (선택)</label>
+            <input type="text" id="explore2_subject" placeholder="예) 화학I">
+        </div>
+        <div class="field-row">
+            <div class="field">
+                <label>표준점수</label>
+                <input type="number" id="explore2_std" placeholder="예) 65" min="0" max="100">
+            </div>
+            <div class="field">
+                <label>백분위</label>
+                <input type="number" id="explore2_percentile" placeholder="예) 90" min="0" max="100" step="0.1">
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">한국사 · 제2외국어</div>
+        <div class="field-row">
+            <div class="field">
+                <label>한국사 등급</label>
+                <select id="history_grade">
+                    <option value="">선택</option>
+                    <option value="1">1등급</option>
+                    <option value="2">2등급</option>
+                    <option value="3">3등급</option>
+                    <option value="4">4등급</option>
+                    <option value="5">5등급</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>제2외국어 과목</label>
+                <input type="text" id="second_lang_subject" placeholder="선택 (예: 일본어I)">
+            </div>
+        </div>
+        <div class="field-row" id="second-lang-scores" style="display:none">
+            <div class="field">
+                <label>표준점수</label>
+                <input type="number" id="second_lang_std" placeholder="0" min="0" max="100">
+            </div>
+            <div class="field">
+                <label>백분위</label>
+                <input type="number" id="second_lang_percentile" placeholder="0" min="0" max="100" step="0.1">
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">시험 회차 (선택)</div>
+        <div class="field">
+            <label>회차명</label>
+            <input type="text" id="source_round_name" placeholder="예) 2026년 6월 평가원">
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">성적표 인증 (선택)</div>
+        <div class="upload-area" id="upload-area" onclick="document.getElementById('score-image-input').click()">
+            <div class="upload-icon">📄</div>
+            <p>성적표 이미지를 업로드하면<br>관리자 인증 후 다른 유저 칸수를<br>조회할 수 있어요</p>
+        </div>
+        <input type="file" id="score-image-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+        <img id="score-image-preview" class="upload-preview" style="display:none">
+    </div>
+
+    <button class="btn btn-primary" id="save-score-btn" onclick="saveScores()">점수 저장하기</button>
+    <div class="bottom-safe"></div>
+</div>
+
+<!-- ── 탭2: 원서 접수 ────────────────────────────────────────────── -->
+<div class="tab-content" id="tab-apply">
+
+    <div id="round-info-wrap"></div>
+
+    <div id="no-score-warning" style="display:none" class="card">
+        <div style="text-align:center;padding:8px 0">
+            <div style="font-size:32px;margin-bottom:8px">📝</div>
+            <p style="font-size:14px;font-weight:600;margin-bottom:4px">점수 입력이 필요해요</p>
+            <p style="font-size:13px;color:var(--gray-400)">점수 탭에서 점수를 먼저 입력해주세요</p>
+            <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="switchTab('score')">점수 입력하러 가기</button>
+        </div>
+    </div>
+
+    <div id="apply-main" style="display:none">
+        <p class="section-title">군별 원서 현황</p>
+        <div class="group-cards" id="group-cards">
+            <div class="group-card" id="card-가" onclick="openApplyModal('가')">
+                <div class="group-card-label">가군</div>
+                <div class="group-card-uni" id="uni-가">미지원</div>
+            </div>
+            <div class="group-card" id="card-나" onclick="openApplyModal('나')">
+                <div class="group-card-label">나군</div>
+                <div class="group-card-uni" id="uni-나">미지원</div>
+            </div>
+            <div class="group-card" id="card-다" onclick="openApplyModal('다')">
+                <div class="group-card-label">다군</div>
+                <div class="group-card-uni" id="uni-다">미지원</div>
+            </div>
+        </div>
+
+        <div id="applied-detail"></div>
+    </div>
+
+    <div class="bottom-safe"></div>
+</div>
+
+<!-- ── 탭3: 결과 확인 ────────────────────────────────────────────── -->
+<div class="tab-content" id="tab-result">
+    <div id="result-list"></div>
+    <div class="bottom-safe"></div>
+</div>
+
+<!-- ── 대학 검색 모달 ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="search-modal" style="display:none" onclick="closeSearchModal(event)">
+    <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <span id="search-modal-title">대학 선택</span>
+            <button class="modal-close" onclick="closeSearchModal()">✕</button>
+        </div>
+        <div class="modal-search-wrap">
+            <div class="modal-search-pos">
+                <span class="modal-search-icon">🔍</span>
+                <input type="text" id="search-input" placeholder="대학명 검색..." oninput="searchUniversity(this.value)" autocomplete="off">
+            </div>
+        </div>
+        <div class="modal-list" id="search-results"></div>
+    </div>
+</div>
+
+<!-- ── 등록 확인 모달 ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="enroll-modal" style="display:none" onclick="closeEnrollModal(event)">
+    <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <span>최종 등록</span>
+            <button class="modal-close" onclick="closeEnrollModal()">✕</button>
+        </div>
+        <div style="padding:0 20px 20px">
+            <div id="enroll-modal-content"></div>
+            <button class="btn btn-primary" id="enroll-confirm-btn" onclick="confirmEnroll()">등록하기</button>
+            <div class="bottom-safe"></div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/shared/nav.js?v=5"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>

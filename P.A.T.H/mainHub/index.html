@@ -182,12 +182,23 @@
         <div class="panel-content" id="shop-content"></div>
     </div>
 
-    <div class="glass-panel hidden" id="panel-apply" style="width: 400px;">
+    <div class="glass-panel hidden" id="panel-apply" style="width: 360px;">
         <div class="panel-head">
-            <h3>모의지원</h3>
+            <h3>입시 지원</h3>
             <button class="close-btn" onclick="togglePanel('panel-apply')">×</button>
         </div>
-        <div class="panel-content" id="apply-content"></div>
+        <div class="panel-content" style="padding:20px;text-align:center">
+            <div style="font-size:40px;margin-bottom:12px">🎓</div>
+            <p style="font-size:15px;font-weight:700;margin-bottom:6px">입시 지원 시스템</p>
+            <p style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:20px;line-height:1.6">
+                과목별 점수를 입력하고<br>가/나/다군에 원서를 넣어보세요.<br>진학사식 칸수로 합격 가능성을 확인해요.
+            </p>
+            <button onclick="window.location.href='/apply/'" style="
+                width:100%;height:48px;border-radius:12px;border:none;
+                background:#3182F6;color:#fff;font-size:15px;font-weight:700;
+                font-family:inherit;cursor:pointer;
+            ">입시 지원 열기 →</button>
+        </div>
     </div>
 
     <div class="glass-panel hidden" id="panel-settings" style="width: 320px;">

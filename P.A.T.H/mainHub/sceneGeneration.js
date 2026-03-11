@@ -282,6 +282,40 @@ export const sceneGenerationMethods = {
             bot.position.y = -25;
             group.add(bot);
 
+            const rimRingGeo = new THREE.TorusGeometry(d.rx * 62, d.rx * 2.2, 12, 48);
+            const rimRingMat = new THREE.MeshBasicMaterial({
+                color: 0x7fd9ff,
+                transparent: true,
+                opacity: 0.24,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const rimRing = new THREE.Mesh(rimRingGeo, rimRingMat);
+            rimRing.rotation.x = Math.PI / 2;
+            rimRing.position.y = 24;
+            group.add(rimRing);
+
+            const beaconPoleGeo = new THREE.CylinderGeometry(d.rx * 2.5, d.rx * 3.2, d.rx * 44, 8);
+            const beaconPoleMat = new THREE.MeshStandardMaterial({ color: 0x4a5568, roughness: 0.6, metalness: 0.45 });
+            const beaconPole = new THREE.Mesh(beaconPoleGeo, beaconPoleMat);
+            beaconPole.position.y = 52;
+            group.add(beaconPole);
+
+            const beaconCoreGeo = new THREE.OctahedronGeometry(d.rx * 7.5, 0);
+            const beaconCoreMat = new THREE.MeshStandardMaterial({
+                color: 0x9be8ff,
+                emissive: 0x2a8fc3,
+                emissiveIntensity: 1.2,
+                roughness: 0.22,
+                metalness: 0.55,
+                transparent: true,
+                opacity: 0.88
+            });
+            const beaconCore = new THREE.Mesh(beaconCoreGeo, beaconCoreMat);
+            beaconCore.position.y = 80;
+            beaconCore.rotation.set(Math.PI * 0.12, Math.PI * 0.2, 0);
+            group.add(beaconCore);
+
             if (d.type === 'forest' || d.type === 'flower') {
                 for (let t = 0; t < 4; t++) {
                     const treeGeo = new THREE.ConeGeometry(d.rx * 12, d.rx * 35, 6);
@@ -348,6 +382,8 @@ export const sceneGenerationMethods = {
             group.userData.admissionNote = d.admissionNote || null;
             group.userData.floatSpeed = 0.4 + Math.random() * 0.3;
             group.userData.floatPhase = Math.random() * Math.PI * 2;
+            group.userData.rimRing = rimRing;
+            group.userData.beaconCore = beaconCore;
             this.scene.add(group);
             this.skyIslands.push(group);
         });
@@ -399,21 +435,82 @@ export const sceneGenerationMethods = {
         for (let i = 0; i < 60; i++) {
             const bx = (rng() - 0.5) * 2 * BUILDING_SPREAD;
             const bz = (rng() - 0.5) * 2 * BUILDING_SPREAD;
-            const h = 80 + rng() * 250;
-            const w = 30 + rng() * 60;
-            const geo = new THREE.BoxGeometry(w, h, w * 0.8);
-            const grey = 0.18 + rng() * 0.2;
-            const mat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(grey, grey, grey + 0.05),
-                roughness: 0.95,
-                metalness: 0.05,
+            const h = 110 + rng() * 340;
+            const w = 26 + rng() * 56;
+            const towerGroup = new THREE.Group();
+
+            const palette = [
+                new THREE.Color(0x2a3244),
+                new THREE.Color(0x2f3d4f),
+                new THREE.Color(0x38425a),
+            ];
+            const baseColor = palette[Math.floor(rng() * palette.length)].clone();
+
+            const bodyType = Math.floor(rng() * 3);
+            const bodyGeo = bodyType === 0
+                ? new THREE.BoxGeometry(w, h, w * (0.74 + rng() * 0.18))
+                : bodyType === 1
+                    ? new THREE.CylinderGeometry(w * 0.55, w * 0.72, h, 8)
+                    : new THREE.CylinderGeometry(w * 0.62, w * 0.62, h, 6);
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: baseColor,
+                roughness: 0.86,
+                metalness: 0.2,
                 transparent: true,
-                opacity: 0.75,
+                opacity: 0.88,
             });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(bx, h / 2, bz); // Sit on ground
-            this.scene.add(mesh);
-            this.seededProps.push(mesh);
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = h * 0.5;
+            towerGroup.add(body);
+
+            const crownGeo = new THREE.CylinderGeometry(w * 0.35, w * 0.5, h * 0.18, 10);
+            const crownMat = new THREE.MeshStandardMaterial({
+                color: baseColor.clone().offsetHSL(0.01, 0.04, 0.08),
+                roughness: 0.62,
+                metalness: 0.34,
+                transparent: true,
+                opacity: 0.9,
+            });
+            const crown = new THREE.Mesh(crownGeo, crownMat);
+            crown.position.y = h + h * 0.1;
+            towerGroup.add(crown);
+
+            const bandCount = 2 + Math.floor(rng() * 3);
+            for (let b = 0; b < bandCount; b++) {
+                const bandGeo = new THREE.TorusGeometry(w * (0.42 + b * 0.07), 1.1 + rng() * 1.6, 8, 28);
+                const bandMat = new THREE.MeshBasicMaterial({
+                    color: 0x8fd8ff,
+                    transparent: true,
+                    opacity: 0.22 + rng() * 0.2,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+                const band = new THREE.Mesh(bandGeo, bandMat);
+                band.rotation.x = Math.PI / 2;
+                band.position.y = h * (0.28 + b * 0.18);
+                towerGroup.add(band);
+            }
+
+            if (rng() > 0.45) {
+                const antennaGeo = new THREE.CylinderGeometry(1.2, 1.8, 26 + rng() * 16, 6);
+                const antennaMat = new THREE.MeshStandardMaterial({ color: 0x9aa4bc, roughness: 0.45, metalness: 0.7 });
+                const antenna = new THREE.Mesh(antennaGeo, antennaMat);
+                antenna.position.y = h + h * 0.21;
+                towerGroup.add(antenna);
+
+                const tipGeo = new THREE.SphereGeometry(2.6 + rng() * 1.8, 8, 8);
+                const tipMat = new THREE.MeshBasicMaterial({ color: 0xa6ecff, transparent: true, opacity: 0.9 });
+                const tip = new THREE.Mesh(tipGeo, tipMat);
+                tip.position.y = antenna.position.y + 14;
+                towerGroup.add(tip);
+            }
+
+            towerGroup.position.set(bx, 0, bz);
+            towerGroup.userData.baseY = 0;
+            towerGroup.userData.floatSpeed = 0.12 + rng() * 0.14;
+            towerGroup.userData.floatPhase = rng() * Math.PI * 2;
+            this.scene.add(towerGroup);
+            this.seededProps.push(towerGroup);
         }
 
         const ROCK_SPREAD = WORLD_HALF * WORLD_SCALE * 0.7;

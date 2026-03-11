@@ -24,6 +24,7 @@ const GOLD_LIKE_COST = 30;
 const WRITE_DRAFT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const COMMUNITY_SETTINGS_KEY = 'path.community.settings.v1';
 const SETTINGS_ACTIVITY_PAGE_SIZE = 8;
+const SETTINGS_ACTIVITY_TYPES = ['posts', 'comments', 'likes', 'bookmarks'];
 
 const DEFAULT_COMMUNITY_SETTINGS = {
   layout: 'comfortable',

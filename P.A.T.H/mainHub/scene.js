@@ -114,6 +114,8 @@ const WorldScene = {
         cancelLongPressPx: 14,
         altitudeSwipeGain: 1.8,
         dragMoveScale: 0.0023,
+        twoFingerRotateSpeed: ORBIT_ROTATE_SPEED * 0.55,
+        twoFingerTiltSpeed: ORBIT_ROTATE_SPEED * 0.38,
         cruiseMinSpeed: 0.22,
         cruiseResponsePx: 120,
         cruiseStartSpeed: 0.6,
@@ -1710,27 +1712,70 @@ const WorldScene = {
             }
         });
 
-        // Pinch to zoom on touch
-        let pinchDist0 = null;
+        // Two-finger gesture: drag to rotate camera + pinch to zoom
+        const twoTouchState = {
+            active: false,
+            prevCenterX: 0,
+            prevCenterY: 0,
+            prevDist: 0,
+        };
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
                 e.preventDefault();
                 this.isDragging = false;
                 this.isDraggingBalloon = false;
                 this.lastPointer = null;
-                pinchDist0 = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                this._clearOneHandLongPressTimer();
+                this.touchGesture = null;
+
+                const x1 = e.touches[0].clientX;
+                const y1 = e.touches[0].clientY;
+                const x2 = e.touches[1].clientX;
+                const y2 = e.touches[1].clientY;
+                twoTouchState.active = true;
+                twoTouchState.prevCenterX = (x1 + x2) * 0.5;
+                twoTouchState.prevCenterY = (y1 + y2) * 0.5;
+                twoTouchState.prevDist = Math.hypot(x1 - x2, y1 - y2);
             }
         }, { passive: false });
         canvas.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2 && pinchDist0 !== null) {
+            if (e.touches.length === 2 && twoTouchState.active) {
                 e.preventDefault();
-                const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-                this.orbitTargetRadius += (pinchDist0 - dist) * 1.5;
+                const x1 = e.touches[0].clientX;
+                const y1 = e.touches[0].clientY;
+                const x2 = e.touches[1].clientX;
+                const y2 = e.touches[1].clientY;
+
+                const centerX = (x1 + x2) * 0.5;
+                const centerY = (y1 + y2) * 0.5;
+                const dist = Math.hypot(x1 - x2, y1 - y2);
+
+                const dCenterX = centerX - twoTouchState.prevCenterX;
+                const dCenterY = centerY - twoTouchState.prevCenterY;
+                const tune = this.touchTuning || {};
+                const rotateSpeed = Number.isFinite(tune.twoFingerRotateSpeed)
+                    ? tune.twoFingerRotateSpeed
+                    : ORBIT_ROTATE_SPEED * 0.55;
+                const tiltSpeed = Number.isFinite(tune.twoFingerTiltSpeed)
+                    ? tune.twoFingerTiltSpeed
+                    : ORBIT_ROTATE_SPEED * 0.38;
+
+                this.orbitVelTheta += -dCenterX * rotateSpeed;
+                this.orbitVelPhi += dCenterY * tiltSpeed;
+
+                this.orbitTargetRadius += (twoTouchState.prevDist - dist) * 1.5;
                 this.orbitTargetRadius = Math.max(ORBIT_MIN_RADIUS, Math.min(ORBIT_MAX_RADIUS, this.orbitTargetRadius));
-                pinchDist0 = dist;
+
+                twoTouchState.prevCenterX = centerX;
+                twoTouchState.prevCenterY = centerY;
+                twoTouchState.prevDist = dist;
             }
         }, { passive: false });
-        canvas.addEventListener('touchend', () => { pinchDist0 = null; }, { passive: true });
+        canvas.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                twoTouchState.active = false;
+            }
+        }, { passive: true });
 
         // Double-click to teleport
         canvas.addEventListener('dblclick', (e) => {
@@ -2011,6 +2056,8 @@ const WorldScene = {
         let cancelLongPressPx = isMobileLike ? 18 : 14;
         let altitudeSwipeGain = isMobileLike ? 2.0 : 1.8;
         let dragMoveScale = isMobileLike ? 0.0027 : 0.0023;
+        let twoFingerRotateSpeed = ORBIT_ROTATE_SPEED * (isMobileLike ? 0.62 : 0.55);
+        let twoFingerTiltSpeed = ORBIT_ROTATE_SPEED * (isMobileLike ? 0.42 : 0.38);
         let cruiseResponsePx = isMobileLike ? 105 : 120;
         let cruiseStartSpeed = isMobileLike ? 0.62 : 0.6;
 
@@ -2019,6 +2066,8 @@ const WorldScene = {
             cancelLongPressPx += 2;
             dragMoveScale *= 1.08;
             altitudeSwipeGain *= 1.08;
+            twoFingerRotateSpeed *= 1.06;
+            twoFingerTiltSpeed *= 1.06;
             cruiseResponsePx = Math.max(88, cruiseResponsePx - 8);
         }
 
@@ -2036,6 +2085,8 @@ const WorldScene = {
             cancelLongPressPx: Math.round(cancelLongPressPx),
             altitudeSwipeGain,
             dragMoveScale,
+            twoFingerRotateSpeed,
+            twoFingerTiltSpeed,
             cruiseMinSpeed: 0.22,
             cruiseResponsePx,
             cruiseStartSpeed,

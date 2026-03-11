@@ -57,14 +57,18 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, Number(value) || 0));
 }
 
-function defaultSpawnForUser(userId) {
-    const safeId = Number(userId) || 1;
-    const angle = ((safeId * 137.508) % 360) * (Math.PI / 180);
-    const ring = 2600 + ((safeId * 977) % 3200); // 2.6k ~ 5.8k
+function randomInt(min, max) {
+    const lo = Math.ceil(min);
+    const hi = Math.floor(max);
+    return Math.floor(Math.random() * (hi - lo + 1)) + lo;
+}
+
+function defaultSpawnForUser(_userId) {
+    const spawnRangeXY = 5800;
     return {
-        worldX: Math.round(Math.cos(angle) * ring),
-        worldY: Math.round(Math.sin(angle) * ring),
-        worldZ: 0
+        worldX: randomInt(-spawnRangeXY, spawnRangeXY),
+        worldY: randomInt(-spawnRangeXY, spawnRangeXY),
+        worldZ: randomInt(MIN_WORLD_Z, MAX_WORLD_Z)
     };
 }
 

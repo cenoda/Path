@@ -3,7 +3,7 @@
  * Provides offline support and caching for the PWA
  */
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const STATIC_CACHE = `path-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `path-dynamic-${CACHE_VERSION}`;
 
@@ -15,6 +15,15 @@ const APP_SHELL = [
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/shared/nav.js',
+  '/mainHub/',
+  '/mainHub/index.html',
+  '/mainHub/style.css',
+  '/community/',
+  '/community/index.html',
+  '/community/style.css',
+  '/mainPageDev/',
+  '/mainPageDev/index.html',
+  '/mainPageDev/style.css',
 ];
 
 // Routes that should always try network first

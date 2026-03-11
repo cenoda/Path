@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>P.A.T.H - Command</title>
-    <link rel="prefetch" href="/timer/" as="document">
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet"></noscript>
+    <link rel="stylesheet" href="style.css?v=6">
     <script type="importmap">
     {
         "imports": {
@@ -17,8 +18,8 @@
     }
     </script>
     <!-- socket.io client – loaded before scene.js so it is available globally -->
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="balloonSkins.js?v=10"></script>
+    <script src="/socket.io/socket.io.js" defer></script>
+    <script src="balloonSkins.js?v=10" defer></script>
     <script type="module" src="scene.js?v=8"></script>
 </head>
 <body>
@@ -400,7 +401,7 @@
         </div>
     </div>
 
-    <script src="/shared/nav.js?v=4"></script>
+    <script src="/shared/nav.js?v=5"></script>
     <script src="bg.js?v=5"></script>
     <script src="main.js?v=9"></script>
     <script>

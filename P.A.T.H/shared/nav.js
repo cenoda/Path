@@ -1,40 +1,97 @@
 /**
- * nav.js – 페이지 전환 트랜지션 + hover 시 prefetch
+ * nav.js – 고급 페이지 전환 트랜지션 + hover 시 prefetch
  * 모든 페이지에 공통으로 포함되는 스크립트
  */
 (function () {
-    // ── 전환 오버레이 CSS 주입 ──────────────────────────────────
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes _navFadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        body { animation: _navFadeIn 0.2s ease-out both; }
+    // ── View Transition API 지원 감지 ──────────────────────────
+    var hasViewTransition = typeof document.startViewTransition === 'function';
 
+    // ── 전환 CSS 주입 ──────────────────────────────────────────
+    var style = document.createElement('style');
+    style.textContent = `
+        /* ── 페이드+슬라이드 인 ── */
+        @keyframes _navFadeIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.99); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        body {
+            animation: _navFadeIn .28s cubic-bezier(.22,1,.36,1) both;
+        }
+
+        /* ── 전환 오버레이 (그라디언트 wipe) ── */
         #_nav-overlay {
             position: fixed;
             inset: 0;
-            background: #000;
-            display: none;
-            visibility: hidden;
-            opacity: 0;
-            pointer-events: none;
             z-index: 2147483647;
-            transition: opacity 0.15s ease;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            background: linear-gradient(135deg,
+                rgba(0,0,0,0.92) 0%,
+                rgba(13,13,17,0.96) 50%,
+                rgba(0,0,0,0.92) 100%);
+            transition: opacity .18s cubic-bezier(.4,0,.2,1),
+                        visibility 0s linear .18s;
             will-change: opacity;
         }
         #_nav-overlay.active {
-            display: block;
-            visibility: visible;
             opacity: 1;
+            visibility: visible;
             pointer-events: all;
+            transition: opacity .18s cubic-bezier(.4,0,.2,1),
+                        visibility 0s linear 0s;
+        }
+
+        /* ── 오버레이 내부 로딩 스피너 ── */
+        #_nav-overlay::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 24px; height: 24px;
+            margin: -12px 0 0 -12px;
+            border: 2px solid rgba(255,255,255,0.15);
+            border-top-color: rgba(255,255,255,0.7);
+            border-radius: 50%;
+            animation: _navSpin .6s linear infinite;
+            opacity: 0;
+            transition: opacity .12s ease .1s;
+        }
+        #_nav-overlay.active::after {
+            opacity: 1;
+        }
+        @keyframes _navSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── 페이드 아웃 (나가는 페이지) ── */
+        body._nav-leaving {
+            animation: _navFadeOut .15s cubic-bezier(.4,0,1,1) forwards !important;
+        }
+        @keyframes _navFadeOut {
+            from { opacity: 1; transform: scale(1); filter: blur(0); }
+            to   { opacity: 0; transform: scale(0.98); filter: blur(2px); }
+        }
+
+        /* ── View Transition API 스타일 (지원 브라우저) ── */
+        ::view-transition-old(root) {
+            animation: _vtOut .2s cubic-bezier(.4,0,1,1) forwards;
+        }
+        ::view-transition-new(root) {
+            animation: _vtIn .3s cubic-bezier(.22,1,.36,1) both;
+        }
+        @keyframes _vtOut {
+            from { opacity: 1; transform: scale(1); }
+            to   { opacity: 0; transform: scale(0.97) translateY(-8px); }
+        }
+        @keyframes _vtIn {
+            from { opacity: 0; transform: scale(0.97) translateY(8px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
         }
     `;
     document.head.appendChild(style);
 
     // ── 오버레이 엘리먼트 생성 ─────────────────────────────────
-    const overlay = document.createElement('div');
+    var overlay = document.createElement('div');
     overlay.id = '_nav-overlay';
 
     function ensureOverlay() {
@@ -49,27 +106,49 @@
         document.addEventListener('DOMContentLoaded', ensureOverlay);
     }
 
-    // ── navigateTo: 페이드아웃 후 이동 ────────────────────────
+    // ── navigateTo: 부드러운 전환 후 이동 ─────────────────────
+    var navigating = false;
     window.navigateTo = function (url) {
+        if (navigating) return;
+        navigating = true;
+
+        // View Transition API 지원 시 네이티브 모핑 사용
+        if (hasViewTransition) {
+            document.startViewTransition(function () {
+                window.location.href = url;
+            });
+            return;
+        }
+
+        // 폴백: 바디 축소 + 오버레이 페이드
         ensureOverlay();
+        document.body.classList.add('_nav-leaving');
         overlay.classList.add('active');
         setTimeout(function () {
             window.location.href = url;
-        }, 160);
+        }, 140);
     };
 
-    // Safety: if a navigation gets canceled, immediately release interaction lock.
-    window.addEventListener('pageshow', function () {
+    // Safety: bfcache 등에서 돌아올 때 상태 초기화
+    window.addEventListener('pageshow', function (e) {
+        navigating = false;
         overlay.classList.remove('active');
+        document.body.classList.remove('_nav-leaving');
+        // bfcache에서 복원 시 바디 애니메이션 재실행
+        if (e.persisted) {
+            document.body.style.animation = 'none';
+            document.body.offsetHeight; // reflow
+            document.body.style.animation = '';
+        }
     });
 
     // ── hover 시 prefetch ──────────────────────────────────────
-    const prefetched = new Set();
+    var prefetched = new Set();
 
     function prefetch(pathname) {
         if (prefetched.has(pathname)) return;
         prefetched.add(pathname);
-        const link = document.createElement('link');
+        var link = document.createElement('link');
         link.rel = 'prefetch';
         link.href = pathname;
         link.as = 'document';
@@ -77,30 +156,48 @@
     }
 
     // ── 페이지 로드 시 인접 라우트 사전 prefetch ──────────────
-    const routePrefetchMap = {
-        '/mainHub/':   ['/timer/', '/community/'],
-        '/timer/':     ['/mainHub/'],
+    var routePrefetchMap = {
+        '/mainHub/':   ['/community/', '/mainPageDev/'],
+        '/mainPageDev/': ['/mainHub/'],
         '/community/': ['/mainHub/'],
-        '/login/':     ['/mainHub/'],
+        '/login/':     ['/mainHub/', '/setup-profile/'],
     };
-    const adjacents = routePrefetchMap[location.pathname] || [];
-    // 초기 로드 영향 최소화를 위해 1.5초 후 prefetch
-    setTimeout(function () { adjacents.forEach(prefetch); }, 1500);
+    var adjacents = routePrefetchMap[location.pathname] || [];
+    // idle callback 또는 800ms 후 prefetch (더 빠르게)
+    if (window.requestIdleCallback) {
+        requestIdleCallback(function () { adjacents.forEach(prefetch); }, { timeout: 1000 });
+    } else {
+        setTimeout(function () { adjacents.forEach(prefetch); }, 800);
+    }
 
     document.addEventListener('mouseover', function (e) {
-        const target = e.target.closest('[data-nav-href]');
+        var target = e.target.closest('[data-nav-href]');
         if (!target) return;
         prefetch(target.dataset.navHref);
     }, { passive: true });
 
     // <a> 태그 hover도 처리
     document.addEventListener('mouseover', function (e) {
-        const a = e.target.closest('a[href]');
+        var a = e.target.closest('a[href]');
         if (!a) return;
         try {
-            const url = new URL(a.href, location.origin);
+            var url = new URL(a.href, location.origin);
             if (url.origin === location.origin) prefetch(url.pathname);
         } catch (_) {}
+    }, { passive: true });
+
+    // ── touchstart 시 prefetch (모바일 최적화) ────────────────
+    document.addEventListener('touchstart', function (e) {
+        var a = e.target.closest('a[href], [data-nav-href], [onclick]');
+        if (!a) return;
+        var href = a.dataset && a.dataset.navHref;
+        if (!href && a.href) {
+            try {
+                var u = new URL(a.href, location.origin);
+                if (u.origin === location.origin) href = u.pathname;
+            } catch (_) {}
+        }
+        if (href) prefetch(href);
     }, { passive: true });
 
     // ── Fallback: inline onclick 차단(WebView/CSP) 환경 대응 ──────────────

@@ -1,0 +1,20 @@
+{
+  "description": "어디가(대입정보포털) 계열 CSV 대응 템플릿",
+  "defaults": {
+    "admissionsType": "정시",
+    "confidence": 0.85
+  },
+  "fields": {
+    "university": ["대학", "학교", "university"],
+    "department": ["학과", "모집단위명", "department"],
+    "category": ["계열구분", "계열", "category"],
+    "admissionsType": ["전형명", "admissionsType"],
+    "percentile": ["백분위컷", "평균백분위", "percentile"],
+    "convertedCut": ["환산점수컷", "convertedCut"],
+    "gpaCut": ["교과평균등급", "gpaCut"],
+    "year": ["기준연도", "year"],
+    "sourceUrl": ["링크", "sourceUrl"],
+    "note": ["설명", "비고", "note"],
+    "track": ["모집군", "track"]
+  }
+}

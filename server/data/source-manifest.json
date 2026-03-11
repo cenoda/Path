@@ -1,0 +1,24 @@
+{
+  "updatedAt": "2026-03-11",
+  "description": "배치 수집 소스 목록. enabled=true 인 항목만 collect 대상",
+  "sources": [
+    {
+      "id": "sample-university-alimi-2026",
+      "enabled": false,
+      "url": "https://example.com/university-alimi-2026.csv",
+      "format": "csv",
+      "map": "./server/data/source-maps/university-alimi.csv.map.json",
+      "year": 2026,
+      "replace": true
+    },
+    {
+      "id": "sample-adiga-2026",
+      "enabled": false,
+      "url": "https://example.com/adiga-2026.csv",
+      "format": "csv",
+      "map": "./server/data/source-maps/adiga.csv.map.json",
+      "year": 2026,
+      "replace": false
+    }
+  ]
+}

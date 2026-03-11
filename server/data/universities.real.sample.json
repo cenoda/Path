@@ -16,8 +16,10 @@
             "정시": {
               "백분위": 99,
               "환산컷": 583.5,
-              "source": "서울대학교 2026 모집요강/입시결과",
-              "year": 2026
+              "sourceId": "snu-2026",
+              "sourceUrl": "https://admission.snu.ac.kr",
+              "year": 2026,
+              "confidence": 0.95
             }
           }
         }

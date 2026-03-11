@@ -1,0 +1,20 @@
+{
+  "description": "대학 입학처 공지 CSV 범용 템플릿",
+  "defaults": {
+    "admissionsType": "정시",
+    "confidence": 0.8
+  },
+  "fields": {
+    "university": ["university_name", "대학명", "학교명", "university"],
+    "department": ["department_name", "학과", "모집단위", "department"],
+    "category": ["계열", "분류", "category"],
+    "admissionsType": ["admission_type", "전형", "admissionsType"],
+    "percentile": ["percentile", "백분위", "백분위컷"],
+    "convertedCut": ["converted_cut", "환산점수", "환산컷"],
+    "gpaCut": ["gpa_cut", "내신", "교과등급"],
+    "year": ["year", "입시연도", "기준연도"],
+    "sourceUrl": ["source_url", "출처", "출처URL"],
+    "note": ["note", "비고", "설명"],
+    "track": ["track", "모집군"]
+  }
+}

@@ -41,6 +41,8 @@ if (rows.length === 0) {
     fail('universities/patches must not be empty');
 }
 
+const MIN_CONFIDENCE = 0.5;
+
 const nameSet = new Set();
 for (let i = 0; i < rows.length; i += 1) {
     const u = rows[i];
@@ -61,6 +63,40 @@ for (let i = 0; i < rows.length; i += 1) {
             if (!d || typeof d !== 'object') fail(`row ${i + 1} dept ${j + 1}: must be object`);
             if (typeof d.name !== 'string' || !d.name.trim()) fail(`row ${i + 1} dept ${j + 1}: name is required`);
             if (typeof d.category !== 'string' || !d.category.trim()) fail(`row ${i + 1} dept ${j + 1}: category is required`);
+
+            const admissions = d.admissions || {};
+            for (const [trackName, trackData] of Object.entries(admissions)) {
+                if (!trackData || typeof trackData !== 'object') {
+                    fail(`row ${i + 1} dept ${j + 1} track ${trackName}: admissions value must be object`);
+                }
+
+                const hasScore =
+                    trackData.백분위 != null ||
+                    trackData.환산컷 != null ||
+                    trackData.내신 != null ||
+                    trackData.내신참고 != null;
+
+                if (!hasScore) {
+                    fail(`row ${i + 1} dept ${j + 1} track ${trackName}: at least one score field is required`);
+                }
+
+                if (typeof trackData.sourceId !== 'string' || !trackData.sourceId.trim()) {
+                    fail(`row ${i + 1} dept ${j + 1} track ${trackName}: sourceId is required`);
+                }
+
+                if (typeof trackData.sourceUrl !== 'string' || !trackData.sourceUrl.trim()) {
+                    fail(`row ${i + 1} dept ${j + 1} track ${trackName}: sourceUrl is required`);
+                }
+
+                if (!Number.isFinite(Number(trackData.year))) {
+                    fail(`row ${i + 1} dept ${j + 1} track ${trackName}: year is required`);
+                }
+
+                const confidence = Number(trackData.confidence);
+                if (!Number.isFinite(confidence) || confidence < MIN_CONFIDENCE || confidence > 1) {
+                    fail(`row ${i + 1} dept ${j + 1} track ${trackName}: confidence must be ${MIN_CONFIDENCE}~1`);
+                }
+            }
         }
     }
 }

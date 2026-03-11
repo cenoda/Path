@@ -1,0 +1,4 @@
+university,department,category,admissionsType,percentile,convertedCut,gpaCut,track,note,sourceUrl,confidence,year,sourceId
+서울대학교,경영학과,상경,정시,99,583.5,,,2026 정시 최초합 컷,https://example.edu/admission,0.95,2026,snu-2026
+연세대학교,컴퓨터과학과,공학,정시,98,782.0,,,2026 정시 입시결과,https://example.edu/admission,0.92,2026,yonsei-2026
+고려대학교,경영학과,상경,학생부교과,,,1.25,,교과 평균 등급,https://example.edu/admission,0.85,2026,korea-2026

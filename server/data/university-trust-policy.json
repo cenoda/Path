@@ -1,0 +1,7 @@
+{
+  "minConfidence": 0.75,
+  "requireYear": true,
+  "requireSourceId": true,
+  "requireSourceUrl": true,
+  "requireAtLeastOneScore": true
+}

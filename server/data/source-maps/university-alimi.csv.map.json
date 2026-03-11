@@ -1,0 +1,20 @@
+{
+  "description": "대학알리미/유사 CSV 헤더 매핑 템플릿",
+  "defaults": {
+    "admissionsType": "정시",
+    "confidence": 0.9
+  },
+  "fields": {
+    "university": ["학교명", "대학명", "university"],
+    "department": ["학과명", "모집단위", "department"],
+    "category": ["계열", "학문분야", "category"],
+    "admissionsType": ["전형", "전형유형", "admissionsType"],
+    "percentile": ["국수탐 백분위", "백분위", "percentile"],
+    "convertedCut": ["환산점수", "환산컷", "convertedCut"],
+    "gpaCut": ["교과등급", "내신등급", "gpaCut"],
+    "year": ["연도", "입시연도", "year"],
+    "sourceUrl": ["출처URL", "sourceUrl"],
+    "note": ["비고", "note"],
+    "track": ["트랙", "군", "track"]
+  }
+}

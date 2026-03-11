@@ -144,6 +144,12 @@ npm start
 ## npm 스크립트
 
 - `npm start`: 서버 실행
+- `npm run univ:bootstrap`: 대학 카탈로그/파이프라인 초기화
+- `npm run univ:report`: 수집 데이터 품질 리포트 출력
+- `npm run univ:export`: 파이프라인 데이터를 `universities.real.json`으로 내보내기
+- `npm run univ:policy`: 신뢰정책(minConfidence 등) 설정
+- `npm run univ:collect`: manifest 기반 배치 수집(fetch+snapshot+import)
+- `npm run univ:cli`: 대학 데이터 CLI 직접 실행
 - `npm run validate:universities`: `server/data/universities.real.json` 형식 검증
 - `npm run set-admin`: 관리자 권한 설정 스크립트 실행
 - `npm run list-admins`: 관리자 목록 출력
@@ -503,6 +509,92 @@ npm run validate:universities
 
 ```http
 GET /api/university/data-status
+```
+
+대학교 데이터 수집/정리/관리 파이프라인
+
+- CLI: `scripts/university-data-cli.js`
+- 관리 파일:
+  - `server/data/university-catalog.json` (대학 기본 카탈로그)
+  - `server/data/university-pipeline.json` (출처/원천 레코드)
+  - `server/data/university-trust-policy.json` (신뢰정책)
+  - `server/data/university-rejects.json` (정책 위반 레코드 리포트)
+  - `server/data/source-manifest.json` (배치 수집 대상 목록)
+  - `server/data/raw-snapshots/` (수집 원본 보관)
+  - `server/data/university-import-template.csv` (CSV 템플릿)
+
+권장 운영 순서
+
+```bash
+# 1) 초기화
+npm run univ:bootstrap
+
+# 2) 출처 등록
+npm run univ:cli -- add-source --id snu-2026 --name "서울대 입학처 2026" --url "https://admission.snu.ac.kr" --license "public"
+
+# 3) CSV 반영 (템플릿: server/data/university-import-template.csv)
+npm run univ:cli -- import-csv --file ./server/data/university-import-template.csv --source snu-2026 --year 2026
+
+# 3-1) URL 자동수집 (csv/json)
+npm run univ:cli -- import-url --url "https://example.com/univ-2026.csv" --format csv --source snu-2026 --year 2026
+
+# 3-1-a) URL 자동수집 + 매핑 템플릿 적용
+npm run univ:cli -- import-url --url "https://example.com/univ-2026.csv" --format csv --source snu-2026 --year 2026 --map ./server/data/source-maps/university-alimi.csv.map.json
+
+# 3-2) 신뢰정책 설정
+npm run univ:policy -- --minConfidence 0.8 --requireYear true --requireSourceUrl true
+
+# 3-3) manifest 배치 수집
+# (source-manifest.json에서 enabled=true인 소스만 수집)
+npm run univ:collect
+
+# 특정 소스만 테스트 수집
+npm run univ:cli -- collect --source sample-university-alimi-2026 --dryRun true
+
+# 4) 품질 점검
+npm run univ:report
+
+# 5) 서비스 반영 파일 생성 + 검증
+npm run univ:export
+npm run validate:universities
+```
+
+주의
+
+- `univ:export`는 기본적으로 신뢰정책을 통과한 레코드만 반영합니다.
+- 제외된 데이터는 `server/data/university-rejects.json`에 이유와 함께 기록됩니다.
+- `validate:universities`는 admissions별 `sourceId`, `sourceUrl`, `year`, `confidence(0.5~1)`를 필수로 검사합니다.
+
+CSV 헤더
+
+```text
+university,department,category,admissionsType,percentile,convertedCut,gpaCut,track,note,sourceUrl,confidence,year,sourceId
+```
+
+매핑 템플릿
+
+- `server/data/source-maps/university-alimi.csv.map.json`
+- `server/data/source-maps/adiga.csv.map.json`
+- `server/data/source-maps/admission-office.generic.csv.map.json`
+
+템플릿은 원본 CSV 컬럼명을 내부 표준 컬럼으로 매핑합니다. 컬럼명이 다르면 해당 파일을 복사해 `fields` 배열의 우선순위만 수정해서 사용하면 됩니다.
+
+배치 수집 manifest 형식
+
+```json
+{
+  "sources": [
+    {
+      "id": "sample-university-alimi-2026",
+      "enabled": true,
+      "url": "https://example.com/university-alimi-2026.csv",
+      "format": "csv",
+      "map": "./server/data/source-maps/university-alimi.csv.map.json",
+      "year": 2026,
+      "replace": true
+    }
+  ]
+}
 ```
 
 침공 (`/api/invasion`)

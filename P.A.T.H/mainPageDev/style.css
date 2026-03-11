@@ -4204,3 +4204,723 @@ body.path-interface:not(.light) {
         font-size: 12px;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   10 MINUTES PLANNER — Toss-style paper planner
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.planner-paper {
+    position: relative;
+    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
+    padding: 28px 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow: hidden;
+}
+
+body:not(.light) .planner-paper {
+    background: rgba(30, 30, 34, 0.96);
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* subtle paper texture */
+.planner-paper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 51px,
+            rgba(180, 195, 220, 0.5) 51px,
+            rgba(180, 195, 220, 0.5) 52px
+        );
+}
+
+body:not(.light) .planner-paper::before {
+    opacity: 0.06;
+    background-image:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 51px,
+            rgba(100, 120, 150, 0.3) 51px,
+            rgba(100, 120, 150, 0.3) 52px
+        );
+}
+
+/* ── Header ────────────────────────────────────────────── */
+.planner-header {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.planner-date-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.planner-date-center {
+    flex: 1;
+    text-align: center;
+}
+
+.planner-date-kicker {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--accent-blue);
+    text-transform: uppercase;
+}
+
+.planner-date-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 2px;
+    letter-spacing: -0.02em;
+}
+
+.planner-nav-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line-color);
+    border-radius: 10px;
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.planner-nav-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+
+/* D-Day */
+.planner-dday-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.planner-dday-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #3182f6 0%, #1b64da 100%);
+    color: #fff;
+    border-radius: 999px;
+    padding: 8px 20px;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 2px 10px rgba(49, 130, 246, 0.25);
+}
+
+.planner-dday-chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(49, 130, 246, 0.3);
+}
+
+.planner-dday-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    opacity: 0.85;
+}
+
+.planner-dday-value {
+    font-size: 16px;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    letter-spacing: -0.01em;
+}
+
+.planner-dday-setup {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: plannerFadeIn 0.2s ease;
+}
+
+@keyframes plannerFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.planner-dday-input {
+    height: 38px;
+    border: 1px solid var(--line-color);
+    border-radius: 10px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-family: var(--font-ui);
+    background: var(--surface-soft);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.planner-dday-input:focus {
+    border-color: var(--accent-blue);
+}
+
+.planner-dday-save-btn {
+    height: 38px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent-blue);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.planner-dday-save-btn:hover {
+    background: var(--accent-blue-strong);
+}
+
+/* ── Section Labels ────────────────────────────────────── */
+.planner-section-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+/* ── Subject Summary ───────────────────────────────────── */
+.planner-subject-summary {
+    display: flex;
+    flex-direction: column;
+}
+
+.planner-subject-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.planner-subject-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-soft);
+    border: 1px solid var(--line-color);
+    border-radius: 12px;
+    padding: 10px 14px;
+    transition: transform 0.15s ease;
+}
+
+.planner-subject-chip:hover {
+    transform: translateY(-1px);
+}
+
+.planner-chip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.planner-chip-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.planner-chip-detail {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.planner-empty-hint {
+    font-size: 13px;
+    color: var(--text-muted);
+    padding: 8px 0;
+}
+
+/* ── Timeline ──────────────────────────────────────────── */
+.planner-timeline-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.planner-timeline-legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.planner-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.planner-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.planner-legend-plan {
+    background: rgba(49, 130, 246, 0.3);
+    border: 1.5px solid rgba(49, 130, 246, 0.7);
+}
+
+.planner-legend-actual {
+    background: rgba(0, 196, 113, 0.3);
+    border: 1.5px solid rgba(0, 196, 113, 0.7);
+}
+
+.planner-timeline {
+    border: 1px solid var(--line-color);
+    border-radius: 14px;
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 480px;
+    background: var(--surface-soft);
+}
+
+.planner-timeline-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: 42px 1fr 1fr;
+    min-width: 300px;
+}
+
+/* Hour rows */
+.planner-hour-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: flex-start;
+    pointer-events: none;
+}
+
+.planner-hour-label {
+    width: 42px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    line-height: 1;
+    transform: translateY(-5px);
+    flex-shrink: 0;
+}
+
+.planner-hour-line {
+    flex: 1;
+    height: 1px;
+    background: var(--line-color);
+}
+
+/* Columns */
+.planner-col {
+    position: relative;
+    grid-row: 1;
+}
+
+.planner-col-plan {
+    grid-column: 2;
+    border-right: 1px dashed var(--line-color);
+}
+
+.planner-col-actual {
+    grid-column: 3;
+}
+
+.planner-col-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    padding: 6px 0;
+    background: var(--surface-soft);
+    border-bottom: 1px solid var(--line-color);
+}
+
+/* Timeline blocks */
+.planner-block {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    border-radius: 8px;
+    padding: 4px 8px;
+    overflow: hidden;
+    transition: transform 0.12s ease;
+    cursor: default;
+}
+
+.planner-block:hover {
+    transform: scale(1.02);
+    z-index: 3;
+}
+
+.planner-block-plan {
+    background: rgba(49, 130, 246, 0.12);
+    border-left: 3px solid var(--block-color);
+}
+
+.planner-block-actual {
+    background: rgba(0, 196, 113, 0.10);
+    border-left: 3px solid var(--block-color);
+}
+
+.planner-block-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.planner-block-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.planner-block-note {
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+}
+
+.planner-block-del {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.1);
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.planner-block:hover .planner-block-del {
+    opacity: 1;
+}
+
+.planner-block-del:hover {
+    background: var(--accent-red);
+    color: #fff;
+}
+
+/* Now line */
+.planner-now-line {
+    position: absolute;
+    left: 42px;
+    right: 0;
+    height: 2px;
+    background: var(--accent-red);
+    z-index: 10;
+    pointer-events: none;
+}
+
+.planner-now-dot {
+    position: absolute;
+    left: -4px;
+    top: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-red);
+}
+
+/* ── Quick Plan Add ────────────────────────────────────── */
+.planner-add-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.planner-add-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.planner-add-input {
+    height: 40px;
+    border: 1px solid var(--line-color);
+    border-radius: 10px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-family: var(--font-ui);
+    background: var(--surface-soft);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.planner-add-input:focus {
+    border-color: var(--accent-blue);
+}
+
+.planner-add-select {
+    min-width: 100px;
+    max-width: 140px;
+}
+
+.planner-add-time-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.planner-add-time-row .planner-add-input {
+    width: 90px;
+}
+
+.planner-add-sep {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.planner-add-note-input {
+    flex: 1;
+    min-width: 120px;
+}
+
+.planner-add-btn {
+    height: 40px;
+    padding: 0 20px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent-blue);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    white-space: nowrap;
+}
+
+.planner-add-btn:hover {
+    background: var(--accent-blue-strong);
+}
+
+.planner-add-btn:active {
+    transform: scale(0.97);
+}
+
+/* ── Memo ──────────────────────────────────────────────── */
+.planner-memo-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.planner-memo {
+    width: 100%;
+    min-height: 100px;
+    border: 1px solid var(--line-color);
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 14px;
+    font-family: var(--font-ui);
+    color: var(--text-primary);
+    background: var(--surface-soft);
+    resize: vertical;
+    outline: none;
+    line-height: 1.7;
+    transition: border-color 0.15s;
+}
+
+.planner-memo:focus {
+    border-color: var(--accent-blue);
+}
+
+.planner-memo::placeholder {
+    color: var(--text-muted);
+}
+
+.planner-memo-save-btn {
+    align-self: flex-end;
+    margin-top: 8px;
+    height: 36px;
+    padding: 0 18px;
+    border: 1px solid var(--line-color);
+    border-radius: 10px;
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.planner-memo-save-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+
+.planner-memo-save-btn.saved {
+    background: var(--accent-blue);
+    color: #fff;
+    border-color: var(--accent-blue);
+}
+
+/* ── Daily Stats ───────────────────────────────────────── */
+.planner-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.planner-stat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 16px 8px;
+    background: var(--surface-soft);
+    border: 1px solid var(--line-color);
+    border-radius: 14px;
+    transition: transform 0.15s;
+}
+
+.planner-stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.planner-stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+}
+
+.planner-stat-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+}
+
+.planner-stat-value.planner-rate-high {
+    color: var(--success);
+}
+
+.planner-stat-value.planner-rate-mid {
+    color: var(--accent-gold);
+}
+
+.planner-stat-value.planner-rate-low {
+    color: var(--accent-red);
+}
+
+/* ── Footer ────────────────────────────────────────────── */
+.planner-footer {
+    text-align: center;
+    padding-top: 12px;
+    border-top: 1px solid var(--line-color);
+}
+
+.planner-footer-text {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+
+/* ── Responsive ────────────────────────────────────────── */
+@media (max-width: 620px) {
+    .planner-paper {
+        padding: 20px 16px 16px;
+        border-radius: 16px;
+        gap: 20px;
+    }
+
+    .planner-date-title {
+        font-size: 15px;
+    }
+
+    .planner-stats {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+    }
+
+    .planner-stat-value {
+        font-size: 17px;
+    }
+
+    .planner-add-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .planner-add-select {
+        max-width: none;
+    }
+
+    .planner-add-time-row .planner-add-input {
+        flex: 1;
+        width: auto;
+    }
+
+    .planner-timeline {
+        max-height: 400px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .planner-paper {
+        max-width: 720px;
+        margin: 0 auto;
+    }
+
+    .planner-timeline {
+        max-height: 560px;
+    }
+}

@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 class Department {
     constructor(data) {
         this.name = data.name;
@@ -2391,6 +2394,101 @@ const UNIVERSITIES = [
 
 ];
 
+const REAL_DATA_PATH = path.join(__dirname, 'universities.real.json');
+
+function mergeUniversityData(base, patch) {
+    if (!patch || typeof patch !== 'object') return base;
+    return {
+        name: patch.name || base.name,
+        aliases: Array.isArray(patch.aliases) ? patch.aliases : base.aliases,
+        region: patch.region || base.region,
+        type: patch.type || base.type,
+        basePercentile: Number.isFinite(Number(patch.basePercentile)) ? Number(patch.basePercentile) : base.basePercentile,
+        scoreFormula: patch.scoreFormula || base.scoreFormula,
+        departments: Array.isArray(patch.departments) ? patch.departments : base.departments.map(d => ({
+            name: d.name,
+            category: d.category,
+            admissions: d.admissions
+        }))
+    };
+}
+
+function loadUniversityDataset() {
+    const base = UNIVERSITIES;
+    const status = {
+        source: 'built-in',
+        path: REAL_DATA_PATH,
+        loaded: false,
+        warnings: [],
+        updatedAt: null,
+        universityCount: base.length
+    };
+
+    if (!fs.existsSync(REAL_DATA_PATH)) {
+        return { universities: base, status };
+    }
+
+    try {
+        const raw = fs.readFileSync(REAL_DATA_PATH, 'utf8');
+        const payload = JSON.parse(raw);
+        const updatedAt = typeof payload.updatedAt === 'string' ? payload.updatedAt : null;
+
+        if (Array.isArray(payload.universities) && payload.universities.length > 0) {
+            const universities = payload.universities.map(u => new University(u));
+            return {
+                universities,
+                status: {
+                    ...status,
+                    source: 'real-file-full',
+                    loaded: true,
+                    updatedAt,
+                    universityCount: universities.length
+                }
+            };
+        }
+
+        if (Array.isArray(payload.patches) && payload.patches.length > 0) {
+            const patches = new Map(payload.patches
+                .filter(p => p && typeof p.name === 'string' && p.name.trim())
+                .map(p => [p.name, p]));
+
+            const merged = base.map(u => {
+                const patch = patches.get(u.name);
+                if (!patch) return u;
+                return new University(mergeUniversityData(u, patch));
+            });
+
+            for (const [name, patch] of patches.entries()) {
+                if (merged.some(u => u.name === name)) continue;
+                if (!Array.isArray(patch.departments)) {
+                    status.warnings.push(`patch without departments ignored: ${name}`);
+                    continue;
+                }
+                merged.push(new University(patch));
+            }
+
+            return {
+                universities: merged,
+                status: {
+                    ...status,
+                    source: 'real-file-patch',
+                    loaded: true,
+                    updatedAt,
+                    universityCount: merged.length
+                }
+            };
+        }
+
+        status.warnings.push('universities 또는 patches 배열이 없어 기본 데이터셋을 사용합니다.');
+        return { universities: base, status };
+    } catch (err) {
+        status.warnings.push(`실데이터 파일 파싱 실패: ${err.message}`);
+        return { universities: base, status };
+    }
+}
+
+const { universities: ACTIVE_UNIVERSITIES, status: UNIVERSITY_DATA_STATUS } = loadUniversityDataset();
+
 const MED_KEYWORDS = ['의과대학', '의학과', '의예과', '치과대학', '치의학과', '치의예과',
     '한의과대학', '한의학과', '약학대학', '약학과', '수의과대학', '수의학과',
     '의대', '치대', '한의대', '약대', '수의대'];
@@ -2399,7 +2497,7 @@ const STUDY_GOLD_PER_HR = 10;
 
 function findUniversity(name) {
     if (!name) return null;
-    return UNIVERSITIES.find(u =>
+    return ACTIVE_UNIVERSITIES.find(u =>
         u.name === name ||
         u.aliases.some(a => name.includes(a) || a.includes(name)) ||
         name.includes(u.name) || u.name.includes(name)
@@ -2473,7 +2571,7 @@ function getUniversityInfo(universityName) {
 }
 
 function getAllUniversities() {
-    return UNIVERSITIES.map(u => ({
+    return ACTIVE_UNIVERSITIES.map(u => ({
         name: u.name,
         aliases: u.aliases,
         region: u.region,
@@ -2484,8 +2582,15 @@ function getAllUniversities() {
     }));
 }
 
+function getUniversityDataStatus() {
+    return {
+        ...UNIVERSITY_DATA_STATUS,
+        warnings: [...UNIVERSITY_DATA_STATUS.warnings]
+    };
+}
+
 module.exports = {
     University, Department, UNIVERSITIES,
     getPercentile, getTaxRate, getTicketPrice, STUDY_GOLD_PER_HR,
-    findUniversity, getUniversityInfo, getAllUniversities
+    findUniversity, getUniversityInfo, getAllUniversities, getUniversityDataStatus
 };

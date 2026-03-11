@@ -530,6 +530,38 @@ async function initSchema() {
             ALTER TABLE users ADD COLUMN IF NOT EXISTS world_z INTEGER DEFAULT 0;
         `);
 
+        // ── 관리자 감사 로그 (append-only: 수정/삭제 금지) ─────────────────────────
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS admin_audit_logs (
+                id              BIGSERIAL PRIMARY KEY,
+                action          VARCHAR(80) NOT NULL,
+                actor_user_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                target_user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                details         JSONB NOT NULL DEFAULT '{}'::jsonb,
+                created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_created_at ON admin_audit_logs(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_actor ON admin_audit_logs(actor_user_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_target ON admin_audit_logs(target_user_id, created_at DESC);
+
+            CREATE OR REPLACE FUNCTION prevent_admin_audit_logs_mutation()
+            RETURNS trigger AS $$
+            BEGIN
+                RAISE EXCEPTION 'admin_audit_logs is append-only';
+            END;
+            $$ LANGUAGE plpgsql;
+
+            DROP TRIGGER IF EXISTS trg_admin_audit_logs_no_update ON admin_audit_logs;
+            CREATE TRIGGER trg_admin_audit_logs_no_update
+            BEFORE UPDATE ON admin_audit_logs
+            FOR EACH ROW EXECUTE FUNCTION prevent_admin_audit_logs_mutation();
+
+            DROP TRIGGER IF EXISTS trg_admin_audit_logs_no_delete ON admin_audit_logs;
+            CREATE TRIGGER trg_admin_audit_logs_no_delete
+            BEFORE DELETE ON admin_audit_logs
+            FOR EACH ROW EXECUTE FUNCTION prevent_admin_audit_logs_mutation();
+        `);
+
         // ── 입시 지원 시스템 ───────────────────────────────────────────────────
 
         // 과목별 점수 (유저당 1행, UPSERT로 업데이트)

@@ -1,10 +1,14 @@
 const express = require('express');
-const { findUniversity, getUniversityInfo, getAllUniversities } = require('../data/universities');
+const { findUniversity, getUniversityInfo, getAllUniversities, getUniversityDataStatus } = require('../data/universities');
 
 const router = express.Router();
 
 router.get('/list', (req, res) => {
     res.json({ universities: getAllUniversities() });
+});
+
+router.get('/data-status', (req, res) => {
+    res.json({ status: getUniversityDataStatus() });
 });
 
 router.get('/info', (req, res) => {

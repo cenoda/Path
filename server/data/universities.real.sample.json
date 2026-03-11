@@ -1,0 +1,27 @@
+{
+  "updatedAt": "2026-03-11",
+  "source": "대학알리미/각 대학 입학처(수시/정시 발표자료)",
+  "notes": "universities(전체 교체) 또는 patches(부분 교체) 중 하나를 사용",
+  "patches": [
+    {
+      "name": "서울대학교",
+      "region": "서울",
+      "type": "국립",
+      "basePercentile": 99.4,
+      "departments": [
+        {
+          "name": "경영학과",
+          "category": "상경",
+          "admissions": {
+            "정시": {
+              "백분위": 99,
+              "환산컷": 583.5,
+              "source": "서울대학교 2026 모집요강/입시결과",
+              "year": 2026
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

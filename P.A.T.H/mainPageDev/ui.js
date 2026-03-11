@@ -17,6 +17,8 @@ const UI = {
     studyPlanDrafts: [],
     draftSeq: 1,
     quickSubjectNames: ['국어', '영어', '수학', '사회', '과학', '코딩', '전공'],
+    plannerDate: null,
+    plannerData: null,
     timetableConfig: {
         dayStartMinute: 6 * 60,
         dayEndMinute: 24 * 60,
@@ -32,10 +34,12 @@ const UI = {
         tierTag:     document.querySelector('.tier-tag'),
         rankPct:     document.getElementById('rank-pct'),
         tabStudyBtn: document.getElementById('tab-study-btn'),
+        tabPlannerBtn: document.getElementById('tab-planner-btn'),
         tabCalendarBtn: document.getElementById('tab-calendar-btn'),
         tabScoreCalcBtn: document.getElementById('tab-scorecalc-btn'),
         tabBalloonBtn: document.getElementById('tab-balloon-btn'),
         tabStudy:    document.getElementById('tab-study'),
+        tabPlanner:  document.getElementById('tab-planner'),
         tabCalendar: document.getElementById('tab-calendar'),
         tabScoreCalc: document.getElementById('tab-scorecalc'),
         tabBalloon:  document.getElementById('tab-balloon'),
@@ -156,6 +160,7 @@ const UI = {
         this.elements.inputMin.oninput = syncAction;
 
         this.elements.tabStudyBtn.onclick = () => this.switchTab('study');
+        this.elements.tabPlannerBtn.onclick = () => this.switchTab('planner');
         this.elements.tabCalendarBtn.onclick = () => this.switchTab('calendar');
         this.elements.tabScoreCalcBtn.onclick = () => this.switchTab('scorecalc');
         this.elements.tabBalloonBtn.onclick = () => this.switchTab('balloon');
@@ -334,19 +339,22 @@ const UI = {
     },
 
     switchTab(tab) {
-        const validTabs = ['calendar', 'balloon', 'scorecalc', 'rooms'];
+        const validTabs = ['calendar', 'balloon', 'scorecalc', 'rooms', 'planner'];
         const nextTab = validTabs.includes(tab) ? tab : 'study';
         this.currentTab = nextTab;
         const isCalendar = this.currentTab === 'calendar';
         const isRooms = this.currentTab === 'rooms';
+        const isPlanner = this.currentTab === 'planner';
 
         this.elements.tabStudyBtn.classList.toggle('active', this.currentTab === 'study');
+        this.elements.tabPlannerBtn.classList.toggle('active', isPlanner);
         this.elements.tabCalendarBtn.classList.toggle('active', this.currentTab === 'calendar');
         this.elements.tabScoreCalcBtn.classList.toggle('active', this.currentTab === 'scorecalc');
         this.elements.tabBalloonBtn.classList.toggle('active', this.currentTab === 'balloon');
         document.getElementById('tab-rooms-btn')?.classList.toggle('active', isRooms);
 
         this.elements.tabStudy.classList.toggle('active', this.currentTab === 'study');
+        this.elements.tabPlanner.classList.toggle('active', isPlanner);
         this.elements.tabCalendar.classList.toggle('active', this.currentTab === 'calendar');
         this.elements.tabScoreCalc.classList.toggle('active', this.currentTab === 'scorecalc');
         this.elements.tabBalloon.classList.toggle('active', this.currentTab === 'balloon');
@@ -357,6 +365,10 @@ const UI = {
 
         if (isCalendar) {
             this.loadWeekCalendar(this.weekOffset).catch(() => {});
+            return;
+        }
+        if (isPlanner) {
+            this.initPlanner();
             return;
         }
         if (this.currentTab === 'scorecalc') {
@@ -1501,6 +1513,367 @@ const UI = {
             this.elements.resTitle.style.color = 'var(--accent)';
             this.elements.resLoot.innerHTML    =
                 `<span style="color:var(--accent);font-size:1.1rem">이탈이 감지되었습니다.</span>`;
+        }
+    },
+
+    // ─── PLANNER (10 Minutes Planner) ─────────────────────────────────────
+    initPlanner() {
+        if (!this.plannerDate) {
+            this.plannerDate = this.toLocalYmd(new Date());
+        }
+        this.bindPlannerEvents();
+        this.loadPlannerDday();
+        this.loadPlannerMemo();
+        this.loadPlannerData();
+        this.renderPlannerSubjectSelect();
+    },
+
+    _plannerEventsBound: false,
+    bindPlannerEvents() {
+        if (this._plannerEventsBound) return;
+        this._plannerEventsBound = true;
+
+        document.getElementById('planner-prev-day')?.addEventListener('click', () => {
+            const d = this.parseLocalDate(this.plannerDate);
+            d.setDate(d.getDate() - 1);
+            this.plannerDate = this.toLocalYmd(d);
+            this.loadPlannerData();
+            this.loadPlannerMemo();
+        });
+        document.getElementById('planner-next-day')?.addEventListener('click', () => {
+            const d = this.parseLocalDate(this.plannerDate);
+            d.setDate(d.getDate() + 1);
+            this.plannerDate = this.toLocalYmd(d);
+            this.loadPlannerData();
+            this.loadPlannerMemo();
+        });
+
+        document.getElementById('planner-dday-chip')?.addEventListener('click', () => {
+            const setup = document.getElementById('planner-dday-setup');
+            if (setup) setup.classList.toggle('hidden');
+        });
+        document.getElementById('planner-dday-save')?.addEventListener('click', () => this.savePlannerDday());
+        document.getElementById('planner-memo-save')?.addEventListener('click', () => this.savePlannerMemo());
+
+        document.getElementById('planner-add-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handlePlannerAddPlan();
+        });
+
+        // Set default times
+        const startInput = document.getElementById('planner-add-start');
+        const endInput = document.getElementById('planner-add-end');
+        if (startInput && !startInput.value) startInput.value = '09:00';
+        if (endInput && !endInput.value) endInput.value = '10:00';
+    },
+
+    renderPlannerSubjectSelect() {
+        const sel = document.getElementById('planner-add-subject');
+        if (!sel) return;
+        if (!this.subjects.length) {
+            sel.innerHTML = '<option value="">과목을 먼저 추가하세요</option>';
+            return;
+        }
+        sel.innerHTML = this.subjects.map(s =>
+            `<option value="${s.id}">${this.escapeHtml(s.name)}</option>`
+        ).join('');
+    },
+
+    loadPlannerDday() {
+        const saved = localStorage.getItem('path_planner_dday');
+        if (saved) {
+            try {
+                const dday = JSON.parse(saved);
+                this.renderPlannerDday(dday);
+            } catch (e) {}
+        }
+    },
+
+    savePlannerDday() {
+        const target = document.getElementById('planner-dday-target')?.value;
+        const name = (document.getElementById('planner-dday-name')?.value || '').trim();
+        if (!target) return;
+        const dday = { target, name: name || 'D-DAY' };
+        localStorage.setItem('path_planner_dday', JSON.stringify(dday));
+        this.renderPlannerDday(dday);
+        document.getElementById('planner-dday-setup')?.classList.add('hidden');
+    },
+
+    renderPlannerDday(dday) {
+        const valEl = document.getElementById('planner-dday-value');
+        const labelEl = document.querySelector('.planner-dday-label');
+        if (!valEl || !dday?.target) return;
+
+        const target = new Date(dday.target + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diff = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+
+        if (labelEl) labelEl.textContent = dday.name || 'D-DAY';
+        if (diff === 0) {
+            valEl.textContent = 'D-DAY';
+        } else if (diff > 0) {
+            valEl.textContent = `D-${diff}`;
+        } else {
+            valEl.textContent = `D+${Math.abs(diff)}`;
+        }
+    },
+
+    loadPlannerMemo() {
+        const memo = document.getElementById('planner-memo');
+        if (!memo) return;
+        const key = `path_planner_memo_${this.plannerDate}`;
+        memo.value = localStorage.getItem(key) || '';
+    },
+
+    savePlannerMemo() {
+        const memo = document.getElementById('planner-memo');
+        if (!memo) return;
+        const key = `path_planner_memo_${this.plannerDate}`;
+        localStorage.setItem(key, memo.value);
+        const btn = document.getElementById('planner-memo-save');
+        if (btn) {
+            btn.textContent = '저장됨 ✓';
+            btn.classList.add('saved');
+            setTimeout(() => { btn.textContent = '메모 저장'; btn.classList.remove('saved'); }, 1500);
+        }
+    },
+
+    async loadPlannerData() {
+        const dateObj = this.parseLocalDate(this.plannerDate);
+        const dayOfWeek = (dateObj.getDay() + 6) % 7; // Mon=0
+        const monday = new Date(dateObj);
+        monday.setDate(dateObj.getDate() - dayOfWeek);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const refMonday = new Date(today);
+        refMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+        const weekDiff = Math.round((monday - refMonday) / (7 * 24 * 60 * 60 * 1000));
+
+        try {
+            const weekData = await StorageManager.fetchWeekCalendar(weekDiff);
+            this.plannerData = weekData;
+            if (Array.isArray(weekData.subjects)) {
+                this.subjects = weekData.subjects;
+                this.renderPlannerSubjectSelect();
+            }
+            this.renderPlanner();
+        } catch (e) {
+            console.error('Planner load error:', e);
+        }
+    },
+
+    renderPlanner() {
+        this.renderPlannerDateTitle();
+        this.renderPlannerDday(JSON.parse(localStorage.getItem('path_planner_dday') || 'null'));
+        this.renderPlannerTimeline();
+        this.renderPlannerSubjectSummary();
+        this.renderPlannerStats();
+    },
+
+    renderPlannerDateTitle() {
+        const el = document.getElementById('planner-date-title');
+        if (!el) return;
+        const d = this.parseLocalDate(this.plannerDate);
+        const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        el.textContent = `${y}년 ${m}월 ${day}일 ${days[d.getDay()]}`;
+    },
+
+    _getPlannerDayData() {
+        if (!this.plannerData) return { plans: [], records: [] };
+        const dateKey = this.plannerDate;
+        const plans = (this.plannerData.plans || []).filter(p => this.normalizeDateKey(p.plan_date) === dateKey);
+        const records = (this.plannerData.records || []).filter(r => this.normalizeDateKey(r.record_date || r.created_at) === dateKey);
+        return { plans, records };
+    },
+
+    renderPlannerTimeline() {
+        const container = document.getElementById('planner-timeline');
+        if (!container) return;
+
+        const { plans, records } = this._getPlannerDayData();
+        const dayStart = this.timetableConfig.dayStartMinute;
+        const dayEnd = this.timetableConfig.dayEndMinute;
+        const totalMinutes = dayEnd - dayStart;
+        const hourHeight = 52;
+        const timelineHeight = Math.floor((totalMinutes / 60) * hourHeight);
+
+        // Now indicator
+        const now = new Date();
+        const todayKey = this.toLocalYmd(now);
+        const nowMinute = now.getHours() * 60 + now.getMinutes();
+        let nowLine = '';
+        if (this.plannerDate === todayKey && nowMinute >= dayStart && nowMinute <= dayEnd) {
+            const nowTop = Math.floor(((nowMinute - dayStart) / totalMinutes) * timelineHeight);
+            nowLine = `<div class="planner-now-line" style="top:${nowTop}px"><span class="planner-now-dot"></span></div>`;
+        }
+
+        // Hour grid
+        const hours = [];
+        for (let h = dayStart / 60; h <= dayEnd / 60; h++) {
+            const top = (h - dayStart / 60) * hourHeight;
+            hours.push(`<div class="planner-hour-row" style="top:${top}px">
+                <span class="planner-hour-label">${String(h).padStart(2, '0')}</span>
+                <div class="planner-hour-line"></div>
+            </div>`);
+        }
+
+        // Plan blocks (left side)
+        const planBlocks = plans.map(p => {
+            const s = Math.max(dayStart, parseInt(p.start_minute, 10) || 0);
+            const e = Math.min(dayEnd, parseInt(p.end_minute, 10) || 0);
+            if (e <= s) return '';
+            const top = Math.floor(((s - dayStart) / totalMinutes) * timelineHeight);
+            const height = Math.max(20, Math.floor(((e - s) / totalMinutes) * timelineHeight));
+            const color = this.getSubjectColor(p.subject_id, p.subject_name);
+            return `<div class="planner-block planner-block-plan" style="top:${top}px;height:${height}px;--block-color:${color}" data-plan-id="${p.id}">
+                <div class="planner-block-label">${this.escapeHtml(p.subject_name || '미지정')}</div>
+                <div class="planner-block-time">${this.minuteToTime(s)}-${this.minuteToTime(e)}</div>
+                ${p.note ? `<div class="planner-block-note">${this.escapeHtml(p.note)}</div>` : ''}
+                <button class="planner-block-del" data-plan-id="${p.id}" type="button">×</button>
+            </div>`;
+        }).join('');
+
+        // Actual study record blocks (right side) - approximate by created_at time
+        const recordBlocks = records.map(r => {
+            const sec = parseInt(r.duration_sec, 10) || 0;
+            const createdAt = new Date(r.created_at);
+            const endMin = createdAt.getHours() * 60 + createdAt.getMinutes();
+            const startMin = Math.max(dayStart, endMin - Math.floor(sec / 60));
+            const clampedEnd = Math.min(dayEnd, endMin);
+            if (clampedEnd <= startMin) return '';
+            const top = Math.floor(((startMin - dayStart) / totalMinutes) * timelineHeight);
+            const height = Math.max(20, Math.floor(((clampedEnd - startMin) / totalMinutes) * timelineHeight));
+            const color = this.getSubjectColor(r.subject_id, r.subject_name);
+            const durText = this.formatDuration(sec);
+            return `<div class="planner-block planner-block-actual" style="top:${top}px;height:${height}px;--block-color:${color}">
+                <div class="planner-block-label">${this.escapeHtml(r.subject_name || '미지정')}</div>
+                <div class="planner-block-time">${durText}</div>
+            </div>`;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="planner-timeline-grid" style="height:${timelineHeight}px">
+                ${hours.join('')}
+                <div class="planner-col planner-col-plan" style="height:${timelineHeight}px">
+                    <div class="planner-col-header">계획</div>
+                    ${planBlocks}
+                </div>
+                <div class="planner-col planner-col-actual" style="height:${timelineHeight}px">
+                    <div class="planner-col-header">실제</div>
+                    ${recordBlocks}
+                </div>
+                ${nowLine}
+            </div>`;
+
+        // Bind delete buttons
+        container.querySelectorAll('.planner-block-del').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const planId = parseInt(btn.dataset.planId, 10);
+                if (!planId || !confirm('이 계획을 삭제할까요?')) return;
+                try {
+                    await StorageManager.deletePlan(planId);
+                    await this.loadPlannerData();
+                } catch (err) {
+                    alert(err.message || '삭제 실패');
+                }
+            });
+        });
+    },
+
+    renderPlannerSubjectSummary() {
+        const chipsEl = document.getElementById('planner-subject-chips');
+        if (!chipsEl) return;
+        const { plans, records } = this._getPlannerDayData();
+
+        const subjectMap = new Map();
+        for (const p of plans) {
+            const key = p.subject_id || p.subject_name || '미지정';
+            if (!subjectMap.has(key)) {
+                subjectMap.set(key, { name: p.subject_name || '미지정', id: p.subject_id, plannedMin: 0, actualSec: 0 });
+            }
+            const s = parseInt(p.start_minute, 10) || 0;
+            const e = parseInt(p.end_minute, 10) || 0;
+            subjectMap.get(key).plannedMin += Math.max(0, e - s);
+        }
+        for (const r of records) {
+            const key = r.subject_id || r.subject_name || '미지정';
+            if (!subjectMap.has(key)) {
+                subjectMap.set(key, { name: r.subject_name || '미지정', id: r.subject_id, plannedMin: 0, actualSec: 0 });
+            }
+            subjectMap.get(key).actualSec += parseInt(r.duration_sec, 10) || 0;
+        }
+
+        if (subjectMap.size === 0) {
+            chipsEl.innerHTML = '<div class="planner-empty-hint">과목별 데이터가 없습니다</div>';
+            return;
+        }
+
+        chipsEl.innerHTML = Array.from(subjectMap.values()).map(s => {
+            const color = this.getSubjectColor(s.id, s.name);
+            const plannedText = s.plannedMin > 0 ? this.formatDuration(s.plannedMin * 60) : '-';
+            const actualText = s.actualSec > 0 ? this.formatDuration(s.actualSec) : '-';
+            return `<div class="planner-subject-chip" style="--chip-color:${color}">
+                <div class="planner-chip-dot" style="background:${color}"></div>
+                <span class="planner-chip-name">${this.escapeHtml(s.name)}</span>
+                <span class="planner-chip-detail">계획 ${plannedText} · 실제 ${actualText}</span>
+            </div>`;
+        }).join('');
+    },
+
+    renderPlannerStats() {
+        const { plans, records } = this._getPlannerDayData();
+        let plannedMin = 0;
+        for (const p of plans) {
+            const s = parseInt(p.start_minute, 10) || 0;
+            const e = parseInt(p.end_minute, 10) || 0;
+            plannedMin += Math.max(0, e - s);
+        }
+        let actualSec = 0;
+        for (const r of records) {
+            actualSec += parseInt(r.duration_sec, 10) || 0;
+        }
+        const plannedSec = plannedMin * 60;
+        const rate = plannedSec > 0 ? Math.min(100, Math.round((actualSec / plannedSec) * 100)) : 0;
+
+        const elPlanned = document.getElementById('planner-stat-planned');
+        const elActual = document.getElementById('planner-stat-actual');
+        const elRate = document.getElementById('planner-stat-rate');
+        if (elPlanned) elPlanned.textContent = this.formatDuration(plannedSec);
+        if (elActual) elActual.textContent = this.formatDuration(actualSec);
+        if (elRate) {
+            elRate.textContent = plannedSec > 0 ? `${rate}%` : '-';
+            elRate.classList.toggle('planner-rate-high', rate >= 80);
+            elRate.classList.toggle('planner-rate-mid', rate >= 50 && rate < 80);
+            elRate.classList.toggle('planner-rate-low', rate > 0 && rate < 50);
+        }
+    },
+
+    async handlePlannerAddPlan() {
+        const subjectId = parseInt(document.getElementById('planner-add-subject')?.value, 10) || 0;
+        const startTime = document.getElementById('planner-add-start')?.value;
+        const endTime = document.getElementById('planner-add-end')?.value;
+        const note = (document.getElementById('planner-add-note')?.value || '').trim();
+
+        if (!subjectId) { alert('과목을 선택하세요.'); return; }
+        if (!startTime || !endTime) { alert('시간을 입력하세요.'); return; }
+
+        try {
+            await StorageManager.addPlan({
+                subject_id: subjectId,
+                plan_date: this.plannerDate,
+                start_time: startTime,
+                end_time: endTime,
+                note
+            });
+            if (document.getElementById('planner-add-note')) document.getElementById('planner-add-note').value = '';
+            await this.loadPlannerData();
+        } catch (e) {
+            alert(e.message || '계획 추가 실패');
         }
     }
 };

@@ -408,6 +408,7 @@
             <button class="tab-btn active" data-tab="pending" type="button">검수 대기</button>
             <button class="tab-btn" data-tab="reports" type="button">신고 큐</button>
             <button class="tab-btn" data-tab="users" type="button">사용자 관리</button>
+            <button class="tab-btn" data-tab="logs" type="button">관리 로그</button>
         </nav>
 
         <section class="panel active" id="panel-pending">
@@ -461,6 +462,27 @@
                 <div class="empty">신고 데이터를 불러오는 중입니다.</div>
             </div>
         </section>
+
+        <section class="panel" id="panel-logs">
+            <div class="filter-row" style="grid-template-columns: 1fr 2fr auto;">
+                <select id="log-action-filter" class="field">
+                    <option value="all">전체 액션</option>
+                    <option value="admin.update_user">유저정보 수정</option>
+                    <option value="admin.teleport_random_user">랜덤 소환</option>
+                    <option value="admin.set_role">권한 변경</option>
+                    <option value="admin.approve_score">평가원 승인</option>
+                    <option value="admin.reject_score">평가원 반려</option>
+                    <option value="admin.approve_gpa">내신 승인</option>
+                    <option value="admin.reject_gpa">내신 반려</option>
+                </select>
+                <input id="log-search-input" class="field" type="text" placeholder="액션/관리자/대상/세부정보 검색">
+                <button class="btn" id="log-refresh-btn" type="button">로그 새로고침</button>
+            </div>
+            <p class="result-meta" id="logs-result-meta"></p>
+            <div class="list" id="logs-list">
+                <div class="empty">관리 로그를 불러오는 중입니다.</div>
+            </div>
+        </section>
     </div>
 
     <script src="/shared/nav.js?v=5"></script>
@@ -469,6 +491,7 @@
             pending: [],
             users: [],
             reports: [],
+            logs: [],
             adminRole: 'none',
             loading: false,
             autoRefreshId: null,
@@ -681,6 +704,52 @@
                         <div class="action-row">
                             <button class="btn" type="button" onclick="window.open('/community/post/${report.post_id}', '_blank')">게시글 열기</button>
                             ${decisionButtons}
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function getFilteredLogs() {
+            const keyword = document.getElementById('log-search-input').value.trim().toLowerCase();
+            const actionFilter = document.getElementById('log-action-filter').value;
+            return state.logs.filter((log) => {
+                if (actionFilter !== 'all' && log.action !== actionFilter) return false;
+                if (!keyword) return true;
+                const target = `${log.action || ''} ${log.actor_nickname || ''} ${log.target_nickname || ''} ${JSON.stringify(log.details || {})}`.toLowerCase();
+                return target.includes(keyword);
+            });
+        }
+
+        function renderLogs() {
+            const listEl = document.getElementById('logs-list');
+            const filtered = getFilteredLogs();
+            document.getElementById('logs-result-meta').textContent = `검색 결과 ${filtered.length}건 / 전체 ${state.logs.length}건`;
+
+            if (!filtered.length) {
+                listEl.innerHTML = '<div class="empty">조건에 맞는 로그가 없습니다.</div>';
+                return;
+            }
+
+            listEl.innerHTML = filtered.map((log) => {
+                const actorText = log.actor_nickname ? `${esc(log.actor_nickname)} (ID ${log.actor_user_id || '-'})` : `ID ${log.actor_user_id || '-'}`;
+                const targetText = log.target_nickname ? `${esc(log.target_nickname)} (ID ${log.target_user_id || '-'})` : `ID ${log.target_user_id || '-'}`;
+                return `
+                    <article class="card">
+                        <div class="card-head">
+                            <h3 class="name">${esc(log.action || '-')}</h3>
+                            <span class="meta">#${log.id}</span>
+                        </div>
+                        <p class="meta">
+                            <strong>실행 관리자:</strong> ${actorText}<br>
+                            <strong>대상 유저:</strong> ${targetText}<br>
+                            <strong>시각:</strong> ${formatDate(log.created_at)}
+                        </p>
+                        <div class="review-block">
+                            <div class="review-title">
+                                <span>세부 내용 (JSON)</span>
+                            </div>
+                            <pre style="white-space:pre-wrap;word-break:break-word;color:var(--muted);font-size:12px;line-height:1.5;">${esc(JSON.stringify(log.details || {}, null, 2))}</pre>
                         </div>
                     </article>
                 `;
@@ -1001,6 +1070,14 @@
             renderReports();
         }
 
+        async function loadLogs() {
+            const action = document.getElementById('log-action-filter')?.value || 'all';
+            const q = document.getElementById('log-search-input')?.value || '';
+            const data = await apiFetch(`/api/admin/audit-logs?action=${encodeURIComponent(action)}&q=${encodeURIComponent(q)}&limit=100&page=0`);
+            state.logs = data.logs || [];
+            renderLogs();
+        }
+
         function setLastUpdated() {
             document.getElementById('last-updated').textContent = `마지막 동기화: ${new Date().toLocaleString('ko-KR', { hour12: false })}`;
         }
@@ -1011,7 +1088,7 @@
             setNotice('', 'ok');
 
             try {
-                await Promise.all([loadAdminMeta(), loadPending(), loadUsers(), loadReports()]);
+                await Promise.all([loadAdminMeta(), loadPending(), loadUsers(), loadReports(), loadLogs()]);
                 updateStats();
                 setLastUpdated();
                 if (showMessage) setNotice('데이터를 최신 상태로 반영했습니다.', 'ok');
@@ -1019,6 +1096,7 @@
                 const pendingEl = document.getElementById('pending-list');
                 const usersEl = document.getElementById('user-list');
                 const reportsEl = document.getElementById('reports-list');
+                const logsEl = document.getElementById('logs-list');
                 const blocked = error.status === 401 || error.status === 403;
                 const guide = blocked
                     ? '관리자 권한이 필요합니다. 관리자 계정으로 로그인 후 다시 시도해주세요.'
@@ -1027,8 +1105,10 @@
                 pendingEl.innerHTML = `<div class="empty">${esc(guide)}</div>`;
                 usersEl.innerHTML = `<div class="empty">${esc(guide)}</div>`;
                 reportsEl.innerHTML = `<div class="empty">${esc(guide)}</div>`;
+                logsEl.innerHTML = `<div class="empty">${esc(guide)}</div>`;
                 document.getElementById('users-result-meta').textContent = '';
                 document.getElementById('reports-result-meta').textContent = '';
+                document.getElementById('logs-result-meta').textContent = '';
                 setNotice(guide, 'error');
             } finally {
                 state.loading = false;
@@ -1175,6 +1255,23 @@
                     updateStats();
                     setLastUpdated();
                     setNotice('신고 데이터를 갱신했습니다.', 'ok');
+                } catch (error) {
+                    setNotice(error.message, 'error');
+                }
+            });
+
+            ['log-search-input', 'log-action-filter'].forEach((id) => {
+                document.getElementById(id).addEventListener('input', renderLogs);
+                document.getElementById(id).addEventListener('change', async () => {
+                    await loadLogs();
+                });
+            });
+
+            document.getElementById('log-refresh-btn').addEventListener('click', async () => {
+                try {
+                    await loadLogs();
+                    setLastUpdated();
+                    setNotice('관리 로그를 갱신했습니다.', 'ok');
                 } catch (error) {
                     setNotice(error.message, 'error');
                 }

@@ -144,6 +144,7 @@ npm start
 ## npm 스크립트
 
 - `npm start`: 서버 실행
+- `npm run validate:universities`: `server/data/universities.real.json` 형식 검증
 - `npm run set-admin`: 관리자 권한 설정 스크립트 실행
 - `npm run list-admins`: 관리자 목록 출력
 - `npm run cap:sync`: Capacitor 동기화
@@ -478,9 +479,30 @@ Content-Type: application/json
 
 ```http
 GET /api/university/list
+GET /api/university/data-status
 GET /api/university/info?name=서울대학교
 GET /api/university/search?q=서울
 GET /api/university/compare-gpa?university=서울대학교&gpa=2.1
+```
+
+실데이터 반영 방법
+
+- 기본값: `server/data/universities.js` 하드코딩 데이터 사용
+- 실데이터 파일: `server/data/universities.real.json`
+- 샘플 형식: `server/data/universities.real.sample.json`
+- 반영 방식:
+  - `universities`: 전체 데이터셋 교체
+  - `patches`: 특정 대학만 부분 교체
+- 반영 전 검증:
+
+```bash
+npm run validate:universities
+```
+
+- 로딩 상태 확인:
+
+```http
+GET /api/university/data-status
 ```
 
 침공 (`/api/invasion`)

@@ -14,6 +14,14 @@ function randomInt(min, max) {
     return Math.floor(Math.random() * (hi - lo + 1)) + lo;
 }
 
+async function writeAdminAuditLog(client, { action, actorUserId, targetUserId = null, details = {} }) {
+    await client.query(
+        `INSERT INTO admin_audit_logs (action, actor_user_id, target_user_id, details)
+         VALUES ($1, $2, $3, $4::jsonb)`,
+        [action, actorUserId, targetUserId, JSON.stringify(details || {})]
+    );
+}
+
 function validateNickname(nickname) {
     const value = (nickname || '').trim();
     if (value.length < 2 || value.length > 20) {
@@ -86,6 +94,7 @@ router.get('/', requireAdmin, (req, res) => {
             'GET /api/admin/pending',
             'GET /api/admin/all-users',
             'GET /api/admin/roles',
+            'GET /api/admin/audit-logs',
             'GET /api/admin/community-reports',
             'POST /api/admin/update-user',
             'POST /api/admin/teleport-random-user (main only)',
@@ -97,6 +106,69 @@ router.get('/', requireAdmin, (req, res) => {
             'POST /api/admin/community-reports/:id/review'
         ]
     });
+});
+
+router.get('/audit-logs', requireAdmin, async (req, res) => {
+    const page = Math.max(0, parseInt(req.query.page, 10) || 0);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 40));
+    const offset = page * limit;
+    const action = typeof req.query.action === 'string' ? req.query.action.trim() : '';
+    const keyword = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+
+    const params = [];
+    const where = [];
+
+    if (action && action !== 'all') {
+        params.push(action);
+        where.push(`l.action = $${params.length}`);
+    }
+    if (keyword) {
+        params.push(`%${keyword}%`);
+        where.push(`(
+            CAST(l.actor_user_id AS TEXT) ILIKE $${params.length}
+            OR CAST(l.target_user_id AS TEXT) ILIKE $${params.length}
+            OR COALESCE(a.nickname, '') ILIKE $${params.length}
+            OR COALESCE(t.nickname, '') ILIKE $${params.length}
+            OR CAST(l.details AS TEXT) ILIKE $${params.length}
+        )`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+    try {
+        const [countRes, listRes] = await Promise.all([
+            pool.query(
+                `SELECT COUNT(*)
+                 FROM admin_audit_logs l
+                 LEFT JOIN users a ON a.id = l.actor_user_id
+                 LEFT JOIN users t ON t.id = l.target_user_id
+                 ${whereSql}`,
+                params
+            ),
+            pool.query(
+                `SELECT l.id, l.action, l.actor_user_id, l.target_user_id, l.details, l.created_at,
+                        a.nickname AS actor_nickname,
+                        t.nickname AS target_nickname
+                 FROM admin_audit_logs l
+                 LEFT JOIN users a ON a.id = l.actor_user_id
+                 LEFT JOIN users t ON t.id = l.target_user_id
+                 ${whereSql}
+                 ORDER BY l.created_at DESC, l.id DESC
+                 LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+                [...params, limit, offset]
+            )
+        ]);
+
+        return res.json({
+            total: parseInt(countRes.rows[0].count, 10),
+            page,
+            limit,
+            logs: listRes.rows,
+        });
+    } catch (err) {
+        console.error('admin audit-logs error:', err.message);
+        return res.status(500).json({ error: '서버 오류' });
+    }
 });
 
 router.get('/community-reports', requireAdmin, async (req, res) => {
@@ -278,8 +350,11 @@ router.post('/update-user', requireAdmin, async (req, res) => {
         return res.status(400).json({ error: '전적 대학교명은 100자 이하여야 합니다.' });
     }
 
+    const client = await pool.connect();
     try {
-        const target = await pool.query(
+        await client.query('BEGIN');
+
+        const target = await client.query(
             `SELECT id, is_admin, admin_role,
                     gold, diamond, exp, tier, tickets, mock_exam_score, gpa_score, gpa_public,
                     world_x, world_y, world_z
@@ -368,15 +443,16 @@ router.post('/update-user', requireAdmin, async (req, res) => {
             }
         }
 
-        const duplicate = await pool.query(
+        const duplicate = await client.query(
             'SELECT id FROM users WHERE nickname = $1 AND id <> $2',
             [nickValidation.value, userId]
         );
         if (duplicate.rows.length) {
+            await client.query('ROLLBACK');
             return res.status(409).json({ error: '이미 사용 중인 닉네임입니다.' });
         }
 
-        const result = await pool.query(
+        const result = await client.query(
             `UPDATE users
              SET nickname = $1,
                  real_name = $2,
@@ -420,10 +496,51 @@ router.post('/update-user', requireAdmin, async (req, res) => {
             ]
         );
 
-        return res.json({ ok: true, user: result.rows[0] });
+        const updatedUser = result.rows[0];
+        await writeAdminAuditLog(client, {
+            action: 'admin.update_user',
+            actorUserId: req.session.userId,
+            targetUserId: userId,
+            details: {
+                actor_role: req.adminRole,
+                before: {
+                    gold: targetUser.gold,
+                    diamond: targetUser.diamond,
+                    exp: targetUser.exp,
+                    tier: targetUser.tier,
+                    tickets: targetUser.tickets,
+                    mock_exam_score: targetUser.mock_exam_score,
+                    gpa_score: targetUser.gpa_score,
+                    gpa_public: targetUser.gpa_public,
+                    world_x: targetUser.world_x,
+                    world_y: targetUser.world_y,
+                    world_z: targetUser.world_z,
+                },
+                after: {
+                    gold: updatedUser.gold,
+                    diamond: updatedUser.diamond,
+                    exp: updatedUser.exp,
+                    tier: updatedUser.tier,
+                    tickets: updatedUser.tickets,
+                    mock_exam_score: updatedUser.mock_exam_score,
+                    gpa_score: updatedUser.gpa_score,
+                    gpa_public: updatedUser.gpa_public,
+                    world_x: updatedUser.world_x,
+                    world_y: updatedUser.world_y,
+                    world_z: updatedUser.world_z,
+                }
+            }
+        });
+
+        await client.query('COMMIT');
+
+        return res.json({ ok: true, user: updatedUser });
     } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('admin update-user error:', err.message);
         return res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
     }
 });
 
@@ -437,8 +554,20 @@ router.post('/teleport-random-user', requireMainAdmin, async (req, res) => {
     const worldY = randomInt(-ADMIN_RANDOM_SPAWN_RANGE_XY, ADMIN_RANDOM_SPAWN_RANGE_XY);
     const worldZ = randomInt(ADMIN_WORLD_Z_MIN, ADMIN_WORLD_Z_MAX);
 
+    const client = await pool.connect();
     try {
-        const result = await pool.query(
+        await client.query('BEGIN');
+
+        const beforeRes = await client.query(
+            'SELECT id, world_x, world_y, world_z FROM users WHERE id = $1',
+            [userId]
+        );
+        if (!beforeRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+        }
+
+        const result = await client.query(
             `UPDATE users
              SET world_x = $1,
                  world_y = $2,
@@ -448,14 +577,31 @@ router.post('/teleport-random-user', requireMainAdmin, async (req, res) => {
             [worldX, worldY, worldZ, userId]
         );
 
-        if (!result.rows.length) {
-            return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
-        }
+        const updatedUser = result.rows[0];
+        await writeAdminAuditLog(client, {
+            action: 'admin.teleport_random_user',
+            actorUserId: req.session.userId,
+            targetUserId: userId,
+            details: {
+                actor_role: req.adminRole,
+                before: beforeRes.rows[0],
+                after: {
+                    world_x: updatedUser.world_x,
+                    world_y: updatedUser.world_y,
+                    world_z: updatedUser.world_z,
+                }
+            }
+        });
 
-        return res.json({ ok: true, user: result.rows[0] });
+        await client.query('COMMIT');
+
+        return res.json({ ok: true, user: updatedUser });
     } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('admin teleport-random-user error:', err.message);
         return res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
     }
 });
 
@@ -495,21 +641,27 @@ router.post('/set-role', requireMainAdmin, async (req, res) => {
         return res.status(400).json({ error: 'user_id와 role(none|sub|main)을 확인해주세요.' });
     }
 
+    const client = await pool.connect();
     try {
-        const targetRes = await pool.query(
+        await client.query('BEGIN');
+
+        const targetRes = await client.query(
             'SELECT id, nickname, is_admin, admin_role FROM users WHERE id = $1',
             [userId]
         );
         if (!targetRes.rows.length) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
         }
+        const before = targetRes.rows[0];
 
         if (userId === req.session.userId && nextRole !== 'main') {
+            await client.query('ROLLBACK');
             return res.status(400).json({ error: '본인 계정은 main 역할로만 설정할 수 있습니다.' });
         }
 
         if (nextRole === 'main') {
-            await pool.query(
+            await client.query(
                 `UPDATE users
                  SET admin_role = 'sub', is_admin = TRUE
                  WHERE admin_role = 'main' AND id <> $1`,
@@ -517,7 +669,7 @@ router.post('/set-role', requireMainAdmin, async (req, res) => {
             );
         }
 
-        const updated = await pool.query(
+        const updated = await client.query(
             `UPDATE users
              SET admin_role = $1,
                  is_admin = CASE WHEN $1 IN ('main', 'sub') THEN TRUE ELSE FALSE END
@@ -526,10 +678,31 @@ router.post('/set-role', requireMainAdmin, async (req, res) => {
             [nextRole, userId]
         );
 
+        await writeAdminAuditLog(client, {
+            action: 'admin.set_role',
+            actorUserId: req.session.userId,
+            targetUserId: userId,
+            details: {
+                before: {
+                    is_admin: before.is_admin,
+                    admin_role: before.admin_role,
+                },
+                after: {
+                    is_admin: updated.rows[0].is_admin,
+                    admin_role: updated.rows[0].admin_role,
+                }
+            }
+        });
+
+        await client.query('COMMIT');
+
         res.json({ ok: true, user: updated.rows[0] });
     } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
         console.error('admin set-role error:', err.message);
         res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
     }
 });
 
@@ -539,28 +712,82 @@ router.post('/approve-score', requireAdmin, async (req, res) => {
     if (!user_id || isNaN(s) || s < 0 || s > 600) {
         return res.status(400).json({ error: '유저 ID와 점수(0~600)를 확인해주세요.' });
     }
+    const client = await pool.connect();
     try {
-        await pool.query(
+        await client.query('BEGIN');
+
+        const beforeRes = await client.query(
+            'SELECT id, mock_exam_score, score_status FROM users WHERE id = $1',
+            [user_id]
+        );
+        if (!beforeRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+        }
+
+        const updatedRes = await client.query(
             `UPDATE users SET mock_exam_score = $1, score_status = 'approved' WHERE id = $2`,
             [s, user_id]
         );
+
+        await writeAdminAuditLog(client, {
+            action: 'admin.approve_score',
+            actorUserId: req.session.userId,
+            targetUserId: parseInt(user_id, 10),
+            details: {
+                before: beforeRes.rows[0],
+                after: { mock_exam_score: s, score_status: 'approved' },
+            }
+        });
+
+        await client.query('COMMIT');
         res.json({ ok: true });
     } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
         res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
     }
 });
 
 router.post('/reject-score', requireAdmin, async (req, res) => {
     const { user_id } = req.body;
     if (!user_id) return res.status(400).json({ error: '유저 ID를 지정해주세요.' });
+    const client = await pool.connect();
     try {
-        await pool.query(
+        await client.query('BEGIN');
+
+        const beforeRes = await client.query(
+            'SELECT id, score_status, score_image_url FROM users WHERE id = $1',
+            [user_id]
+        );
+        if (!beforeRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+        }
+
+        await client.query(
             `UPDATE users SET score_status = 'rejected', score_image_url = NULL WHERE id = $1`,
             [user_id]
         );
+
+        await writeAdminAuditLog(client, {
+            action: 'admin.reject_score',
+            actorUserId: req.session.userId,
+            targetUserId: parseInt(user_id, 10),
+            details: {
+                before: beforeRes.rows[0],
+                after: { score_status: 'rejected', score_image_url: null },
+            }
+        });
+
+        await client.query('COMMIT');
         res.json({ ok: true });
     } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
         res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
     }
 });
 
@@ -570,28 +797,82 @@ router.post('/approve-gpa', requireAdmin, async (req, res) => {
     if (!user_id || isNaN(g) || g < 1.0 || g > 9.0) {
         return res.status(400).json({ error: '유저 ID와 내신 등급(1.0~9.0)을 확인해주세요.' });
     }
+    const client = await pool.connect();
     try {
-        await pool.query(
+        await client.query('BEGIN');
+
+        const beforeRes = await client.query(
+            'SELECT id, gpa_score, gpa_status FROM users WHERE id = $1',
+            [user_id]
+        );
+        if (!beforeRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+        }
+
+        await client.query(
             `UPDATE users SET gpa_score = $1, gpa_status = 'approved' WHERE id = $2`,
             [g, user_id]
         );
+
+        await writeAdminAuditLog(client, {
+            action: 'admin.approve_gpa',
+            actorUserId: req.session.userId,
+            targetUserId: parseInt(user_id, 10),
+            details: {
+                before: beforeRes.rows[0],
+                after: { gpa_score: g, gpa_status: 'approved' },
+            }
+        });
+
+        await client.query('COMMIT');
         res.json({ ok: true });
     } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
         res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
     }
 });
 
 router.post('/reject-gpa', requireAdmin, async (req, res) => {
     const { user_id } = req.body;
     if (!user_id) return res.status(400).json({ error: '유저 ID를 지정해주세요.' });
+    const client = await pool.connect();
     try {
-        await pool.query(
+        await client.query('BEGIN');
+
+        const beforeRes = await client.query(
+            'SELECT id, gpa_status, gpa_image_url FROM users WHERE id = $1',
+            [user_id]
+        );
+        if (!beforeRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
+        }
+
+        await client.query(
             `UPDATE users SET gpa_status = 'rejected', gpa_image_url = NULL WHERE id = $1`,
             [user_id]
         );
+
+        await writeAdminAuditLog(client, {
+            action: 'admin.reject_gpa',
+            actorUserId: req.session.userId,
+            targetUserId: parseInt(user_id, 10),
+            details: {
+                before: beforeRes.rows[0],
+                after: { gpa_status: 'rejected', gpa_image_url: null },
+            }
+        });
+
+        await client.query('COMMIT');
         res.json({ ok: true });
     } catch (err) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
         res.status(500).json({ error: '서버 오류' });
+    } finally {
+        client.release();
     }
 });
 

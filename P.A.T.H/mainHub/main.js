@@ -2695,6 +2695,19 @@ function initWorldSocket(user) {
         }
     });
 
+    // ── Spawn at saved position (from server DB) ────────────────────
+    worldSocket.on('player:spawn', ({ worldX, worldY }) => {
+        if (window.WorldScene && window.WorldScene.isReady) {
+            window.WorldScene.setSpawnPosition(worldX, worldY);
+        } else {
+            const prev = window._onWorldSceneReady;
+            window._onWorldSceneReady = function() {
+                if (prev) prev();
+                window.WorldScene.setSpawnPosition(worldX, worldY);
+            };
+        }
+    });
+
     // ── Remote player appearance changed (skin/aura/status) ──────────
     worldSocket.on('player:appearance', ({ id, balloon_skin, balloon_aura, status_message }) => {
         const userId = _normalizeUserId(id);

@@ -191,20 +191,20 @@ export const sceneGenerationMethods = {
         this.clouds = [];
         const cloudData = [
             { x: -700, y: 380, z: -600, scale: 1.4, type: 'normal' },
-            { x: 300, y: 440, z: -700, scale: 1.0, type: 'normal' },
+            { x: 300, y: 440, z: 700, scale: 1.0, type: 'normal' },
             { x: 900, y: 360, z: -500, scale: 0.8, type: 'wispy' },
-            { x: -300, y: 500, z: -800, scale: 1.2, type: 'large' },
-            { x: 600, y: 300, z: -400, scale: 0.7, type: 'wispy' },
+            { x: -300, y: 500, z: 800, scale: 1.2, type: 'large' },
+            { x: 600, y: 300, z: 400, scale: 0.7, type: 'wispy' },
             { x: -1400, y: 450, z: -550, scale: 1.6, type: 'large' },
-            { x: 1200, y: 520, z: -900, scale: 1.1, type: 'normal' },
-            { x: -500, y: 280, z: -350, scale: 0.6, type: 'wispy' },
+            { x: 1200, y: 520, z: 900, scale: 1.1, type: 'normal' },
+            { x: -500, y: 280, z: 350, scale: 0.6, type: 'wispy' },
             { x: 1500, y: 400, z: -650, scale: 1.3, type: 'large' },
-            { x: -1100, y: 340, z: -450, scale: 0.9, type: 'normal' },
-            { x: 400, y: 560, z: -750, scale: 1.8, type: 'storm' },
+            { x: -1100, y: 340, z: 450, scale: 0.9, type: 'normal' },
+            { x: 400, y: 560, z: 750, scale: 1.8, type: 'storm' },
             { x: -800, y: 600, z: -1000, scale: 2.0, type: 'large' },
-            { x: 1800, y: 320, z: -500, scale: 0.5, type: 'wispy' },
+            { x: 1800, y: 320, z: 500, scale: 0.5, type: 'wispy' },
             { x: -1600, y: 480, z: -700, scale: 1.5, type: 'storm' },
-            { x: 0, y: 550, z: -850, scale: 1.0, type: 'wispy' },
+            { x: 0, y: 550, z: 850, scale: 1.0, type: 'wispy' },
         ];
         cloudData.forEach((d, idx) => {
             const cloud = d.type === 'wispy' ? this._makeWispyCloud(d.scale)
@@ -250,18 +250,18 @@ export const sceneGenerationMethods = {
 
     _buildSkyIslands() {
         const islandData = [
-            { x: -900, y: -60, z: -800, rx: 2.0, name: '관악 샤 아일랜드', university: '서울대학교', landmark: '서울대학교 · 서울대 정문·샤 조형물', type: 'forest', admissionUrl: 'https://admission.snu.ac.kr', admissionNote: '수시/정시 모집요강과 전형별 공지 확인' },
-            { x: 700, y: -80, z: -600, rx: 1.6, name: '신촌 독수리 아일랜드', university: '연세대학교', landmark: '연세대학교 · 언더우드관·독수리 상징', type: 'crystal', admissionUrl: 'https://admission.yonsei.ac.kr', admissionNote: '전형 일정 및 모집 단위 확인' },
-            { x: 200, y: -50, z: -1000, rx: 1.2, name: '안암 호랑이 아일랜드', university: '고려대학교', landmark: '고려대학교 · 중앙광장·호랑이 상징', type: 'misty', admissionUrl: 'https://oku.korea.ac.kr', admissionNote: '정시/수시 입학전형 세부사항 확인' },
-            { x: -1200, y: -70, z: -400, rx: 1.8, name: '대덕 사이언스 아일랜드', university: '카이스트', landmark: 'KAIST · 본원 상징 조형·과학광장', type: 'waterfall', admissionUrl: 'https://admission.kaist.ac.kr', admissionNote: '창의도전전형 및 일반전형 안내 확인' },
-            { x: 1400, y: -55, z: -700, rx: 2.2, name: '포스텍 스틸 아일랜드', university: '포항공과대학교', landmark: 'POSTECH · 지곡회관·상징 조형물', type: 'flower', admissionUrl: 'https://adm.postech.ac.kr', admissionNote: '입학전형/장학제도/공지사항 확인' },
-            { x: -1600, y: -90, z: -900, rx: 1.4, name: '인문명륜 아일랜드', university: '성균관대학교', landmark: '성균관대학교 · 명륜당·은행나무 상징', type: 'rock', admissionUrl: 'https://admission.skku.edu', admissionNote: '캠퍼스별 모집요강 및 전형안내 확인' },
-            { x: 500, y: -40, z: -1200, rx: 1.9, name: '사자 한양 아일랜드', university: '한양대학교', landmark: '한양대학교 · 사자상·본관 라인', type: 'star', admissionUrl: 'https://go.hanyang.ac.kr', admissionNote: '전형 일정, 경쟁률, 모집요강 확인' },
-            { x: -600, y: -75, z: -500, rx: 1.5, name: '흑석 청룡 아일랜드', university: '중앙대학교', landmark: '중앙대학교 · 청룡상·중앙마루', type: 'aurora', admissionUrl: 'https://admission.cau.ac.kr', admissionNote: '학과별 전형요소 및 합격자 발표일 확인' },
-            { x: 1800, y: -65, z: -400, rx: 2.4, name: '평화의 전당 아일랜드', university: '경희대학교', landmark: '경희대학교 · 평화의전당·캠퍼스 로드', type: 'fortress', admissionUrl: 'https://iphak.khu.ac.kr', admissionNote: '캠퍼스별 모집 인원과 전형계획 확인' },
-            { x: -2000, y: -85, z: -600, rx: 1.3, name: '서강 알바트로스 아일랜드', university: '서강대학교', landmark: '서강대학교 · 본관·알바트로스 상징', type: 'moon', admissionUrl: 'https://admission.sogang.ac.kr', admissionNote: '모집요강, FAQ, 공지사항 확인' },
-            { x: 1100, y: -45, z: -1100, rx: 1.7, name: '이화 유레카 아일랜드', university: '이화여자대학교', landmark: '이화여자대학교 · ECC·유레카 상징', type: 'dragon', admissionUrl: 'https://admission.ewha.ac.kr', admissionNote: '전형별 지원자격 및 제출서류 확인' },
-            { x: -400, y: -95, z: -300, rx: 2.1, name: '금정 교정 아일랜드', university: '부산대학교', landmark: '부산대학교 · 금정캠퍼스·정문 상징', type: 'wind', admissionUrl: 'https://go.pusan.ac.kr', admissionNote: '정시/수시 모집단위와 일정 확인' },
+            { x: -900, y: 200, z: -800, rx: 2.0, name: '관악 샤 아일랜드', university: '서울대학교', landmark: '서울대학교 · 서울대 정문·샤 조형물', type: 'forest', admissionUrl: 'https://admission.snu.ac.kr', admissionNote: '수시/정시 모집요강과 전형별 공지 확인' },
+            { x: 700, y: 250, z: 600, rx: 1.6, name: '신촌 독수리 아일랜드', university: '연세대학교', landmark: '연세대학교 · 언더우드관·독수리 상징', type: 'crystal', admissionUrl: 'https://admission.yonsei.ac.kr', admissionNote: '전형 일정 및 모집 단위 확인' },
+            { x: 200, y: 180, z: -1000, rx: 1.2, name: '안암 호랑이 아일랜드', university: '고려대학교', landmark: '고려대학교 · 중앙광장·호랑이 상징', type: 'misty', admissionUrl: 'https://oku.korea.ac.kr', admissionNote: '정시/수시 입학전형 세부사항 확인' },
+            { x: -1200, y: 300, z: 400, rx: 1.8, name: '대덕 사이언스 아일랜드', university: '카이스트', landmark: 'KAIST · 본원 상징 조형·과학광장', type: 'waterfall', admissionUrl: 'https://admission.kaist.ac.kr', admissionNote: '창의도전전형 및 일반전형 안내 확인' },
+            { x: 1400, y: 220, z: -700, rx: 2.2, name: '포스텍 스틸 아일랜드', university: '포항공과대학교', landmark: 'POSTECH · 지곡회관·상징 조형물', type: 'flower', admissionUrl: 'https://adm.postech.ac.kr', admissionNote: '입학전형/장학제도/공지사항 확인' },
+            { x: -1600, y: 280, z: -900, rx: 1.4, name: '인문명륜 아일랜드', university: '성균관대학교', landmark: '성균관대학교 · 명륜당·은행나무 상징', type: 'rock', admissionUrl: 'https://admission.skku.edu', admissionNote: '캠퍼스별 모집요강 및 전형안내 확인' },
+            { x: 500, y: 190, z: 1200, rx: 1.9, name: '사자 한양 아일랜드', university: '한양대학교', landmark: '한양대학교 · 사자상·본관 라인', type: 'star', admissionUrl: 'https://go.hanyang.ac.kr', admissionNote: '전형 일정, 경쟁률, 모집요강 확인' },
+            { x: -600, y: 260, z: 500, rx: 1.5, name: '흑석 청룡 아일랜드', university: '중앙대학교', landmark: '중앙대학교 · 청룡상·중앙마루', type: 'aurora', admissionUrl: 'https://admission.cau.ac.kr', admissionNote: '학과별 전형요소 및 합격자 발표일 확인' },
+            { x: 1800, y: 240, z: 400, rx: 2.4, name: '평화의 전당 아일랜드', university: '경희대학교', landmark: '경희대학교 · 평화의전당·캠퍼스 로드', type: 'fortress', admissionUrl: 'https://iphak.khu.ac.kr', admissionNote: '캠퍼스별 모집 인원과 전형계획 확인' },
+            { x: -2000, y: 310, z: 600, rx: 1.3, name: '서강 알바트로스 아일랜드', university: '서강대학교', landmark: '서강대학교 · 본관·알바트로스 상징', type: 'moon', admissionUrl: 'https://admission.sogang.ac.kr', admissionNote: '모집요강, FAQ, 공지사항 확인' },
+            { x: 1100, y: 200, z: -1100, rx: 1.7, name: '이화 유레카 아일랜드', university: '이화여자대학교', landmark: '이화여자대학교 · ECC·유레카 상징', type: 'dragon', admissionUrl: 'https://admission.ewha.ac.kr', admissionNote: '전형별 지원자격 및 제출서류 확인' },
+            { x: -400, y: 230, z: -300, rx: 2.1, name: '금정 교정 아일랜드', university: '부산대학교', landmark: '부산대학교 · 금정캠퍼스·정문 상징', type: 'wind', admissionUrl: 'https://go.pusan.ac.kr', admissionNote: '정시/수시 모집단위와 일정 확인' },
         ];
         islandData.forEach(d => {
             const group = new THREE.Group();
@@ -373,12 +373,12 @@ export const sceneGenerationMethods = {
         const rng = this._seededRng(seed);
 
         const CLOUD_SPREAD_X = WORLD_HALF * WORLD_SCALE * 0.85;
-        const CLOUD_SPREAD_Y = 8000;
+        const CLOUD_SPREAD_Z = WORLD_HALF * WORLD_SCALE * 0.85;
         const cloudTypes = ['normal', 'wispy', 'large', 'storm'];
         for (let i = 0; i < 60; i++) {
             const cx = (rng() - 0.5) * 2 * CLOUD_SPREAD_X;
-            const cy = (rng() - 0.5) * CLOUD_SPREAD_Y;
-            const cz = -400 - rng() * 600;
+            const cy = 400 + rng() * 600; // Height above ground (Y-up)
+            const cz = (rng() - 0.5) * 2 * CLOUD_SPREAD_Z;
             const scale = 0.3 + rng() * 1.2;
             const type = cloudTypes[Math.floor(rng() * cloudTypes.length)];
             const cloud = type === 'wispy' ? this._makeWispyCloud(scale)
@@ -398,8 +398,7 @@ export const sceneGenerationMethods = {
         const BUILDING_SPREAD = WORLD_HALF * WORLD_SCALE * 0.75;
         for (let i = 0; i < 60; i++) {
             const bx = (rng() - 0.5) * 2 * BUILDING_SPREAD;
-            const by = -200 - rng() * 150;
-            const bz = -800 - rng() * 800;
+            const bz = (rng() - 0.5) * 2 * BUILDING_SPREAD;
             const h = 80 + rng() * 250;
             const w = 30 + rng() * 60;
             const geo = new THREE.BoxGeometry(w, h, w * 0.8);
@@ -412,7 +411,7 @@ export const sceneGenerationMethods = {
                 opacity: 0.75,
             });
             const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(bx, by + h / 2, bz);
+            mesh.position.set(bx, h / 2, bz); // Sit on ground
             this.scene.add(mesh);
             this.seededProps.push(mesh);
         }
@@ -420,8 +419,8 @@ export const sceneGenerationMethods = {
         const ROCK_SPREAD = WORLD_HALF * WORLD_SCALE * 0.7;
         for (let i = 0; i < 80; i++) {
             const rx = (rng() - 0.5) * 2 * ROCK_SPREAD;
-            const ry = (rng() - 0.5) * 4000;
-            const rz = -300 - rng() * 900;
+            const ry = 50 + rng() * 400; // Float above ground
+            const rz = (rng() - 0.5) * 2 * ROCK_SPREAD;
             const size = 10 + rng() * 40;
             const geo = new THREE.DodecahedronGeometry(size, 0);
             const shade = 0.3 + rng() * 0.3;
@@ -446,8 +445,8 @@ export const sceneGenerationMethods = {
         for (let i = 0; i < 25; i++) {
             const group = new THREE.Group();
             const cx2 = (rng() - 0.5) * 2 * CRYSTAL_SPREAD;
-            const cy2 = (rng() - 0.5) * 3000;
-            const cz2 = -500 - rng() * 700;
+            const cy2 = 100 + rng() * 350; // Floating height
+            const cz2 = (rng() - 0.5) * 2 * CRYSTAL_SPREAD;
             const numCrystals = 3 + Math.floor(rng() * 4);
             const hue = rng();
             for (let j = 0; j < numCrystals; j++) {
@@ -477,8 +476,7 @@ export const sceneGenerationMethods = {
         const PILLAR_SPREAD = WORLD_HALF * WORLD_SCALE * 0.65;
         for (let i = 0; i < 15; i++) {
             const px = (rng() - 0.5) * 2 * PILLAR_SPREAD;
-            const py = -80;
-            const pz = -600 - rng() * 600;
+            const pz = (rng() - 0.5) * 2 * PILLAR_SPREAD;
             const height = 200 + rng() * 400;
             const geo = new THREE.CylinderGeometry(3, 3, height, 6);
             const hue2 = rng();
@@ -491,7 +489,7 @@ export const sceneGenerationMethods = {
                 blending: THREE.AdditiveBlending,
             });
             const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(px, py + height / 2, pz);
+            mesh.position.set(px, height / 2, pz);
             this.scene.add(mesh);
             this.seededProps.push(mesh);
         }
@@ -506,8 +504,8 @@ export const sceneGenerationMethods = {
         ];
         for (let i = 0; i < 20; i++) {
             const wx = (rng() - 0.5) * 2 * ISLAND_SPREAD;
-            const wy = (rng() - 0.5) * 2500;
-            const wz = -500 - rng() * 600;
+            const wy = 150 + rng() * 350; // Float above ground
+            const wz = (rng() - 0.5) * 2 * ISLAND_SPREAD;
             const rx = 1.0 + rng() * 1.5;
             const propId = `island_${seed}_${i}`;
             const name = islandNames[i % islandNames.length];

@@ -65,7 +65,7 @@ const EULA_SUMMARY = [
     '5) 본 약관 동의가 없으면 커뮤니티 작성/상호작용 등 주요 기능 이용이 제한될 수 있습니다.'
 ].join('\n');
 
-const USER_FIELDS = 'id, nickname, university, gold, diamond, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, profile_image_url, balloon_skin, owned_skins, balloon_aura, owned_auras, status_emoji, status_message, phone_verified, phone_verified_at, auth_provider, google_email, is_admin, admin_role, active_title, streak_count, streak_last_date, eula_version, eula_agreed_at, ui_theme, owned_themes, user_code';
+const USER_FIELDS = 'id, nickname, university, gold, diamond, exp, tier, tickets, is_studying, mock_exam_score, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, profile_image_url, balloon_skin, owned_skins, balloon_aura, owned_auras, status_emoji, status_message, phone_verified, phone_verified_at, auth_provider, google_email, apple_email, is_admin, admin_role, active_title, streak_count, streak_last_date, eula_version, eula_agreed_at, ui_theme, owned_themes, user_code';
 
 function escapeHtml(str) {
     if (!str) return str;
@@ -360,6 +360,47 @@ function resolveGoogleErrorRedirect(platform) {
     return process.env.GOOGLE_AUTH_ERROR_REDIRECT || '/login/?error=google_auth';
 }
 
+function resolveAppleRedirectUri(req, platform) {
+    if (platform === 'app' && process.env.APPLE_REDIRECT_URI_APP) {
+        return process.env.APPLE_REDIRECT_URI_APP;
+    }
+
+    if (platform === 'app') {
+        const origin = getRequestOrigin(req);
+        if (origin) return `${origin}/api/auth/apple/callback`;
+    }
+
+    return process.env.APPLE_REDIRECT_URI;
+}
+
+function resolveAppleSuccessRedirect(platform) {
+    if (platform === 'app') {
+        return process.env.APPLE_AUTH_SUCCESS_REDIRECT_APP || '/mainHub/';
+    }
+    return process.env.APPLE_AUTH_SUCCESS_REDIRECT || '/mainHub/';
+}
+
+function resolveAppleErrorRedirect(platform) {
+    if (platform === 'app') {
+        return process.env.APPLE_AUTH_ERROR_REDIRECT_APP || '/login/?error=apple_auth';
+    }
+    return process.env.APPLE_AUTH_ERROR_REDIRECT || '/login/?error=apple_auth';
+}
+
+function decodeJwtPayload(jwt) {
+    const parts = String(jwt || '').split('.');
+    if (parts.length < 2) return null;
+
+    try {
+        const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, '=');
+        const decoded = Buffer.from(padded, 'base64').toString('utf8');
+        return JSON.parse(decoded);
+    } catch (_err) {
+        return null;
+    }
+}
+
 function slugifyNickname(source) {
     const safe = (source || 'user').toLowerCase().replace(/[^a-z0-9가-힣_]/g, '');
     return safe.slice(0, 18) || 'user';
@@ -538,7 +579,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
         }
 
         const row = result.rows[0];
-        const isGoogleOnly = row.auth_provider === 'google';
+        const isGoogleOnly = row.auth_provider === 'google' || row.auth_provider === 'apple';
 
         if (!isGoogleOnly && !currentPassword) {
             return res.status(400).json({ error: '현재 비밀번호를 입력해주세요.' });
@@ -880,6 +921,142 @@ router.get('/google', (req, res) => {
     });
 
     res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+// ===== Apple OAuth 로그인 =====
+
+router.get('/apple', (req, res) => {
+    const clientId = process.env.APPLE_CLIENT_ID;
+    const platform = resolveOauthPlatform(req);
+    const redirectUri = resolveAppleRedirectUri(req, platform);
+
+    if (!clientId || !redirectUri) {
+        return res.status(500).json({ error: 'Apple OAuth 설정이 누락되었습니다.' });
+    }
+
+    const state = makeOAuthState();
+    req.session.appleOAuth = {
+        state,
+        platform
+    };
+
+    const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        response_mode: 'query',
+        scope: 'name email',
+        state
+    });
+
+    return res.redirect(`https://appleid.apple.com/auth/authorize?${params.toString()}`);
+});
+
+router.get('/apple/callback', async (req, res) => {
+    const { code, state } = req.query;
+    const oauthContext = req.session.appleOAuth || {};
+    const platform = oauthContext.platform === 'app' ? 'app' : 'web';
+    const expectedState = oauthContext.state;
+
+    const clientId = process.env.APPLE_CLIENT_ID;
+    const clientSecret = process.env.APPLE_CLIENT_SECRET;
+    const redirectUri = resolveAppleRedirectUri(req, platform);
+    const successRedirect = resolveAppleSuccessRedirect(platform);
+    const errorRedirect = resolveAppleErrorRedirect(platform);
+
+    function clearOauthState() {
+        req.session.appleOAuth = null;
+    }
+
+    if (!code || !state || !expectedState || state !== expectedState) {
+        clearOauthState();
+        return res.redirect(errorRedirect);
+    }
+
+    if (!clientId || !clientSecret || !redirectUri) {
+        clearOauthState();
+        return res.redirect(appendQueryParam(errorRedirect, 'reason', 'missing_config'));
+    }
+
+    try {
+        const tokenRes = await axios.post(
+            'https://appleid.apple.com/auth/token',
+            new URLSearchParams({
+                code: String(code),
+                client_id: clientId,
+                client_secret: clientSecret,
+                grant_type: 'authorization_code',
+                redirect_uri: redirectUri
+            }),
+            {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            }
+        );
+
+        const tokenJson = tokenRes.data || {};
+        const idToken = tokenJson.id_token;
+        const claims = decodeJwtPayload(idToken);
+        const appleId = claims?.sub || null;
+        const email = claims?.email || null;
+        const issuer = claims?.iss;
+        const audience = claims?.aud;
+
+        if (!appleId) throw new Error('missing apple subject');
+        if (issuer && issuer !== 'https://appleid.apple.com') throw new Error('invalid apple issuer');
+        if (audience && audience !== clientId) throw new Error('invalid apple audience');
+
+        let userQuery = await pool.query(
+            `SELECT ${USER_FIELDS} FROM users WHERE apple_id = $1`,
+            [appleId]
+        );
+
+        if (userQuery.rows.length === 0 && email) {
+            userQuery = await pool.query(
+                `SELECT ${USER_FIELDS} FROM users WHERE apple_email = $1 OR google_email = $1`,
+                [email]
+            );
+        }
+
+        let user;
+        if (userQuery.rows.length > 0) {
+            user = userQuery.rows[0];
+            await pool.query(
+                `UPDATE users
+                 SET apple_id = COALESCE(apple_id, $1),
+                     apple_email = COALESCE(apple_email, $2),
+                     auth_provider = CASE WHEN auth_provider = 'local' THEN 'apple' ELSE auth_provider END
+                 WHERE id = $3`,
+                [appleId, email, user.id]
+            );
+
+            clearOauthState();
+            req.session.userId = user.id;
+            return res.redirect(successRedirect);
+        }
+
+        const nickname = await makeUniqueNickname((email || 'apple_user').split('@')[0]);
+        const randomPasswordHash = await bcrypt.hash(crypto.randomUUID(), 10);
+        const created = await pool.query(
+            `INSERT INTO users (
+                nickname, password_hash, university, real_name, privacy_agreed,
+                is_n_su, prev_university, auth_provider, apple_id, apple_email
+            ) VALUES ($1, $2, $3, $4, true, false, NULL, 'apple', $5, $6)
+            RETURNING ${USER_FIELDS}`,
+            [nickname, randomPasswordHash, null, 'Apple User', appleId, email]
+        );
+
+        user = created.rows[0];
+        clearOauthState();
+        req.session.userId = user.id;
+        if (platform === 'app' && process.env.APPLE_AUTH_SETUP_REDIRECT_APP) {
+            return res.redirect(process.env.APPLE_AUTH_SETUP_REDIRECT_APP);
+        }
+        return res.redirect('/setup-profile/');
+    } catch (err) {
+        console.error('apple callback error:', err);
+        clearOauthState();
+        return res.redirect(appendQueryParam(errorRedirect, 'reason', 'oauth_failed'));
+    }
 });
 
 router.get('/google/callback', async (req, res) => {
@@ -1246,7 +1423,7 @@ router.get('/password-recovery/options', async (req, res) => {
 
     try {
         const result = await pool.query(
-            'SELECT phone_verified, google_email FROM users WHERE nickname = $1 LIMIT 1',
+            'SELECT phone_verified, google_email, apple_email FROM users WHERE nickname = $1 LIMIT 1',
             [nickname]
         );
 
@@ -1265,6 +1442,8 @@ router.get('/password-recovery/options', async (req, res) => {
             hasPhoneRecovery: row.phone_verified === true,
             hasGoogleRecovery: !!row.google_email,
             maskedGoogleEmail: maskEmail(row.google_email),
+            hasAppleRecovery: !!row.apple_email,
+            maskedAppleEmail: maskEmail(row.apple_email),
         });
     } catch (err) {
         console.error('password-recovery/options error:', err);

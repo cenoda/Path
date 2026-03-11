@@ -244,7 +244,10 @@ async function initSchema() {
             ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(20) DEFAULT 'local';
             ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(64) UNIQUE;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS google_email VARCHAR(255);
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS apple_id VARCHAR(128) UNIQUE;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS apple_email VARCHAR(255);
             CREATE INDEX IF NOT EXISTS idx_users_google_email ON users(google_email);
+            CREATE INDEX IF NOT EXISTS idx_users_apple_email ON users(apple_email);
         `);
 
         await client.query(`
@@ -490,6 +493,12 @@ async function initSchema() {
             )
             ON CONFLICT (room_id, user_id)
             DO NOTHING;
+        `);
+
+        // ── 월드 좌표 저장 (마지막 위치 기억) ────────────────────────────────
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS world_x INTEGER DEFAULT 0;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS world_y INTEGER DEFAULT 0;
         `);
 
         console.log('DB 스키마 초기화 완료');

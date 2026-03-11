@@ -17,6 +17,8 @@
 
 'use strict';
 
+const pool = require('./db');
+
 const WORLD_SIZE       = 200000; // total world width/height in world-units
 const WORLD_SEED       = 777;     // fixed seed distributed to every client
 const MAX_PROP_ID_LEN  = 64;      // maximum length of a prop identifier string
@@ -68,7 +70,7 @@ function setup(io) {
         socket.emit('world:seed', { seed: WORLD_SEED });
 
         // ── player:join ──────────────────────────────────────────────────
-        socket.on('player:join', (data) => {
+        socket.on('player:join', async (data) => {
             if (!data) return;
 
             const userId = Number(data.userId);
@@ -81,9 +83,25 @@ function setup(io) {
                 worldX = 0, worldY = 0,
             } = data;
 
+            // Load last saved position from DB (overrides client-provided default)
+            let savedX = worldX, savedY = worldY;
+            try {
+                const res = await pool.query(
+                    'SELECT world_x, world_y FROM users WHERE id = $1',
+                    [userId]
+                );
+                if (res.rows.length > 0) {
+                    const row = res.rows[0];
+                    if (row.world_x != null) savedX = Number(row.world_x);
+                    if (row.world_y != null) savedY = Number(row.world_y);
+                }
+            } catch (err) {
+                console.error('world:join position load error:', err.message);
+            }
+
             const clamped = {
-                worldX: Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, worldX)),
-                worldY: Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, worldY)),
+                worldX: Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, savedX)),
+                worldY: Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, savedY)),
             };
             players.set(socket.id, {
                 userId,
@@ -96,6 +114,9 @@ function setup(io) {
                 status_message,
                 worldX: clamped.worldX, worldY: clamped.worldY,
             });
+
+            // Send saved spawn position back to client
+            socket.emit('player:spawn', { worldX: clamped.worldX, worldY: clamped.worldY });
 
             // Send the snapshot of nearby players.
             socket.emit('players:nearby', getNearbyPlayers(socket.id));
@@ -112,6 +133,10 @@ function setup(io) {
         });
 
         // ── player:move ──────────────────────────────────────────────────
+        // Throttled position save to DB (every 30s max per player)
+        const MOVE_SAVE_INTERVAL = 30000;
+        let lastMoveSaveAt = 0;
+
         socket.on('player:move', (data) => {
             const player = players.get(socket.id);
             if (!player || !data) return;
@@ -123,8 +148,17 @@ function setup(io) {
             player.worldX = worldX;
             player.worldY = worldY;
 
-            // Keep client-side nearby roster fresh while moving, even when the
-            // player stays connected.
+            // Periodically persist position to DB
+            const now = Date.now();
+            if (now - lastMoveSaveAt > MOVE_SAVE_INTERVAL) {
+                lastMoveSaveAt = now;
+                pool.query(
+                    'UPDATE users SET world_x = $1, world_y = $2 WHERE id = $3',
+                    [Math.round(worldX), Math.round(worldY), player.userId]
+                ).catch(err => console.error('world:move save error:', err.message));
+            }
+
+            // Keep client-side nearby roster fresh while moving.
             socket.emit('players:nearby', getNearbyPlayers(socket.id));
 
             // Fan out position update globally (except sender).
@@ -175,7 +209,11 @@ function setup(io) {
         // ── disconnect ───────────────────────────────────────────────────
         socket.on('disconnect', () => {
             const player = players.get(socket.id);
-            if (player) {
+            if (player) {                // Save last position to DB for next login spawn
+                pool.query(
+                    'UPDATE users SET world_x = $1, world_y = $2 WHERE id = $3',
+                    [Math.round(player.worldX), Math.round(player.worldY), player.userId]
+                ).catch(err => console.error('world:disconnect save position error:', err.message));
                 socket.broadcast.emit('player:left', { id: player.userId });
                 players.delete(socket.id);
             }

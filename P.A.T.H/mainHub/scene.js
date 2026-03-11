@@ -17,7 +17,20 @@ import {
     BALLOON_COLLISION_MAX_PUSH,
     AURA_COLORS,
     worldToScene,
-    sceneToWorld
+    sceneToWorld,
+    worldToScene3D,
+    sceneToWorld3D,
+    ORBIT_DEFAULT_THETA,
+    ORBIT_DEFAULT_PHI,
+    ORBIT_MIN_PHI,
+    ORBIT_MAX_PHI,
+    ORBIT_DEFAULT_RADIUS,
+    ORBIT_MIN_RADIUS,
+    ORBIT_MAX_RADIUS,
+    ORBIT_ROTATE_SPEED,
+    ORBIT_DAMPING,
+    GROUND_Y,
+    BALLOON_FLOAT_Y
 } from './sceneConstants.js';
 
 // main.js is a classic script (non-module), so expose THREE for shared preview rendering.
@@ -69,6 +82,18 @@ const WorldScene = {
     tiltX: 0,
     tiltY: 0,
 
+    // 3D orbit camera state
+    orbitTheta: ORBIT_DEFAULT_THETA,
+    orbitPhi: ORBIT_DEFAULT_PHI,
+    orbitRadius: ORBIT_DEFAULT_RADIUS,
+    orbitTargetRadius: ORBIT_DEFAULT_RADIUS,
+    orbitTarget: null, // THREE.Vector3 – set in init()
+    orbitVelTheta: 0,
+    orbitVelPhi: 0,
+    playerWorldX: 0,
+    playerWorldY: 0,
+    playerWorldZ: 0, // height
+
     isDragging: false,
     isDraggingBalloon: false,
     balloonDragDist: 0,
@@ -104,8 +129,11 @@ const WorldScene = {
         const H = window.innerHeight;
 
         this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(55, W / H, 1, 20000);
-        this.camera.position.set(this.camPos.x, this.camPos.y, this.camZ);
+        this.camera = new THREE.PerspectiveCamera(55, W / H, 1, 30000);
+
+        // Initialize orbit target (player's scene position)
+        this.orbitTarget = new THREE.Vector3(0, BALLOON_FLOAT_Y, 0);
+        this._updateCameraFromOrbit();
 
         this.renderer = new THREE.WebGLRenderer({
             canvas: bgCanvas,
@@ -129,6 +157,7 @@ const WorldScene = {
         this.fillLight = new THREE.HemisphereLight(0x88aaff, 0x1a1d2b, 0.34);
         this.scene.add(this.fillLight);
 
+        this._buildGroundPlane();
         this._setupComposer(W, H);
 
         this._buildStars();
@@ -152,6 +181,50 @@ const WorldScene = {
 
         this.isReady = true;
         this._loop();
+    },
+
+    /** Build the 3D ground plane with grid pattern */
+    _buildGroundPlane() {
+        // Large ground disc
+        const groundSize = WORLD_HALF * WORLD_SCALE * 2;
+        const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, 1, 1);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x1a2a1a,
+            roughness: 0.95,
+            metalness: 0.0,
+            transparent: true,
+            opacity: 0.85,
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = GROUND_Y;
+        ground.receiveShadow = true;
+        this.scene.add(ground);
+        this._groundMesh = ground;
+
+        // Grid helper for spatial reference
+        const gridSize = 6000;
+        const gridDivisions = 60;
+        const grid = new THREE.GridHelper(gridSize, gridDivisions, 0x1a3a5a, 0x0a1520);
+        grid.position.y = GROUND_Y + 0.5;
+        grid.material.transparent = true;
+        grid.material.opacity = 0.35;
+        this.scene.add(grid);
+        this._gridHelper = grid;
+    },
+
+    /** Update camera position from spherical orbit parameters */
+    _updateCameraFromOrbit() {
+        if (!this.camera || !this.orbitTarget) return;
+        const r = this.orbitRadius;
+        const theta = this.orbitTheta;
+        const phi = this.orbitPhi;
+        this.camera.position.set(
+            this.orbitTarget.x + r * Math.sin(phi) * Math.sin(theta),
+            this.orbitTarget.y + r * Math.cos(phi),
+            this.orbitTarget.z + r * Math.sin(phi) * Math.cos(theta)
+        );
+        this.camera.lookAt(this.orbitTarget);
     },
 
     setDayNightMode(isLight, animate = true) {
@@ -477,8 +550,9 @@ const WorldScene = {
 
         if (!b) {
             const grp = this.addBalloon(me, null, true);
-            grp.position.set(0, 0, 0);
-            grp.userData.baseY = 0;
+            const s = worldToScene3D(this.playerWorldX, this.playerWorldY);
+            grp.position.set(s.x, BALLOON_FLOAT_Y, s.z);
+            grp.userData.baseY = BALLOON_FLOAT_Y;
             b = this.balloons.get(me.id);
         }
         if (!b) return;
@@ -490,7 +564,7 @@ const WorldScene = {
         b.group.userData.user = b.user;
         if (!Number.isFinite(b.group.position.x)) b.group.position.x = 0;
         if (!Number.isFinite(b.group.position.z)) b.group.position.z = 0;
-        if (!Number.isFinite(b.group.userData.baseY)) b.group.userData.baseY = 0;
+        if (!Number.isFinite(b.group.userData.baseY)) b.group.userData.baseY = BALLOON_FLOAT_Y;
         b.group.visible = true;
         this._updateBalloonColor(b.group, skinId);
         this._updateBalloonAura(b.group, auraId, true);
@@ -648,7 +722,6 @@ const WorldScene = {
     },
 
     _getHorizontalSlot(id, index, total, options = {}) {
-        const rowOffsetY = options.rowOffsetY ?? -120;
         const radiusStep = options.radiusStep ?? 88;
         const yBand = options.yBand ?? 72;
         const yWave = options.yWave ?? 26;
@@ -666,7 +739,7 @@ const WorldScene = {
         const t = (index + 0.5) / safeTotal;
         const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
-        // Sunflower-like spread avoids rigid row/column blocks.
+        // Sunflower-like spread in 3D XZ plane around player
         const baseRadius = Math.sqrt(index + 0.6) * radiusStep;
         const radius = Math.max(24, baseRadius + (h1 - 0.5) * radialJitter);
         const angle = index * goldenAngle + h2 * angularJitter + t * Math.PI * 0.35;
@@ -674,14 +747,11 @@ const WorldScene = {
         const xCore = Math.cos(angle) * radius;
         const zCore = Math.sin(angle) * radius * squashZ;
 
-        const sx = this.camPos.x
-            + xCore
-            + Math.sin(angle * 0.63 + h3 * 4.2) * driftX;
-        const sy = this.camPos.y
-            + rowOffsetY
-            + (h2 - 0.5) * yBand
-            + Math.sin(angle * 1.55 + h1 * 6.0) * yWave;
-        const sz = zCore + (h3 - 0.5) * depthBand;
+        // Place in world XZ plane relative to camera/player
+        const playerScene = worldToScene3D(this.playerWorldX, this.playerWorldY);
+        const sx = playerScene.x + xCore + Math.sin(angle * 0.63 + h3 * 4.2) * driftX;
+        const sz = playerScene.z + zCore + (h3 - 0.5) * depthBand;
+        const sy = BALLOON_FLOAT_Y + (h2 - 0.5) * yBand + Math.sin(angle * 1.55 + h1 * 6.0) * yWave;
 
         return { sx, sy, sz, h1, h2, h3 };
     },
@@ -1027,11 +1097,11 @@ const WorldScene = {
     },
 
     focusUserById(userId) {
-        this.springActive = true;
         const b = this.balloons.get(userId);
         if (!b) return;
-        this.camTarget.x = -b.group.position.x;
-        this.camTarget.y = -(b.group.userData.baseY || 0);
+        const pos = b.group.position;
+        const wPos = sceneToWorld3D(pos.x, pos.z);
+        this.teleportTo(wPos.x, wPos.y);
     },
 
     cycleWeather() {
@@ -1049,9 +1119,9 @@ const WorldScene = {
                 const geo = new THREE.CylinderGeometry(0.5, 0.5, 18, 4);
                 const mat = new THREE.MeshBasicMaterial({ color: 0x88aaff, transparent: true, opacity: 0.45 });
                 const d = new THREE.Mesh(geo, mat);
-                d.position.set((Math.random() - 0.5) * 4000, Math.random() * 800 - 100, (Math.random() - 0.5) * 1200);
+                d.position.set((Math.random() - 0.5) * 4000, Math.random() * 800 + 100, (Math.random() - 0.5) * 4000);
                 d.userData.speed = 12 + Math.random() * 6;
-                d.userData.resetY = 600;
+                d.userData.resetY = 800;
                 this.scene.add(d);
                 this.raindrops.push(d);
             }
@@ -1060,10 +1130,10 @@ const WorldScene = {
                 const geo = new THREE.SphereGeometry(3 + Math.random() * 3, 5, 5);
                 const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
                 const f = new THREE.Mesh(geo, mat);
-                f.position.set((Math.random() - 0.5) * 4000, Math.random() * 800 - 100, (Math.random() - 0.5) * 1200);
+                f.position.set((Math.random() - 0.5) * 4000, Math.random() * 800 + 100, (Math.random() - 0.5) * 4000);
                 f.userData.speed = 1.5 + Math.random() * 1.5;
                 f.userData.drift = (Math.random() - 0.5) * 2;
-                f.userData.resetY = 600;
+                f.userData.resetY = 800;
                 this.scene.add(f);
                 this.snowflakes.push(f);
             }
@@ -1071,25 +1141,26 @@ const WorldScene = {
     },
 
     focusHome() {
-        this.springActive = true;
         if (this.myBalloon) {
             const grp = this.myBalloon.group;
-            this.camTarget.x = grp.position.x;
-            this.camTarget.y = grp.userData.baseY || 0;
+            const wPos = sceneToWorld3D(grp.position.x, grp.position.z);
+            this.teleportTo(wPos.x, wPos.y);
         } else {
-            this.camTarget.x = 0;
-            this.camTarget.y = 0;
+            this.teleportTo(0, 0);
         }
-        this.camZTarget = 820;
+        this.orbitTargetRadius = ORBIT_DEFAULT_RADIUS;
     },
 
     // ── World coordinate helpers ──────────────────────────────────────────
 
-    /** Clamp camera position to the world boundary (in scene units). */
+    /** Clamp player position to the world boundary. */
     _clampCamPos() {
-        const maxScene = WORLD_HALF * WORLD_SCALE;
-        this.camPos.x = Math.max(-maxScene, Math.min(maxScene, this.camPos.x));
-        this.camPos.y = Math.max(-maxScene, Math.min(maxScene, this.camPos.y));
+        this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldX));
+        this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldY));
+        // Keep legacy camPos in sync
+        const s = worldToScene3D(this.playerWorldX, this.playerWorldY);
+        this.camPos.x = s.x;
+        this.camPos.y = s.z;
     },
 
     /**
@@ -1098,18 +1169,16 @@ const WorldScene = {
      */
     getWorldPosition() {
         return {
-            x: Math.round(sceneToWorld(this.camPos.x)),
-            y: Math.round(sceneToWorld(this.camPos.y)),
+            x: Math.round(this.playerWorldX),
+            y: Math.round(this.playerWorldY),
         };
     },
 
     getMyPosition() {
-        // Returns world-unit coordinates for the UI coordinate display.
-        const wp = this.getWorldPosition();
         return {
-            x: wp.x,
-            y: wp.y,
-            z: Math.round(this.camZ)
+            x: Math.round(this.playerWorldX),
+            y: Math.round(this.playerWorldY),
+            z: Math.round(this.orbitRadius)
         };
     },
 
@@ -1117,11 +1186,11 @@ const WorldScene = {
         const b = this.balloons.get(userId);
         if (b) {
             const pos = b.group.position;
-            // Convert scene position back to world units for the caller.
+            const wPos = sceneToWorld3D(pos.x, pos.z);
             return {
-                x: Math.round(sceneToWorld(pos.x)),
-                y: Math.round(sceneToWorld(pos.y)),
-                z: Math.round(pos.z)
+                x: Math.round(wPos.x),
+                y: Math.round(wPos.y),
+                z: Math.round(pos.y)
             };
         }
         return null;
@@ -1129,12 +1198,16 @@ const WorldScene = {
 
     /** Teleport to world-unit coordinates. */
     teleportTo(worldX, worldY) {
-        const clampedX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, worldX));
-        const clampedY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, worldY));
-        this.springActive = true;
-        this.camTarget.x = -clampedX * WORLD_SCALE;
-        this.camTarget.y = -clampedY * WORLD_SCALE;
-        this.camZTarget = 820;
+        this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, worldX));
+        this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, worldY));
+        this._syncPlayerPosition();
+    },
+
+    /** Set initial spawn position from saved world coordinates. */
+    setSpawnPosition(worldX, worldY) {
+        this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, worldX || 0));
+        this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, worldY || 0));
+        this._syncPlayerPosition();
     },
 
     setUniversityLandmarkStats(stats) {
@@ -1258,7 +1331,8 @@ const WorldScene = {
     },
 
     zoom(delta) {
-        this.camZTarget = Math.min(Math.max(400, this.camZTarget - delta * 600), 4000);
+        this.orbitTargetRadius += delta * 600;
+        this.orbitTargetRadius = Math.max(ORBIT_MIN_RADIUS, Math.min(ORBIT_MAX_RADIUS, this.orbitTargetRadius));
     },
 
     highlightUser(query) {
@@ -1267,9 +1341,9 @@ const WorldScene = {
         this.balloons.forEach((b) => {
             const u = b.user;
             if (u.nickname.toLowerCase().includes(q) || (u.university || '').toLowerCase().includes(q)) {
-                this.springActive = true;
-                this.camTarget.x = -b.group.position.x;
-                this.camTarget.y = -b.group.position.y;
+                const pos = b.group.position;
+                const wPos = sceneToWorld3D(pos.x, pos.z);
+                this.teleportTo(wPos.x, wPos.y);
             }
         });
     },
@@ -1282,17 +1356,21 @@ const WorldScene = {
         this.composer.addPass(bloom);
     },
 
-    // Input router for drag/click/hover/wheel gestures on the scene canvas.
+    // Input router for 3D orbit camera: drag to rotate, scroll to zoom,
+    // right-drag/two-finger to pan, WASD to move player.
     _setupInput() {
         const canvas = this.renderer.domElement;
+        let pointerButton = -1;
 
         canvas.addEventListener('pointerdown', (e) => {
             if (e.target.closest?.('.glass-panel,.hud-header,.fab-rail,.pill-action-wrap')) return;
             this.lastPointer = { x: e.clientX, y: e.clientY };
             this.balloonDragDist = 0;
+            pointerButton = e.button;
             canvas.setPointerCapture(e.pointerId);
 
-            if (this.myBalloon) {
+            // Check if user clicked their own balloon for dragging
+            if (this.myBalloon && e.button === 0) {
                 const rect = canvas.getBoundingClientRect();
                 const mouse = new THREE.Vector2(
                     ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -1305,7 +1383,6 @@ const WorldScene = {
                 if (ray.intersectObjects(meshes, false).length > 0) {
                     this.isDraggingBalloon = true;
                     this.springActive = false;
-                    this.velX = 0; this.velY = 0;
                     canvas.style.cursor = 'grabbing';
                     this._showTravelHint(true);
                     return;
@@ -1313,7 +1390,6 @@ const WorldScene = {
             }
 
             this.isDragging = true;
-            this.springActive = false;
         });
 
         canvas.addEventListener('pointermove', (e) => {
@@ -1322,21 +1398,28 @@ const WorldScene = {
             const dy = e.clientY - this.lastPointer.y;
             this.lastPointer = { x: e.clientX, y: e.clientY };
 
+            // Dragging own balloon: move player in world XZ plane
             if (this.isDraggingBalloon && this.myBalloon) {
-                const sceneScale = (this.camZ / 900) * DRAG_SENSITIVITY;
                 this.balloonDragDist += Math.hypot(dx, dy);
-                const grp = this.myBalloon.group;
-                grp.position.x += dx * sceneScale;
-                grp.userData.baseY = (grp.userData.baseY || 0) - dy * sceneScale;
-                this.camPos.x += dx * sceneScale;
-                this.camPos.y -= dy * sceneScale;
-                this._clampCamPos();
-                this.velX = 0; this.velY = 0;
+                // Compute movement in the camera's XZ-projected right and forward vectors
+                const forward = new THREE.Vector3();
+                this.camera.getWorldDirection(forward);
+                forward.y = 0;
+                forward.normalize();
+                const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+                const moveScale = this.orbitRadius * 0.002;
+                this.playerWorldX += (right.x * dx + forward.x * (-dy)) * moveScale / WORLD_SCALE;
+                this.playerWorldY += (right.z * dx + forward.z * (-dy)) * moveScale / WORLD_SCALE;
+                this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldX));
+                this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldY));
+                this._syncPlayerPosition();
                 return;
             }
 
             if (!this.isDragging) {
-                if (this.myBalloon && !this.isDraggingBalloon && this.frameCount % 4 === 0) {
+                // Hover check for cursor
+                if (this.myBalloon && this.frameCount % 4 === 0) {
                     const rect = canvas.getBoundingClientRect();
                     const mouse = new THREE.Vector2(
                         ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -1350,11 +1433,25 @@ const WorldScene = {
                 }
                 return;
             }
-            const sceneScale = (this.camZ / 900) * DRAG_SENSITIVITY;
-            this.velX -= dx * sceneScale * 1.2;
-            this.velY += dy * sceneScale * 1.2;
-            this.tiltX += dy * this.TILT_STRENGTH;
-            this.tiltY -= dx * this.TILT_STRENGTH;
+
+            if (pointerButton === 2 || e.shiftKey) {
+                // Right-drag or shift-drag: pan the orbit target
+                const forward = new THREE.Vector3();
+                this.camera.getWorldDirection(forward);
+                forward.y = 0;
+                forward.normalize();
+                const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+                const panScale = this.orbitRadius * 0.0015;
+                this.playerWorldX += (right.x * (-dx) + forward.x * dy) * panScale / WORLD_SCALE;
+                this.playerWorldY += (right.z * (-dx) + forward.z * dy) * panScale / WORLD_SCALE;
+                this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldX));
+                this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldY));
+                this._syncPlayerPosition();
+            } else {
+                // Left-drag: orbit camera rotation
+                this.orbitVelTheta += -dx * ORBIT_ROTATE_SPEED;
+                this.orbitVelPhi += dy * ORBIT_ROTATE_SPEED;
+            }
         });
 
         canvas.addEventListener('pointerup', (e) => {
@@ -1365,12 +1462,17 @@ const WorldScene = {
             }
             this.isDragging = false;
             this.lastPointer = null;
+            pointerButton = -1;
             try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
         });
 
+        // Prevent context menu on right-click (used for pan)
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
         canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
-            this.zoom(e.deltaY * 0.001);
+            this.orbitTargetRadius += e.deltaY * 0.5;
+            this.orbitTargetRadius = Math.max(ORBIT_MIN_RADIUS, Math.min(ORBIT_MAX_RADIUS, this.orbitTargetRadius));
         }, { passive: false });
 
         canvas.addEventListener('click', (e) => {
@@ -1400,7 +1502,7 @@ const WorldScene = {
                 }
             }
 
-            // 하늘섬 클릭 체크
+            // Sky island click check
             const islandMeshes = [];
             this.skyIslands.forEach(island => {
                 island.traverse(ch => { if (ch.isMesh) islandMeshes.push(ch); });
@@ -1415,7 +1517,7 @@ const WorldScene = {
                 }
             }
 
-            // 열기구 클릭 체크
+            // Balloon click check
             const meshes = [];
             this.balloons.forEach(b => {
                 b.group.traverse(ch => { if (ch.isMesh) meshes.push(ch); });
@@ -1432,8 +1534,20 @@ const WorldScene = {
                     }
                 }
             }
+
+            // Click on ground to move there
+            if (this._groundMesh) {
+                const groundHits = raycaster.intersectObject(this._groundMesh, false);
+                if (groundHits.length > 0) {
+                    const pt = groundHits[0].point;
+                    const wPos = sceneToWorld3D(pt.x, pt.z);
+                    this.teleportTo(wPos.x, wPos.y);
+                    this._createClickParticle(pt.x, BALLOON_FLOAT_Y, pt.z);
+                }
+            }
         });
 
+        // Pinch to zoom on touch
         let pinchDist0 = null;
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
@@ -1448,32 +1562,34 @@ const WorldScene = {
             if (e.touches.length === 2 && pinchDist0 !== null) {
                 e.preventDefault();
                 const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-                this.zoom((pinchDist0 - dist) * 0.005);
+                this.orbitTargetRadius += (pinchDist0 - dist) * 1.5;
+                this.orbitTargetRadius = Math.max(ORBIT_MIN_RADIUS, Math.min(ORBIT_MAX_RADIUS, this.orbitTargetRadius));
                 pinchDist0 = dist;
             }
         }, { passive: false });
         canvas.addEventListener('touchend', () => { pinchDist0 = null; }, { passive: true });
 
-        // 더블클릭으로 빠른 이동
-        let lastClickTime = 0;
+        // Double-click to teleport
         canvas.addEventListener('dblclick', (e) => {
             const rect = canvas.getBoundingClientRect();
             const mouse = new THREE.Vector2(
                 ((e.clientX - rect.left) / rect.width) * 2 - 1,
                 -((e.clientY - rect.top) / rect.height) * 2 + 1
             );
-            // Compute the double-clicked destination in scene-units, then convert
-            // to world-units before calling teleportTo (which expects world-units).
-            const scaleScene = this.camZ / 400;
-            const sceneX = -this.camPos.x + mouse.x * scaleScene * rect.width / 2;
-            const sceneY = -this.camPos.y - mouse.y * scaleScene * rect.height / 2;
-            const destWorldX = sceneX / WORLD_SCALE;
-            const destWorldY = sceneY / WORLD_SCALE;
-            this.teleportTo(destWorldX, destWorldY);
-            this._createClickParticle(sceneX, sceneY, 0);
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, this.camera);
+            if (this._groundMesh) {
+                const hits = raycaster.intersectObject(this._groundMesh, false);
+                if (hits.length > 0) {
+                    const pt = hits[0].point;
+                    const wPos = sceneToWorld3D(pt.x, pt.z);
+                    this.teleportTo(wPos.x, wPos.y);
+                    this._createClickParticle(pt.x, BALLOON_FLOAT_Y, pt.z);
+                }
+            }
         });
 
-        // 호버 효과
+        // Hover effect for balloons
         canvas.addEventListener('mousemove', (e) => {
             if (this.isDragging) return;
             const rect = canvas.getBoundingClientRect();
@@ -1502,36 +1618,55 @@ const WorldScene = {
         });
     },
 
+    /** Sync the player's Three.js position with internal world coords */
+    _syncPlayerPosition() {
+        const s = worldToScene3D(this.playerWorldX, this.playerWorldY);
+        if (this.orbitTarget) {
+            this.orbitTarget.set(s.x, BALLOON_FLOAT_Y, s.z);
+        }
+        if (this.myBalloon) {
+            const grp = this.myBalloon.group;
+            grp.position.x = s.x;
+            grp.position.z = s.z;
+            grp.userData.baseY = BALLOON_FLOAT_Y;
+        }
+        // Keep legacy camPos in sync for coordinate display compat
+        this.camPos.x = s.x;
+        this.camPos.y = s.z;
+    },
+
     _setupKeyboard() {
-        const moveSpeed = 15;
+        const moveSpeed = 120; // world-units per tick
         document.addEventListener('keydown', (e) => {
             this.keysPressed[e.key.toLowerCase()] = true;
-            
-            // R키로 날씨 변경
-            if (e.key.toLowerCase() === 'r') {
-                this.cycleWeather();
-            }
-            // H키로 홈 복귀
-            if (e.key.toLowerCase() === 'h') {
-                this.focusHome();
-            }
+            if (e.key.toLowerCase() === 'r') this.cycleWeather();
+            if (e.key.toLowerCase() === 'h') this.focusHome();
         });
         document.addEventListener('keyup', (e) => {
             this.keysPressed[e.key.toLowerCase()] = false;
         });
-        
+
         setInterval(() => {
-            if (this.keysPressed['w'] || this.keysPressed['arrowup']) {
-                this.velY += moveSpeed;
-            }
-            if (this.keysPressed['s'] || this.keysPressed['arrowdown']) {
-                this.velY -= moveSpeed;
-            }
-            if (this.keysPressed['a'] || this.keysPressed['arrowleft']) {
-                this.velX += moveSpeed;
-            }
-            if (this.keysPressed['d'] || this.keysPressed['arrowright']) {
-                this.velX -= moveSpeed;
+            // Compute forward/right in world plane from camera angle
+            const forward = new THREE.Vector3();
+            this.camera.getWorldDirection(forward);
+            forward.y = 0;
+            forward.normalize();
+            const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+            let mx = 0, mz = 0;
+            if (this.keysPressed['w'] || this.keysPressed['arrowup']) { mx += forward.x; mz += forward.z; }
+            if (this.keysPressed['s'] || this.keysPressed['arrowdown']) { mx -= forward.x; mz -= forward.z; }
+            if (this.keysPressed['a'] || this.keysPressed['arrowleft']) { mx -= right.x; mz -= right.z; }
+            if (this.keysPressed['d'] || this.keysPressed['arrowright']) { mx += right.x; mz += right.z; }
+
+            if (mx !== 0 || mz !== 0) {
+                const len = Math.sqrt(mx * mx + mz * mz);
+                this.playerWorldX += (mx / len) * moveSpeed;
+                this.playerWorldY += (mz / len) * moveSpeed;
+                this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldX));
+                this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldY));
+                this._syncPlayerPosition();
             }
         }, 50);
     },
@@ -1630,6 +1765,7 @@ const WorldScene = {
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(W, H);
         this.composer.setSize(W, H);
+        this._updateCameraFromOrbit();
     },
 
     // Per-frame simulation + render entry point.
@@ -1638,56 +1774,65 @@ const WorldScene = {
         this.frameCount++;
         const t = this.frameCount * 0.016;
 
-        if (this.springActive) {
-            const dx = this.camTarget.x - this.camPos.x;
-            const dy = this.camTarget.y - this.camPos.y;
-            this.velX += dx * this.SPRING;
-            this.velY += dy * this.SPRING;
-            if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(this.velX) < 0.2 && Math.abs(this.velY) < 0.2) {
-                this.springActive = false;
-            }
+        // ── Orbit camera update ──────────────────────────────────
+        // Apply orbit velocity with damping (inertia from drag)
+        this.orbitTheta += this.orbitVelTheta;
+        this.orbitPhi += this.orbitVelPhi;
+        this.orbitVelTheta *= ORBIT_DAMPING;
+        this.orbitVelPhi *= ORBIT_DAMPING;
+
+        // Clamp phi to prevent flipping
+        this.orbitPhi = Math.max(ORBIT_MIN_PHI, Math.min(ORBIT_MAX_PHI, this.orbitPhi));
+
+        // Smooth zoom
+        this.orbitRadius += (this.orbitTargetRadius - this.orbitRadius) * 0.08;
+
+        // Smoothly track orbit target toward player position
+        if (this.orbitTarget && this.myBalloon) {
+            const grp = this.myBalloon.group;
+            this.orbitTarget.x += (grp.position.x - this.orbitTarget.x) * 0.1;
+            this.orbitTarget.y += (BALLOON_FLOAT_Y - this.orbitTarget.y) * 0.1;
+            this.orbitTarget.z += (grp.position.z - this.orbitTarget.z) * 0.1;
         }
-        this.velX *= this.FRICTION;
-        this.velY *= this.FRICTION;
-        this.camPos.x += this.velX;
-        this.camPos.y += this.velY;
-        this._clampCamPos();
 
-        this.camZ += (this.camZTarget - this.camZ) * 0.08;
-        this.camera.position.set(this.camPos.x, this.camPos.y, this.camZ);
+        this._updateCameraFromOrbit();
 
-        this.tiltX *= (1 - this.TILT_RETURN);
-        this.tiltY *= (1 - this.TILT_RETURN);
-        this.tiltX = Math.max(-0.18, Math.min(0.18, this.tiltX));
-        this.tiltY = Math.max(-0.18, Math.min(0.18, this.tiltY));
-
-        const speed = Math.sqrt(this.velX * this.velX + this.velY * this.velY);
+        // Move grid to follow player
+        if (this._gridHelper && this.myBalloon) {
+            this._gridHelper.position.x = this.myBalloon.group.position.x;
+            this._gridHelper.position.z = this.myBalloon.group.position.z;
+        }
 
         this._resolveBalloonCollisions();
 
         this.balloons.forEach((b) => {
             const grp = b.group;
-            grp.quaternion.copy(this.camera.quaternion);
 
-            // Apply camera motion tilt only to the balloon model so name tags
-            // keep a stable facing/stacking in front of the balloon.
-            const balloon3D = grp.userData.balloon3D;
-            if (balloon3D) {
-                balloon3D.rotation.x = this.tiltX * 0.3;
-                balloon3D.rotation.z = this.tiltY * 0.4;
+            // In 3D mode, balloons face the camera only on the Y axis (turntable)
+            if (this.camera) {
+                const lookTarget = new THREE.Vector3(
+                    this.camera.position.x,
+                    grp.position.y,
+                    this.camera.position.z
+                );
+                grp.lookAt(lookTarget);
             }
 
+            // Name tags always face camera fully
             if (grp.userData.label) {
-                grp.userData.label.rotation.set(0, 0, 0);
+                grp.userData.label.quaternion.copy(this.camera.quaternion);
             }
             if (grp.userData.bubbleMesh) {
-                grp.userData.bubbleMesh.rotation.set(0, 0, 0);
+                grp.userData.bubbleMesh.quaternion.copy(this.camera.quaternion);
             }
 
             // Smoothly interpolate toward target position for remote players.
             if (!b.isMe && grp.userData.targetX !== undefined) {
                 grp.position.x  += (grp.userData.targetX - grp.position.x)  * REMOTE_POS_LERP;
                 grp.userData.baseY += (grp.userData.targetY - grp.userData.baseY) * REMOTE_POS_LERP;
+                if (grp.userData.targetZ !== undefined) {
+                    grp.position.z += (grp.userData.targetZ - grp.position.z) * REMOTE_POS_LERP;
+                }
             }
 
             if (!b.isMe) {
@@ -1698,11 +1843,14 @@ const WorldScene = {
                 if (grp.userData.targetX !== undefined) {
                     grp.userData.targetX += pushVX * 0.7;
                 }
+                if (grp.userData.targetZ !== undefined) {
+                    grp.userData.targetZ += pushVZ * 0.7;
+                }
                 grp.userData.pushVX = pushVX * BALLOON_COLLISION_DAMP;
                 grp.userData.pushVZ = pushVZ * BALLOON_COLLISION_DAMP;
             }
 
-            const baseY = grp.userData.baseY || 0;
+            const baseY = grp.userData.baseY || BALLOON_FLOAT_Y;
             const floatAmp = b.isMe ? 14 : (grp.userData.floatAmp || 9);
             const floatSpeed = b.isMe ? 1 : (grp.userData.floatSpeed || 1);
             const floatPhase = grp.userData.floatPhase || 0;
@@ -1767,13 +1915,15 @@ const WorldScene = {
 
         // 거리 기반 LOD 업데이트 (10프레임마다)
         if (this.frameCount % 10 === 0 && this.myBalloon) {
-            const myPosX = this.camPos.x;
-            const myPosY = this.camPos.y;
+            const myPos = this.myBalloon.group.position;
             const lodEnterDistance = this.balloonLodDistance + 180;
             const lodExitDistance = Math.max(900, this.balloonLodDistance - 180);
             this.balloons.forEach((b) => {
                 if (b.isMe) return;
-                const dist = Math.hypot(b.group.position.x - myPosX, b.group.position.y - myPosY);
+                const dist = Math.hypot(
+                    b.group.position.x - myPos.x,
+                    b.group.position.z - myPos.z
+                );
                 b.group.visible = true;
                 if (b.group.userData.balloon3D) {
                     const wasLowDetail = !!b.group.userData.isLowDetail;
@@ -1794,12 +1944,12 @@ const WorldScene = {
         // 날씨 업데이트
         this.raindrops.forEach(d => {
             d.position.y -= d.userData.speed;
-            if (d.position.y < -200) d.position.y = d.userData.resetY;
+            if (d.position.y < GROUND_Y - 50) d.position.y = d.userData.resetY;
         });
         this.snowflakes.forEach(f => {
             f.position.y -= f.userData.speed;
             f.position.x += f.userData.drift * Math.sin(t * 0.5);
-            if (f.position.y < -200) f.position.y = f.userData.resetY;
+            if (f.position.y < GROUND_Y - 50) f.position.y = f.userData.resetY;
         });
 
         // 반딧불이 업데이트

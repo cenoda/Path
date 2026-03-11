@@ -712,25 +712,35 @@ router.get('/profile-image/:filename', requireAuth, async (req, res) => {
 });
 
 router.post('/profile-custom', requireAuth, uploadProfile.single('profileImage'), async (req, res) => {
-    const nickValidation = validateNickname(req.body.nickname);
-    if (!nickValidation.ok) {
-        return res.status(400).json({ error: nickValidation.error });
+    const rawNickname = typeof req.body.nickname === 'string' ? req.body.nickname.trim() : '';
+    let nickname = null;
+    if (rawNickname) {
+        const nickValidation = validateNickname(rawNickname);
+        if (!nickValidation.ok) {
+            return res.status(400).json({ error: nickValidation.error });
+        }
+        nickname = nickValidation.value;
     }
-    const nickname = nickValidation.value;
+
+    if (!nickname && !req.file) {
+        return res.status(400).json({ error: '변경할 프로필 정보가 없습니다.' });
+    }
 
     try {
-        const existing = await pool.query(
-            'SELECT id FROM users WHERE nickname = $1 AND id != $2',
-            [nickname, req.session.userId]
-        );
-        if (existing.rows.length > 0) {
-            return res.status(409).json({ error: '이미 사용 중인 닉네임입니다.' });
+        if (nickname) {
+            const existing = await pool.query(
+                'SELECT id FROM users WHERE nickname = $1 AND id != $2',
+                [nickname, req.session.userId]
+            );
+            if (existing.rows.length > 0) {
+                return res.status(409).json({ error: '이미 사용 중인 닉네임입니다.' });
+            }
         }
 
         const nextProfileImageUrl = req.file ? `/uploads/profiles/${req.file.filename}` : null;
         const result = await pool.query(
             `UPDATE users
-             SET nickname = $1,
+             SET nickname = COALESCE($1, nickname),
                  profile_image_url = COALESCE($2, profile_image_url)
              WHERE id = $3
              RETURNING ${USER_FIELDS}`,

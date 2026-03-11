@@ -22,6 +22,14 @@ const HOT_THRESHOLD = 15;  // 베스트 승격 기준(추천 15+)
 const WRITABLE_CATS = ['정보', '질문', '잡담'];
 const GOLD_LIKE_COST = 30;
 const WRITE_DRAFT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
+const COMMUNITY_SETTINGS_KEY = 'path.community.settings.v1';
+
+const DEFAULT_COMMUNITY_SETTINGS = {
+  layout: 'comfortable',
+  hideBest: false,
+  hideAd: false,
+  hideMediaBadge: false,
+};
 
 /* ─── 카테고리 탭 ───────────────────────────────────────────── */
 const CATEGORIES = [
@@ -42,6 +50,7 @@ let scrollHook   = null;
 let isLoading    = false;
 let currentUser  = null;  // { id, nickname, is_admin, admin_role } | null
 let currentUserBlocks = new Set();
+let communitySettings = { ...DEFAULT_COMMUNITY_SETTINGS };
 
 const REPORT_REASON_OPTIONS = [
   { code: 'spam', label: '도배/광고' },
@@ -64,11 +73,13 @@ const searchToggle   = document.getElementById('search-toggle');
 const searchWrap     = document.getElementById('search-wrap');
 const searchInput    = document.getElementById('search-input');
 const searchClear    = document.getElementById('search-clear');
+const settingsToggle = document.getElementById('settings-toggle');
 const writeFab       = document.getElementById('write-fab');
 const writeHeaderBtn = document.getElementById('write-header-btn');
 const quickComposeBtn = document.getElementById('quick-compose-btn');
 const composeStatusText = document.getElementById('compose-status-text');
 const themeToggleBtn = document.getElementById('theme-toggle');
+const adContainer = document.querySelector('.c-ad-container');
 const sortChips = Array.from(document.querySelectorAll('.c-sort-chip'));
 
 const REQUIRED_DOM = {
@@ -134,7 +145,9 @@ function syncThemeButton() {
 async function init() {
   if (!hasRequiredDom()) return;
 
+  loadCommunitySettings();
   applyThemeFromStorage();
+  applyCommunitySettings();
     syncSortChips();
     buildCategoryBar();
     bindEvents();
@@ -215,6 +228,12 @@ function renderComposeStatus() {
 
 /* ─── 베스트 게시글 ─────────────────────────────────────── */
 async function renderHotPosts() {
+  if (communitySettings.hideBest) {
+    hotList.innerHTML = '';
+    hotSection.hidden = true;
+    return;
+  }
+
     // 스켈레톤
     hotList.innerHTML = '';
     hotSection.hidden = false;
@@ -801,6 +820,8 @@ function bindEvents() {
     themeToggleBtn.addEventListener('click', toggleTheme);
   }
 
+  settingsToggle?.addEventListener('click', openSettingsModal);
+
     // 검색 토글
     searchToggle?.addEventListener('click', () => {
         const open = searchWrap.classList.toggle('open');
@@ -862,6 +883,303 @@ function syncSortChips() {
     chip.classList.toggle('is-active', active);
     chip.setAttribute('aria-selected', active ? 'true' : 'false');
   });
+}
+
+function loadCommunitySettings() {
+  try {
+    const raw = localStorage.getItem(COMMUNITY_SETTINGS_KEY);
+    if (!raw) {
+      communitySettings = { ...DEFAULT_COMMUNITY_SETTINGS };
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    communitySettings = {
+      layout: parsed?.layout === 'compact' ? 'compact' : 'comfortable',
+      hideBest: !!parsed?.hideBest,
+      hideAd: !!parsed?.hideAd,
+      hideMediaBadge: !!parsed?.hideMediaBadge,
+    };
+  } catch (_) {
+    communitySettings = { ...DEFAULT_COMMUNITY_SETTINGS };
+  }
+}
+
+function saveCommunitySettings() {
+  try {
+    localStorage.setItem(COMMUNITY_SETTINGS_KEY, JSON.stringify(communitySettings));
+  } catch (_) {
+    // Ignore storage errors.
+  }
+}
+
+function applyCommunitySettings() {
+  document.body.classList.toggle('community-compact', communitySettings.layout === 'compact');
+  document.body.classList.toggle('community-hide-media-badge', !!communitySettings.hideMediaBadge);
+
+  if (adContainer) {
+    adContainer.hidden = !!communitySettings.hideAd;
+  }
+
+  if (communitySettings.hideBest) {
+    hotList.innerHTML = '';
+    hotSection.hidden = true;
+  }
+}
+
+function getThemeMode() {
+  const savedTheme = localStorage.getItem('path_theme');
+  if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+  return 'system';
+}
+
+function setThemeMode(mode) {
+  if (mode === 'light' || mode === 'dark') {
+    localStorage.setItem('path_theme', mode);
+  } else {
+    localStorage.removeItem('path_theme');
+  }
+  applyThemeFromStorage();
+}
+
+function openSettingsModal() {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="write-modal community-settings-modal" role="dialog" aria-modal="true" aria-label="커뮤니티 설정">
+      <div class="write-modal-handle"></div>
+      <div class="write-modal-header">
+        <h2 class="write-modal-title">커뮤니티 설정</h2>
+        <button class="write-modal-close" aria-label="닫기" id="settings-close-btn">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/>
+          </svg>
+        </button>
+      </div>
+      <div class="community-settings-tabs" role="tablist" aria-label="설정 탭">
+        <button class="community-settings-tab is-active" role="tab" aria-selected="true" data-tab="view">화면</button>
+        <button class="community-settings-tab" role="tab" aria-selected="false" data-tab="content">콘텐츠</button>
+        <button class="community-settings-tab" role="tab" aria-selected="false" data-tab="blocks">차단</button>
+      </div>
+      <div class="write-modal-body community-settings-body">
+        <section class="community-settings-panel" data-panel="view">
+          <label class="community-settings-item">
+            <div>
+              <p class="community-settings-item__title">테마</p>
+              <p class="community-settings-item__desc">커뮤니티 색상 모드를 선택해요.</p>
+            </div>
+            <select id="settings-theme-mode" class="write-input community-settings-select">
+              <option value="system">시스템</option>
+              <option value="dark">다크</option>
+              <option value="light">라이트</option>
+            </select>
+          </label>
+          <label class="community-settings-item community-settings-item--toggle">
+            <div>
+              <p class="community-settings-item__title">컴팩트 목록</p>
+              <p class="community-settings-item__desc">목록 간격을 줄여 더 많은 글을 한 화면에 보여줘요.</p>
+            </div>
+            <input id="settings-compact" type="checkbox" class="community-settings-switch">
+          </label>
+        </section>
+
+        <section class="community-settings-panel hidden" data-panel="content">
+          <label class="community-settings-item community-settings-item--toggle">
+            <div>
+              <p class="community-settings-item__title">베스트 숨기기</p>
+              <p class="community-settings-item__desc">상단 베스트 게시글 섹션을 숨겨요.</p>
+            </div>
+            <input id="settings-hide-best" type="checkbox" class="community-settings-switch">
+          </label>
+          <label class="community-settings-item community-settings-item--toggle">
+            <div>
+              <p class="community-settings-item__title">광고 숨기기</p>
+              <p class="community-settings-item__desc">커뮤니티 내 디스플레이 광고 영역을 숨겨요.</p>
+            </div>
+            <input id="settings-hide-ad" type="checkbox" class="community-settings-switch">
+          </label>
+          <label class="community-settings-item community-settings-item--toggle">
+            <div>
+              <p class="community-settings-item__title">이미지 아이콘 숨기기</p>
+              <p class="community-settings-item__desc">목록의 이미지 포함 표시 아이콘을 숨겨요.</p>
+            </div>
+            <input id="settings-hide-media-badge" type="checkbox" class="community-settings-switch">
+          </label>
+        </section>
+
+        <section class="community-settings-panel hidden" data-panel="blocks">
+          <div id="settings-blocks-wrap" class="community-settings-blocks"></div>
+        </section>
+      </div>
+      <div class="write-modal-footer">
+        <button class="write-cancel-btn" id="settings-close-footer-btn">닫기</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(backdrop);
+  requestAnimationFrame(() => backdrop.classList.add('visible'));
+
+  const close = () => {
+    backdrop.classList.remove('visible');
+    backdrop.addEventListener('transitionend', () => backdrop.remove(), { once: true });
+  };
+
+  const tabButtons = Array.from(backdrop.querySelectorAll('.community-settings-tab'));
+  const panels = Array.from(backdrop.querySelectorAll('.community-settings-panel'));
+  const themeModeSelect = backdrop.querySelector('#settings-theme-mode');
+  const compactInput = backdrop.querySelector('#settings-compact');
+  const hideBestInput = backdrop.querySelector('#settings-hide-best');
+  const hideAdInput = backdrop.querySelector('#settings-hide-ad');
+  const hideMediaBadgeInput = backdrop.querySelector('#settings-hide-media-badge');
+  const blocksWrap = backdrop.querySelector('#settings-blocks-wrap');
+
+  themeModeSelect.value = getThemeMode();
+  compactInput.checked = communitySettings.layout === 'compact';
+  hideBestInput.checked = !!communitySettings.hideBest;
+  hideAdInput.checked = !!communitySettings.hideAd;
+  hideMediaBadgeInput.checked = !!communitySettings.hideMediaBadge;
+
+  const updateTab = async (tabKey) => {
+    tabButtons.forEach((btn) => {
+      const active = btn.dataset.tab === tabKey;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    panels.forEach((panel) => {
+      panel.classList.toggle('hidden', panel.dataset.panel !== tabKey);
+    });
+
+    if (tabKey === 'blocks') {
+      await renderSettingsBlockedUsers(blocksWrap);
+    }
+  };
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => updateTab(btn.dataset.tab));
+  });
+
+  themeModeSelect.addEventListener('change', () => {
+    setThemeMode(themeModeSelect.value);
+  });
+
+  compactInput.addEventListener('change', () => {
+    communitySettings.layout = compactInput.checked ? 'compact' : 'comfortable';
+    saveCommunitySettings();
+    applyCommunitySettings();
+  });
+
+  hideBestInput.addEventListener('change', async () => {
+    communitySettings.hideBest = hideBestInput.checked;
+    saveCommunitySettings();
+    applyCommunitySettings();
+    if (!communitySettings.hideBest) {
+      await renderHotPosts();
+    }
+  });
+
+  hideAdInput.addEventListener('change', () => {
+    communitySettings.hideAd = hideAdInput.checked;
+    saveCommunitySettings();
+    applyCommunitySettings();
+  });
+
+  hideMediaBadgeInput.addEventListener('change', () => {
+    communitySettings.hideMediaBadge = hideMediaBadgeInput.checked;
+    saveCommunitySettings();
+    applyCommunitySettings();
+  });
+
+  backdrop.querySelector('#settings-close-btn')?.addEventListener('click', close);
+  backdrop.querySelector('#settings-close-footer-btn')?.addEventListener('click', close);
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
+}
+
+async function renderSettingsBlockedUsers(container) {
+  if (!container) return;
+
+  if (!currentUser) {
+    container.innerHTML = `
+      <div class="community-settings-empty">
+        <p class="community-settings-empty__title">로그인 후 차단 목록을 관리할 수 있어요.</p>
+        <p class="community-settings-empty__desc">게시글 상세에서 작성자를 차단하면 여기서 해제할 수 있습니다.</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = '<p class="community-settings-loading">차단 목록을 불러오는 중...</p>';
+
+  try {
+    const response = await fetch('/api/community/blocks', { credentials: 'include' });
+    if (!response.ok) {
+      const msg = await readApiError(response, '차단 목록을 불러오지 못했어요');
+      if (msg) showToast(msg);
+      container.innerHTML = '<p class="community-settings-loading">차단 목록을 불러오지 못했어요.</p>';
+      return;
+    }
+
+    const data = await response.json();
+    const blocks = Array.isArray(data.blocks) ? data.blocks : [];
+
+    if (blocks.length === 0) {
+      container.innerHTML = `
+        <div class="community-settings-empty">
+          <p class="community-settings-empty__title">차단한 사용자가 없어요.</p>
+          <p class="community-settings-empty__desc">불편한 사용자는 게시글 상세 화면에서 바로 차단할 수 있어요.</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <ul class="community-block-list">
+        ${blocks.map((block) => `
+          <li class="community-block-item" data-blocked-id="${Number(block.blocked_id)}">
+            <div class="community-block-item__meta">
+              <p class="community-block-item__nick">${escHtml(block.nickname || '알 수 없음')}</p>
+              <p class="community-block-item__date">차단일 ${escHtml(fmtRelative(block.created_at))}</p>
+            </div>
+            <button class="community-block-item__unblock" type="button">차단 해제</button>
+          </li>
+        `).join('')}
+      </ul>`;
+
+    container.querySelectorAll('.community-block-item__unblock').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const item = btn.closest('.community-block-item');
+        const blockedId = parseInt(item?.dataset.blockedId || '', 10);
+        if (!blockedId) return;
+
+        btn.disabled = true;
+        btn.textContent = '처리 중...';
+
+        try {
+          const r = await fetch(`/api/community/blocks/${blockedId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+          });
+          if (!r.ok) {
+            const msg = await readApiError(r, '차단 해제에 실패했어요');
+            if (msg) showToast(msg);
+            btn.disabled = false;
+            btn.textContent = '차단 해제';
+            return;
+          }
+
+          showToast('차단을 해제했어요');
+          await refreshBlockedUsers();
+          await Promise.all([renderHotPosts(), resetAndLoad()]);
+          await renderSettingsBlockedUsers(container);
+        } catch (_) {
+          showToast('차단 해제 중 오류가 발생했어요');
+          btn.disabled = false;
+          btn.textContent = '차단 해제';
+        }
+      });
+    });
+  } catch (_) {
+    container.innerHTML = '<p class="community-settings-loading">차단 목록을 불러오지 못했어요.</p>';
+  }
 }
 
 function handleWriteClick() {

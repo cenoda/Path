@@ -607,6 +607,10 @@ body.light .theme-icon--moon { display: block; }
   color: var(--text-2);
 }
 
+body.community-hide-media-badge .post-row__media-icon {
+  display: none;
+}
+
 .post-row__title {
   font-size: 13.5px;
   font-weight: 600;
@@ -772,6 +776,27 @@ body.light .theme-icon--moon { display: block; }
   .c-sortbar {
     padding-bottom: 2px;
   }
+}
+
+body.community-compact .post-row__link {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+body.community-compact .post-row__title {
+  font-size: 12.8px;
+}
+
+body.community-compact .post-row__author,
+body.community-compact .post-row__date,
+body.community-compact .post-row__views,
+body.community-compact .post-row__likes {
+  font-size: 11px;
+}
+
+body.community-compact .c-hot-card {
+  width: 176px;
+  padding: 10px 11px;
 }
 
 /* ─── Skeleton shimmer ───────────────────────────────────────────────────── */
@@ -1009,6 +1034,154 @@ body.light .theme-icon--moon { display: block; }
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* ─── Community Settings Modal ─────────────────────────────────────────── */
+.community-settings-modal {
+  max-width: 620px;
+}
+
+.community-settings-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 12px 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.community-settings-tab {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.community-settings-tab:hover {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+.community-settings-tab.is-active {
+  color: var(--accent-blue);
+  background: color-mix(in srgb, var(--accent-blue) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent-blue) 30%, transparent);
+}
+
+.community-settings-body {
+  gap: 12px;
+}
+
+.community-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.community-settings-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--border-mid);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.community-settings-item__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.community-settings-item__desc {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+.community-settings-select {
+  width: 132px;
+}
+
+.community-settings-switch {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-blue);
+}
+
+.community-settings-blocks {
+  min-height: 220px;
+}
+
+.community-settings-loading {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.community-settings-empty {
+  border: 1px dashed var(--border-mid);
+  border-radius: 12px;
+  padding: 20px 14px;
+  text-align: center;
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+}
+
+.community-settings-empty__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.community-settings-empty__desc {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.community-block-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.community-block-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--border-mid);
+  background: var(--surface-2);
+}
+
+.community-block-item__nick {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.community-block-item__date {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.community-block-item__unblock {
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,69,58,0.35);
+  color: var(--accent-red);
+  background: rgba(255,69,58,0.1);
+  font-size: 11.5px;
+  font-weight: 700;
 }
 
 .write-field { display: flex; flex-direction: column; gap: 7px; }

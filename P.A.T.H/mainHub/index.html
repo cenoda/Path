@@ -454,22 +454,26 @@
         };
 
         window.saveProfileCustomizer = function () {
-            var nick = (document.getElementById('profile-nick-input') || {}).value || '';
-            nick = nick.trim();
+            var nickInput = (document.getElementById('profile-nick-input') || {}).value || '';
+            var currentNick = ((window.currentUser && window.currentUser.nickname) || '').trim();
+            var nick = nickInput.trim() || currentNick;
             var errEl = document.getElementById('profile-save-err');
             var saveBtn = document.getElementById('profile-save-btn');
-            if (!nick) { if (errEl) errEl.textContent = '닉네임을 입력해주세요.'; return; }
+            if (!nick) { if (errEl) errEl.textContent = '닉네임을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'; return; }
             if (errEl) errEl.textContent = '';
             if (saveBtn) saveBtn.disabled = true;
             var fd = new FormData();
-            fd.append('nickname', nick);
+            if (nick) fd.append('nickname', nick);
             if (_pendingFile) fd.append('profileImage', _pendingFile);
             fetch('/api/auth/profile-custom', { method: 'POST', body: fd, credentials: 'include' })
                 .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
                 .then(function (data) {
                     if (!data || !data.ok) { if (errEl) errEl.textContent = data && data.error || '오류가 발생했습니다.'; return; }
-                    if (window.currentUser) window.currentUser = data.user;
-                    if (typeof window.updateHUD === 'function') window.updateHUD(data.user);
+                    if (typeof window.applyCurrentUserUpdate === 'function') {
+                        window.applyCurrentUserUpdate(data.user);
+                    } else {
+                        window.currentUser = data.user;
+                    }
                     window.closeProfileCustomizer();
                 })
                 .catch(function () { if (errEl) errEl.textContent = '저장 중 오류가 발생했습니다.'; })

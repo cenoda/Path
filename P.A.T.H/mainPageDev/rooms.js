@@ -101,6 +101,9 @@
         leaderboard: [],
         messages: [],
         activityLog: [],
+        activeRoomMembers: [],
+        currentRoomRole: 'member',
+        currentRoomPermissions: {},
         refreshInterval: null,
         creatingRoom: false,
         // decor state
@@ -197,8 +200,13 @@
             return r.json();
         },
 
-        async apiDelete(path) {
-            const r = await fetch(path, { method: 'DELETE', credentials: 'include' });
+        async apiDelete(path, body = null) {
+            const options = { method: 'DELETE', credentials: 'include' };
+            if (body !== null && body !== undefined) {
+                options.headers = { 'Content-Type': 'application/json' };
+                options.body = JSON.stringify(body);
+            }
+            const r = await fetch(path, options);
             if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || '서버 오류'); }
             return r.json();
         },
@@ -389,6 +397,32 @@
             await this.loadPublicRooms(true);
         },
 
+        _getMyUserId() {
+            return typeof UI !== 'undefined' && UI.currentUser ? UI.currentUser.id : null;
+        },
+
+        _can(permissionKey) {
+            return !!(this.currentRoomPermissions && this.currentRoomPermissions[permissionKey]);
+        },
+
+        _roleLabel(role) {
+            if (role === 'owner') return '방장';
+            if (role === 'manager') return '매니저';
+            return '멤버';
+        },
+
+        async loadRoomContext(roomId) {
+            const [detailData, permissionData] = await Promise.all([
+                this.apiGet(`/api/rooms/${roomId}`),
+                this.apiGet(`/api/rooms/${roomId}/permissions`),
+            ]);
+
+            this.activeRoomData = detailData.room || null;
+            this.activeRoomMembers = detailData.members || [];
+            this.currentRoomRole = permissionData.role || 'member';
+            this.currentRoomPermissions = permissionData.permissions || {};
+        },
+
         // ── Open room ────────────────────────────────────────────────────────
         async openRoom(roomId) {
             this.activeRoomId = roomId;
@@ -405,6 +439,7 @@
             }, 15000);
 
             await Promise.all([
+                this.loadRoomContext(roomId),
                 this.refreshLeaderboard(roomId),
                 this.loadMessages(roomId),
                 this.loadStats(roomId),
@@ -540,11 +575,12 @@
                 if (goalEl) goalEl.textContent = room.goal || '';
                 if (codeEl) codeEl.textContent = room.invite_code;
 
-                // Show creator-only controls
-                const myId = typeof UI !== 'undefined' && UI.currentUser ? UI.currentUser.id : null;
-                const isCreator = myId && String(room.creator_id) === String(myId);
-                document.getElementById('room-settings-creator-section')?.classList.toggle('hidden', !isCreator);
-                document.getElementById('room-settings-delete-btn')?.classList.toggle('hidden', !isCreator);
+                const canEditSettings = this._can('edit_settings');
+                const canDeleteRoom = this._can('delete_room');
+                const canManageDecor = this._can('manage_decor');
+                document.getElementById('room-settings-creator-section')?.classList.toggle('hidden', !canEditSettings);
+                document.getElementById('room-settings-delete-btn')?.classList.toggle('hidden', !canDeleteRoom);
+                document.getElementById('room-decor-open-btn')?.classList.toggle('hidden', !canManageDecor);
             }
         },
 
@@ -756,15 +792,15 @@
             const modal = document.getElementById('room-settings-modal');
             if (!modal) return;
             const room = this.myRooms.find(r => r.id === this.activeRoomId);
-            const myId = typeof UI !== 'undefined' && UI.currentUser ? UI.currentUser.id : null;
-            const isCreator = room && myId && String(room.creator_id) === String(myId);
+            const canEditSettings = this._can('edit_settings');
+            const canDeleteRoom = this._can('delete_room');
 
             const creatorSection = document.getElementById('room-settings-creator-section');
             const deleteBtn = document.getElementById('room-settings-delete-btn');
-            if (creatorSection) creatorSection.classList.toggle('hidden', !isCreator);
-            if (deleteBtn) deleteBtn.classList.toggle('hidden', !isCreator);
+            if (creatorSection) creatorSection.classList.toggle('hidden', !canEditSettings);
+            if (deleteBtn) deleteBtn.classList.toggle('hidden', !canDeleteRoom);
 
-            if (room && isCreator) {
+            if (room && canEditSettings) {
                 const nameEl   = document.getElementById('room-edit-name');
                 const goalEl   = document.getElementById('room-edit-goal');
                 const maxEl    = document.getElementById('room-edit-max');
@@ -774,7 +810,117 @@
                 if (maxEl)    maxEl.value    = room.max_members;
                 if (publicEl) publicEl.checked = !!room.is_public;
             }
+
+            this._renderSettingsMemberControls();
             modal.classList.remove('hidden');
+        },
+
+        _renderSettingsMemberControls() {
+            const wrap = document.getElementById('room-settings-member-controls');
+            if (!wrap) return;
+
+            const members = Array.isArray(this.activeRoomMembers) ? this.activeRoomMembers : [];
+            const myId = this._getMyUserId();
+            const canManageMembers = this._can('manage_members');
+            const canAssignRoles = this._can('assign_roles');
+            const isOwner = this.currentRoomRole === 'owner';
+
+            if (!canManageMembers) {
+                wrap.classList.add('hidden');
+                wrap.innerHTML = '';
+                return;
+            }
+
+            wrap.classList.remove('hidden');
+
+            if (!members.length) {
+                wrap.innerHTML = '<div class="room-settings-group"><div class="room-settings-group-label">멤버 관리</div><div class="room-settings-empty">멤버 정보를 불러오는 중입니다.</div></div>';
+                return;
+            }
+
+            wrap.innerHTML = `
+                <div class="room-settings-group">
+                    <div class="room-settings-group-label">멤버 관리</div>
+                    <div class="room-settings-hint">내 권한: ${this._roleLabel(this.currentRoomRole)}</div>
+                    <div class="room-member-admin-list">
+                        ${members.map((m) => {
+                            const role = m.role || 'member';
+                            const isMe = String(m.id) === String(myId);
+                            const canKick = !isMe && role !== 'owner' && (isOwner || role === 'member');
+                            const canRoleEdit = canAssignRoles && !isMe && role !== 'owner';
+                            const canTransfer = isOwner && !isMe && role !== 'owner';
+
+                            return `
+                                <div class="room-member-admin-row">
+                                    <div class="room-member-admin-main">
+                                        <span class="room-member-name">${esc(m.nickname)}</span>
+                                        <span class="room-member-role role-${esc(role)}">${this._roleLabel(role)}</span>
+                                        ${isMe ? '<span class="room-member-you">나</span>' : ''}
+                                    </div>
+                                    <div class="room-member-admin-actions">
+                                        ${canRoleEdit ? `
+                                            <button class="room-mini-action" onclick="GroupRooms.changeMemberRole(${m.id}, '${role === 'manager' ? 'member' : 'manager'}')">
+                                                ${role === 'manager' ? '매니저 해제' : '매니저 지정'}
+                                            </button>
+                                        ` : ''}
+                                        ${canTransfer ? `
+                                            <button class="room-mini-action room-mini-action-owner" onclick="GroupRooms.transferOwner(${m.id})">방장 위임</button>
+                                        ` : ''}
+                                        ${canKick ? `
+                                            <button class="room-mini-action room-mini-action-danger" onclick="GroupRooms.kickMember(${m.id}, '${esc(m.nickname)}')">강퇴</button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        },
+
+        async changeMemberRole(userId, role) {
+            if (!this.activeRoomId) return;
+            const roleLabel = role === 'manager' ? '매니저' : '멤버';
+            if (!confirm(`해당 사용자의 권한을 ${roleLabel}(으)로 변경할까요?`)) return;
+            try {
+                await this.apiPatch(`/api/rooms/${this.activeRoomId}/members/${userId}/role`, { role });
+                await this.loadRoomContext(this.activeRoomId);
+                this._renderSettingsMemberControls();
+                showToast(`권한이 ${roleLabel}(으)로 변경되었습니다.`);
+            } catch (err) {
+                alert(err.message);
+            }
+        },
+
+        async kickMember(userId, nickname) {
+            if (!this.activeRoomId) return;
+            if (!confirm(`${nickname} 님을 방에서 내보낼까요?`)) return;
+            try {
+                await this.apiDelete(`/api/rooms/${this.activeRoomId}/members/${userId}`);
+                await this.loadRoomContext(this.activeRoomId);
+                this._renderSettingsMemberControls();
+                await this.loadMyRooms();
+                showToast(`${nickname} 님을 강퇴했습니다.`);
+            } catch (err) {
+                alert(err.message);
+            }
+        },
+
+        async transferOwner(userId) {
+            if (!this.activeRoomId) return;
+            if (!confirm('정말 방장을 위임할까요? 위임 후에는 방 삭제/역할 부여 권한이 사라집니다.')) return;
+            try {
+                await this.apiPatch(`/api/rooms/${this.activeRoomId}/owner`, { next_owner_user_id: userId });
+                await Promise.all([
+                    this.loadRoomContext(this.activeRoomId),
+                    this.loadMyRooms(),
+                ]);
+                this.showRoomView(this.activeRoomId);
+                this._renderSettingsMemberControls();
+                showToast('방장을 위임했습니다.');
+            } catch (err) {
+                alert(err.message);
+            }
         },
 
         hideSettingsModal() {
@@ -872,6 +1018,10 @@
         },
 
         async _onWallpaperClick(key, isOwned) {
+            if (!this._can('manage_decor')) {
+                showToast('방 꾸미기 적용 권한이 없습니다.');
+                return;
+            }
             if (!isOwned) {
                 await this._buyItem(key);
             } else {
@@ -911,6 +1061,10 @@
         },
 
         async _onPropClick(key, isOwned, isOn) {
+            if (!this._can('manage_decor')) {
+                showToast('방 꾸미기 적용 권한이 없습니다.');
+                return;
+            }
             if (!isOwned) {
                 await this._buyItem(key);
                 return;
@@ -933,6 +1087,10 @@
 
         async _buyItem(key) {
             if (!this.activeRoomId) return;
+            if (!this._can('manage_decor')) {
+                showToast('방 꾸미기 적용 권한이 없습니다.');
+                return;
+            }
             const all = [...ROOM_SHOP.wallpapers, ...ROOM_SHOP.props];
             const item = all.find(i => i.key === key);
             if (!item) return;

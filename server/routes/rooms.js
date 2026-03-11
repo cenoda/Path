@@ -124,6 +124,12 @@ function hasRoomPermission(role, permission) {
     return Boolean(ROOM_ROLE_PERMISSIONS[role] && ROOM_ROLE_PERMISSIONS[role][permission]);
 }
 
+function roomRoleRank(role) {
+    if (role === ROOM_ROLE.OWNER) return 3;
+    if (role === ROOM_ROLE.MANAGER) return 2;
+    return 1;
+}
+
 async function getRoomRole(clientOrPool, roomId, userId) {
     const roleRes = await clientOrPool.query(
         `SELECT COALESCE(rr.role,
@@ -535,7 +541,144 @@ router.patch('/:id/members/:userId/role', roomsWriteLimiter, requireAuth, async 
     }
 });
 
-// DELETE /api/rooms/:id — delete room (creator only, soft-delete)
+// DELETE /api/rooms/:id/members/:userId — kick member (owner/manager)
+router.delete('/:id/members/:userId', roomsWriteLimiter, requireAuth, async (req, res) => {
+    const roomId = parseInt(req.params.id, 10);
+    const targetUserId = parseInt(req.params.userId, 10);
+    if (!roomId || !targetUserId) return res.status(400).json({ error: '잘못된 요청' });
+
+    let client;
+    try {
+        client = await pool.connect();
+        await client.query('BEGIN');
+
+        const roomRes = await client.query(
+            `SELECT id, creator_id FROM study_rooms WHERE id = $1 AND is_active = TRUE`,
+            [roomId]
+        );
+        if (!roomRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '방을 찾을 수 없습니다.' });
+        }
+
+        const myRole = await getRoomRole(client, roomId, req.session.userId);
+        if (!myRole) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: '방 멤버가 아닙니다.' });
+        }
+        if (!hasRoomPermission(myRole, ROOM_PERMISSION.MANAGE_MEMBERS)) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: '멤버 관리 권한이 없습니다.' });
+        }
+        if (targetUserId === req.session.userId) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '본인은 강퇴할 수 없습니다. 나가기를 사용해주세요.' });
+        }
+
+        const targetRole = await getRoomRole(client, roomId, targetUserId);
+        if (!targetRole) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '대상 사용자가 방 멤버가 아닙니다.' });
+        }
+        if (targetRole === ROOM_ROLE.OWNER || targetUserId === roomRes.rows[0].creator_id) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '방장은 강퇴할 수 없습니다.' });
+        }
+        if (roomRoleRank(myRole) <= roomRoleRank(targetRole)) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: '본인보다 높은(또는 같은) 권한은 강퇴할 수 없습니다.' });
+        }
+
+        await client.query(
+            `DELETE FROM study_room_member_roles WHERE room_id = $1 AND user_id = $2`,
+            [roomId, targetUserId]
+        );
+        await client.query(
+            `DELETE FROM study_room_members WHERE room_id = $1 AND user_id = $2`,
+            [roomId, targetUserId]
+        );
+
+        await client.query('COMMIT');
+        res.json({ ok: true, room_id: roomId, kicked_user_id: targetUserId });
+    } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
+        console.error('rooms/:id/members/:userId DELETE error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// PATCH /api/rooms/:id/owner — transfer ownership (owner only)
+router.patch('/:id/owner', roomsWriteLimiter, requireAuth, async (req, res) => {
+    const roomId = parseInt(req.params.id, 10);
+    const nextOwnerUserId = parseInt(req.body.next_owner_user_id, 10);
+    if (!roomId || !nextOwnerUserId) return res.status(400).json({ error: '잘못된 요청' });
+
+    let client;
+    try {
+        client = await pool.connect();
+        await client.query('BEGIN');
+
+        const roomRes = await client.query(
+            `SELECT id, creator_id FROM study_rooms WHERE id = $1 AND is_active = TRUE FOR UPDATE`,
+            [roomId]
+        );
+        if (!roomRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '방을 찾을 수 없습니다.' });
+        }
+
+        const myRole = await getRoomRole(client, roomId, req.session.userId);
+        if (myRole !== ROOM_ROLE.OWNER || roomRes.rows[0].creator_id !== req.session.userId) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: '방장만 방장 위임을 할 수 있습니다.' });
+        }
+        if (nextOwnerUserId === req.session.userId) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '본인에게 다시 위임할 수 없습니다.' });
+        }
+
+        const targetMemberRes = await client.query(
+            `SELECT 1 FROM study_room_members WHERE room_id = $1 AND user_id = $2`,
+            [roomId, nextOwnerUserId]
+        );
+        if (!targetMemberRes.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '새 방장은 현재 방 멤버여야 합니다.' });
+        }
+
+        await client.query(
+            `UPDATE study_rooms SET creator_id = $2 WHERE id = $1`,
+            [roomId, nextOwnerUserId]
+        );
+        await client.query(
+            `INSERT INTO study_room_member_roles (room_id, user_id, role)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (room_id, user_id)
+             DO UPDATE SET role = EXCLUDED.role, updated_at = NOW()`,
+            [roomId, req.session.userId, ROOM_ROLE.MANAGER]
+        );
+        await client.query(
+            `INSERT INTO study_room_member_roles (room_id, user_id, role)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (room_id, user_id)
+             DO UPDATE SET role = EXCLUDED.role, updated_at = NOW()`,
+            [roomId, nextOwnerUserId, ROOM_ROLE.OWNER]
+        );
+
+        await client.query('COMMIT');
+        res.json({ ok: true, room_id: roomId, previous_owner_id: req.session.userId, new_owner_id: nextOwnerUserId });
+    } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
+        console.error('rooms/:id/owner PATCH error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// DELETE /api/rooms/:id — delete room (owner only, soft/hard)
 router.delete('/:id', roomsWriteLimiter, requireAuth, async (req, res) => {
     const roomId = parseInt(req.params.id, 10);
     const hardDelete = req.query.hard === 'true' || req.query.hard === true;

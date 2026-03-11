@@ -130,6 +130,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let currentUser = null;
+function syncCurrentUserGlobal() {
+    window.currentUser = currentUser;
+}
+
 let myTotalSec = 0;
 let allUsers = [];
 let allUniversities = [];
@@ -352,6 +356,7 @@ async function initHub() {
 
         const meData = await meRes.json();
         currentUser = meData.user;
+        syncCurrentUserGlobal();
 
         let topPct = 100;
         if (rankMeRes.ok) {
@@ -413,18 +418,45 @@ function getDisplayName(user) {
 
 function mergeCurrentUser(nextUser) {
     currentUser = { ...(currentUser || {}), ...(nextUser || {}) };
+    syncCurrentUserGlobal();
     return currentUser;
 }
 
 function updateHUD(user) {
-    const mergedUser = { ...(currentUser || {}), ...(user || {}) };
+    const mergedUser = mergeCurrentUser(user);
     const displayName = getDisplayName(mergedUser);
-    document.getElementById('badge-char').textContent = (displayName || '?').charAt(0).toUpperCase();
+    const badgeChar = document.getElementById('badge-char');
+    const badgePhoto = document.getElementById('badge-photo');
+    const profileImageUrl = typeof mergedUser.profile_image_url === 'string' ? mergedUser.profile_image_url.trim() : '';
+
+    if (badgePhoto) {
+        if (profileImageUrl) {
+            badgePhoto.src = profileImageUrl;
+            badgePhoto.classList.remove('hidden');
+            if (badgeChar) badgeChar.textContent = '';
+        } else {
+            badgePhoto.removeAttribute('src');
+            badgePhoto.classList.add('hidden');
+            if (badgeChar) badgeChar.textContent = (displayName || '?').charAt(0).toUpperCase();
+        }
+    } else if (badgeChar) {
+        badgeChar.textContent = (displayName || '?').charAt(0).toUpperCase();
+    }
+
     document.getElementById('hud-univ').textContent = displayName || '-';
     document.getElementById('hud-gold').textContent = (mergedUser.gold || 0).toLocaleString();
     document.getElementById('hud-hours').textContent = secToHour(myTotalSec);
     document.getElementById('hud-tickets').textContent = (mergedUser.tickets || 0) + '장';
 }
+
+function applyCurrentUserUpdate(nextUser) {
+    if (!nextUser || typeof nextUser !== 'object') return;
+    currentUser = mergeCurrentUser(nextUser);
+    updateHUD(currentUser);
+    updateMyBuilding(currentUser);
+}
+
+window.applyCurrentUserUpdate = applyCurrentUserUpdate;
 
 function updateMyBuilding(user) {
     const img = document.getElementById('my-castle-img');

@@ -22,6 +22,8 @@ const pool = require('./db');
 const WORLD_SIZE       = 200000; // total world width/height in world-units
 const WORLD_SEED       = 777;     // fixed seed distributed to every client
 const MAX_PROP_ID_LEN  = 64;      // maximum length of a prop identifier string
+const MIN_WORLD_Z      = -40;
+const MAX_WORLD_Z      = 500;
 
 // In-memory player registry
 // key: socket.id  →  { userId, nickname, university, balloon_skin, balloon_aura,
@@ -47,6 +49,22 @@ function playerPublic(p) {
         status_message: p.status_message || null,
         worldX: p.worldX,
         worldY: p.worldY,
+        worldZ: p.worldZ,
+    };
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, Number(value) || 0));
+}
+
+function defaultSpawnForUser(userId) {
+    const safeId = Number(userId) || 1;
+    const angle = ((safeId * 137.508) % 360) * (Math.PI / 180);
+    const ring = 2600 + ((safeId * 977) % 3200); // 2.6k ~ 5.8k
+    return {
+        worldX: Math.round(Math.cos(angle) * ring),
+        worldY: Math.round(Math.sin(angle) * ring),
+        worldZ: 0
     };
 }
 
@@ -80,28 +98,51 @@ function setup(io) {
                 nickname = '', university = '',
                 display_nickname = '', active_streak = 0,
                 balloon_skin = 'default', balloon_aura = 'none', status_message = null,
-                worldX = 0, worldY = 0,
+                worldX = 0, worldY = 0, worldZ = 0,
             } = data;
 
             // Load last saved position from DB (overrides client-provided default)
-            let savedX = worldX, savedY = worldY;
+            let savedX = worldX;
+            let savedY = worldY;
+            let savedZ = worldZ;
             try {
                 const res = await pool.query(
-                    'SELECT world_x, world_y FROM users WHERE id = $1',
+                    'SELECT world_x, world_y, world_z FROM users WHERE id = $1',
                     [userId]
                 );
                 if (res.rows.length > 0) {
                     const row = res.rows[0];
-                    if (row.world_x != null) savedX = Number(row.world_x);
-                    if (row.world_y != null) savedY = Number(row.world_y);
+                    const dbX = row.world_x != null ? Number(row.world_x) : null;
+                    const dbY = row.world_y != null ? Number(row.world_y) : null;
+                    const dbZ = row.world_z != null ? Number(row.world_z) : null;
+                    const hasSavedPosition = Number.isFinite(dbX) && Number.isFinite(dbY)
+                        && (dbX !== 0 || dbY !== 0 || (Number.isFinite(dbZ) && dbZ !== 0));
+                    if (hasSavedPosition) {
+                        savedX = dbX;
+                        savedY = dbY;
+                        savedZ = Number.isFinite(dbZ) ? dbZ : 0;
+                    } else {
+                        const clientHasPos = (Number(worldX) !== 0 || Number(worldY) !== 0 || Number(worldZ) !== 0);
+                        if (clientHasPos) {
+                            savedX = Number(worldX) || 0;
+                            savedY = Number(worldY) || 0;
+                            savedZ = Number(worldZ) || 0;
+                        } else {
+                            const spawn = defaultSpawnForUser(userId);
+                            savedX = spawn.worldX;
+                            savedY = spawn.worldY;
+                            savedZ = spawn.worldZ;
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('world:join position load error:', err.message);
             }
 
             const clamped = {
-                worldX: Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, savedX)),
-                worldY: Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, savedY)),
+                worldX: clamp(savedX, -WORLD_SIZE / 2, WORLD_SIZE / 2),
+                worldY: clamp(savedY, -WORLD_SIZE / 2, WORLD_SIZE / 2),
+                worldZ: clamp(savedZ, MIN_WORLD_Z, MAX_WORLD_Z),
             };
             players.set(socket.id, {
                 userId,
@@ -112,11 +153,11 @@ function setup(io) {
                 balloon_skin,
                 balloon_aura,
                 status_message,
-                worldX: clamped.worldX, worldY: clamped.worldY,
+                worldX: clamped.worldX, worldY: clamped.worldY, worldZ: clamped.worldZ,
             });
 
             // Send saved spawn position back to client
-            socket.emit('player:spawn', { worldX: clamped.worldX, worldY: clamped.worldY });
+            socket.emit('player:spawn', { worldX: clamped.worldX, worldY: clamped.worldY, worldZ: clamped.worldZ });
 
             // Send the snapshot of nearby players.
             socket.emit('players:nearby', getNearbyPlayers(socket.id));
@@ -141,20 +182,22 @@ function setup(io) {
             const player = players.get(socket.id);
             if (!player || !data) return;
 
-            let { worldX, worldY } = data;
-            worldX = Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, Number(worldX) || 0));
-            worldY = Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, Number(worldY) || 0));
+            let { worldX, worldY, worldZ } = data;
+            worldX = clamp(worldX, -WORLD_SIZE / 2, WORLD_SIZE / 2);
+            worldY = clamp(worldY, -WORLD_SIZE / 2, WORLD_SIZE / 2);
+            worldZ = clamp(worldZ, MIN_WORLD_Z, MAX_WORLD_Z);
 
             player.worldX = worldX;
             player.worldY = worldY;
+            player.worldZ = worldZ;
 
             // Periodically persist position to DB
             const now = Date.now();
             if (now - lastMoveSaveAt > MOVE_SAVE_INTERVAL) {
                 lastMoveSaveAt = now;
                 pool.query(
-                    'UPDATE users SET world_x = $1, world_y = $2 WHERE id = $3',
-                    [Math.round(worldX), Math.round(worldY), player.userId]
+                    'UPDATE users SET world_x = $1, world_y = $2, world_z = $3 WHERE id = $4',
+                    [Math.round(worldX), Math.round(worldY), Math.round(worldZ), player.userId]
                 ).catch(err => console.error('world:move save error:', err.message));
             }
 
@@ -163,7 +206,7 @@ function setup(io) {
 
             // Fan out position update globally (except sender).
             socket.broadcast.emit('player:moved', {
-                id: player.userId, worldX, worldY,
+                id: player.userId, worldX, worldY, worldZ,
             });
         });
 
@@ -211,8 +254,8 @@ function setup(io) {
             const player = players.get(socket.id);
             if (player) {                // Save last position to DB for next login spawn
                 pool.query(
-                    'UPDATE users SET world_x = $1, world_y = $2 WHERE id = $3',
-                    [Math.round(player.worldX), Math.round(player.worldY), player.userId]
+                    'UPDATE users SET world_x = $1, world_y = $2, world_z = $3 WHERE id = $4',
+                    [Math.round(player.worldX), Math.round(player.worldY), Math.round(player.worldZ || 0), player.userId]
                 ).catch(err => console.error('world:disconnect save position error:', err.message));
                 socket.broadcast.emit('player:left', { id: player.userId });
                 players.delete(socket.id);

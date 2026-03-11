@@ -499,6 +499,7 @@ async function initSchema() {
         await client.query(`
             ALTER TABLE users ADD COLUMN IF NOT EXISTS world_x INTEGER DEFAULT 0;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS world_y INTEGER DEFAULT 0;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS world_z INTEGER DEFAULT 0;
         `);
 
         console.log('DB 스키마 초기화 완료');

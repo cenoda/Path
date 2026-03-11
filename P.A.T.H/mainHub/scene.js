@@ -92,7 +92,33 @@ const WorldScene = {
     orbitVelPhi: 0,
     playerWorldX: 0,
     playerWorldY: 0,
-    playerWorldZ: 0, // height
+    playerWorldZ: 0, // altitude offset from BALLOON_FLOAT_Y
+    minWorldZ: -40,
+    maxWorldZ: 500,
+    touchGesture: null,
+    oneHandCruise: {
+        active: false,
+        pointerId: null,
+        anchorX: 0,
+        anchorY: 0,
+        dirX: 0,
+        dirY: 1,
+        speed: 0.6,
+        longPressTimer: null,
+    },
+    touchTuning: {
+        altitudeZone: 0.72,
+        longPressMs: 320,
+        tapPx: 9,
+        tapMaxMs: 230,
+        cancelLongPressPx: 14,
+        altitudeSwipeGain: 1.8,
+        dragMoveScale: 0.0023,
+        cruiseMinSpeed: 0.22,
+        cruiseResponsePx: 120,
+        cruiseStartSpeed: 0.6,
+    },
+    ignoreNextClickUntil: 0,
 
     isDragging: false,
     isDraggingBalloon: false,
@@ -165,6 +191,7 @@ const WorldScene = {
         this._buildClouds();
         this._buildSkyIslands();
         this.balloonLodDistance = this._getAdaptiveBalloonLodDistance();
+        this.touchTuning = this._getAdaptiveTouchTuning();
 
         this.isLight = document.body.classList.contains('light');
         this.dayNightMix = this.isLight ? 1 : 0;
@@ -898,7 +925,7 @@ const WorldScene = {
     },
 
     /** Move a single remote player to a new world position (socket player:moved). */
-    moveWorldPlayer(userId, worldX, worldY) {
+    moveWorldPlayer(userId, worldX, worldY, worldZ) {
         const b = this.balloons.get(userId);
         if (!b || b.isMe) return;
         if (b.kind !== 'nearby') return;
@@ -1155,12 +1182,36 @@ const WorldScene = {
 
     /** Clamp player position to the world boundary. */
     _clampCamPos() {
+        this._clampPlayerState();
+    },
+
+    _clampPlayerState() {
         this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldX));
         this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldY));
-        // Keep legacy camPos in sync
+        this.playerWorldZ = Math.max(this.minWorldZ, Math.min(this.maxWorldZ, this.playerWorldZ));
         const s = worldToScene3D(this.playerWorldX, this.playerWorldY);
         this.camPos.x = s.x;
         this.camPos.y = s.z;
+    },
+
+    _getBalloonBaseY() {
+        return BALLOON_FLOAT_Y + this.playerWorldZ;
+    },
+
+    _setPlayerWorldPosition(worldX, worldY, worldZ = this.playerWorldZ) {
+        this.playerWorldX = Number(worldX) || 0;
+        this.playerWorldY = Number(worldY) || 0;
+        this.playerWorldZ = Number(worldZ) || 0;
+        this._clampPlayerState();
+        this._syncPlayerPosition();
+    },
+
+    _applyPlayerWorldDelta(dx = 0, dy = 0, dz = 0) {
+        this._setPlayerWorldPosition(
+            this.playerWorldX + dx,
+            this.playerWorldY + dy,
+            this.playerWorldZ + dz
+        );
     },
 
     /**
@@ -1171,6 +1222,7 @@ const WorldScene = {
         return {
             x: Math.round(this.playerWorldX),
             y: Math.round(this.playerWorldY),
+            z: Math.round(this.playerWorldZ),
         };
     },
 
@@ -1178,7 +1230,7 @@ const WorldScene = {
         return {
             x: Math.round(this.playerWorldX),
             y: Math.round(this.playerWorldY),
-            z: Math.round(this.orbitRadius)
+            z: Math.round(this.playerWorldZ)
         };
     },
 
@@ -1197,17 +1249,13 @@ const WorldScene = {
     },
 
     /** Teleport to world-unit coordinates. */
-    teleportTo(worldX, worldY) {
-        this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, worldX));
-        this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, worldY));
-        this._syncPlayerPosition();
+    teleportTo(worldX, worldY, worldZ = this.playerWorldZ) {
+        this._setPlayerWorldPosition(worldX, worldY, worldZ);
     },
 
     /** Set initial spawn position from saved world coordinates. */
-    setSpawnPosition(worldX, worldY) {
-        this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, worldX || 0));
-        this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, worldY || 0));
-        this._syncPlayerPosition();
+    setSpawnPosition(worldX, worldY, worldZ = 0) {
+        this._setPlayerWorldPosition(worldX || 0, worldY || 0, worldZ || 0);
     },
 
     setUniversityLandmarkStats(stats) {
@@ -1369,6 +1417,59 @@ const WorldScene = {
             pointerButton = e.button;
             canvas.setPointerCapture(e.pointerId);
 
+            // Mobile-first, no-button controls:
+            // - left/center touch drag: move in world plane
+            // - right-side vertical swipe: altitude up/down
+            if (e.pointerType === 'touch') {
+                const tune = this.touchTuning || {};
+                const altitudeZone = Number.isFinite(tune.altitudeZone) ? tune.altitudeZone : 0.72;
+                const mode = (e.clientX / Math.max(1, window.innerWidth)) >= altitudeZone
+                    ? 'altitude'
+                    : 'travel';
+                this.touchGesture = {
+                    pointerId: e.pointerId,
+                    mode,
+                    startedAt: Date.now(),
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    moved: 0,
+                    longPressActivated: false,
+                };
+                this.isDraggingBalloon = mode === 'travel' && !this.oneHandCruise.active;
+                this.isDragging = false;
+
+                if (mode === 'travel' && this.oneHandCruise.active) {
+                    this.oneHandCruise.pointerId = e.pointerId;
+                    this.oneHandCruise.anchorX = e.clientX;
+                    this.oneHandCruise.anchorY = e.clientY;
+                    this.touchGesture.mode = 'cruise-steer';
+                    this._showTravelHint(true, '원핸드 순항 조향 중... 탭하면 해제');
+                    return;
+                }
+
+                if (mode === 'travel') {
+                    const tune2 = this.touchTuning || {};
+                    const longPressMs = Number.isFinite(tune2.longPressMs) ? tune2.longPressMs : 320;
+                    this.springActive = false;
+                    this._showTravelHint(true, '화면 드래그 이동 · 길게 누르면 원핸드 순항');
+                    this._clearOneHandLongPressTimer();
+                    this.oneHandCruise.longPressTimer = setTimeout(() => {
+                        const tune3 = this.touchTuning || {};
+                        const cancelLongPressPx = Number.isFinite(tune3.cancelLongPressPx) ? tune3.cancelLongPressPx : 14;
+                        if (!this.touchGesture) return;
+                        if (this.touchGesture.pointerId !== e.pointerId) return;
+                        if (this.touchGesture.mode !== 'travel') return;
+                        if (this.touchGesture.moved > cancelLongPressPx) return;
+                        this.touchGesture.longPressActivated = true;
+                        this.touchGesture.mode = 'cruise-steer';
+                        this.isDraggingBalloon = false;
+                        this._startOneHandCruise(e.pointerId, e.clientX, e.clientY);
+                        this.ignoreNextClickUntil = Date.now() + 420;
+                    }, longPressMs);
+                }
+                return;
+            }
+
             // Check if user clicked their own balloon for dragging
             if (this.myBalloon && e.button === 0) {
                 const rect = canvas.getBoundingClientRect();
@@ -1398,6 +1499,47 @@ const WorldScene = {
             const dy = e.clientY - this.lastPointer.y;
             this.lastPointer = { x: e.clientX, y: e.clientY };
 
+            if (e.pointerType === 'touch' && this.touchGesture?.pointerId === e.pointerId) {
+                const movedNow = Math.hypot(dx, dy);
+                this.balloonDragDist += movedNow;
+                this.touchGesture.moved += movedNow;
+
+                if (this.touchGesture.mode === 'altitude') {
+                    this._clearOneHandLongPressTimer();
+                    const tune = this.touchTuning || {};
+                    const altitudeSwipeGain = Number.isFinite(tune.altitudeSwipeGain) ? tune.altitudeSwipeGain : 1.8;
+                    const dz = (-dy) * altitudeSwipeGain;
+                    this._applyPlayerWorldDelta(0, 0, dz);
+                    return;
+                }
+
+                if (this.touchGesture.mode === 'cruise-steer') {
+                    this._clearOneHandLongPressTimer();
+                    this._updateOneHandCruiseVector(e.clientX, e.clientY);
+                    return;
+                }
+
+                const tune = this.touchTuning || {};
+                const cancelLongPressPx = Number.isFinite(tune.cancelLongPressPx) ? tune.cancelLongPressPx : 14;
+                if (this.touchGesture.mode === 'travel' && this.touchGesture.moved > cancelLongPressPx) {
+                    this._clearOneHandLongPressTimer();
+                }
+
+                const forward = new THREE.Vector3();
+                this.camera.getWorldDirection(forward);
+                forward.y = 0;
+                forward.normalize();
+                const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+                const dragMoveScale = Number.isFinite(tune.dragMoveScale) ? tune.dragMoveScale : 0.0023;
+                const moveScale = this.orbitRadius * dragMoveScale;
+                this._applyPlayerWorldDelta(
+                    (right.x * dx + forward.x * (-dy)) * moveScale / WORLD_SCALE,
+                    (right.z * dx + forward.z * (-dy)) * moveScale / WORLD_SCALE,
+                    0
+                );
+                return;
+            }
+
             // Dragging own balloon: move player in world XZ plane
             if (this.isDraggingBalloon && this.myBalloon) {
                 this.balloonDragDist += Math.hypot(dx, dy);
@@ -1409,11 +1551,11 @@ const WorldScene = {
                 const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
                 const moveScale = this.orbitRadius * 0.002;
-                this.playerWorldX += (right.x * dx + forward.x * (-dy)) * moveScale / WORLD_SCALE;
-                this.playerWorldY += (right.z * dx + forward.z * (-dy)) * moveScale / WORLD_SCALE;
-                this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldX));
-                this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldY));
-                this._syncPlayerPosition();
+                this._applyPlayerWorldDelta(
+                    (right.x * dx + forward.x * (-dy)) * moveScale / WORLD_SCALE,
+                    (right.z * dx + forward.z * (-dy)) * moveScale / WORLD_SCALE,
+                    0
+                );
                 return;
             }
 
@@ -1442,11 +1584,11 @@ const WorldScene = {
                 forward.normalize();
                 const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
                 const panScale = this.orbitRadius * 0.0015;
-                this.playerWorldX += (right.x * (-dx) + forward.x * dy) * panScale / WORLD_SCALE;
-                this.playerWorldY += (right.z * (-dx) + forward.z * dy) * panScale / WORLD_SCALE;
-                this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldX));
-                this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldY));
-                this._syncPlayerPosition();
+                this._applyPlayerWorldDelta(
+                    (right.x * (-dx) + forward.x * dy) * panScale / WORLD_SCALE,
+                    (right.z * (-dx) + forward.z * dy) * panScale / WORLD_SCALE,
+                    0
+                );
             } else {
                 // Left-drag: orbit camera rotation
                 this.orbitVelTheta += -dx * ORBIT_ROTATE_SPEED;
@@ -1455,6 +1597,26 @@ const WorldScene = {
         });
 
         canvas.addEventListener('pointerup', (e) => {
+            if (this.touchGesture?.pointerId === e.pointerId) {
+                const tune = this.touchTuning || {};
+                const tapPx = Number.isFinite(tune.tapPx) ? tune.tapPx : 9;
+                const tapMaxMs = Number.isFinite(tune.tapMaxMs) ? tune.tapMaxMs : 230;
+                const elapsed = Date.now() - (this.touchGesture.startedAt || Date.now());
+                const isTap = this.touchGesture.moved < tapPx && elapsed < tapMaxMs;
+
+                if (this.touchGesture.mode === 'cruise-steer' && this.oneHandCruise.active && isTap) {
+                    this._stopOneHandCruise();
+                    this._showTravelHint(false);
+                } else if (this.touchGesture.mode === 'cruise-steer' && this.oneHandCruise.active) {
+                    this._showTravelHint(true, '원핸드 순항 중... 탭하면 해제');
+                } else if (this.touchGesture.mode === 'travel') {
+                    this._showTravelHint(false);
+                }
+
+                this._clearOneHandLongPressTimer();
+                this.touchGesture = null;
+                this.ignoreNextClickUntil = Date.now() + 260;
+            }
             if (this.isDraggingBalloon) {
                 this.isDraggingBalloon = false;
                 canvas.style.cursor = '';
@@ -1476,6 +1638,7 @@ const WorldScene = {
         }, { passive: false });
 
         canvas.addEventListener('click', (e) => {
+            if (Date.now() < this.ignoreNextClickUntil) return;
             if (this.balloonDragDist > 8) return;
             const rect = canvas.getBoundingClientRect();
             const mouse = new THREE.Vector2(
@@ -1621,26 +1784,93 @@ const WorldScene = {
     /** Sync the player's Three.js position with internal world coords */
     _syncPlayerPosition() {
         const s = worldToScene3D(this.playerWorldX, this.playerWorldY);
+        const baseY = this._getBalloonBaseY();
         if (this.orbitTarget) {
-            this.orbitTarget.set(s.x, BALLOON_FLOAT_Y, s.z);
+            this.orbitTarget.set(s.x, baseY, s.z);
         }
         if (this.myBalloon) {
             const grp = this.myBalloon.group;
             grp.position.x = s.x;
             grp.position.z = s.z;
-            grp.userData.baseY = BALLOON_FLOAT_Y;
+            grp.userData.baseY = baseY;
         }
         // Keep legacy camPos in sync for coordinate display compat
         this.camPos.x = s.x;
         this.camPos.y = s.z;
     },
 
+    _clearOneHandLongPressTimer() {
+        const t = this.oneHandCruise?.longPressTimer;
+        if (!t) return;
+        clearTimeout(t);
+        this.oneHandCruise.longPressTimer = null;
+    },
+
+    _stopOneHandCruise() {
+        this._clearOneHandLongPressTimer();
+        this.oneHandCruise.active = false;
+        this.oneHandCruise.pointerId = null;
+    },
+
+    _startOneHandCruise(pointerId, x, y) {
+        const forward = new THREE.Vector3();
+        this.camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+        this.oneHandCruise.active = true;
+        this.oneHandCruise.pointerId = pointerId;
+        this.oneHandCruise.anchorX = x;
+        this.oneHandCruise.anchorY = y;
+        this.oneHandCruise.dirX = Number.isFinite(forward.x) ? forward.x : 0;
+        this.oneHandCruise.dirY = Number.isFinite(forward.z) ? forward.z : 1;
+        const tune = this.touchTuning || {};
+        this.oneHandCruise.speed = Number.isFinite(tune.cruiseStartSpeed) ? tune.cruiseStartSpeed : 0.6;
+        this._showTravelHint(true, '원핸드 순항 모드: 드래그 조향 · 탭 해제');
+    },
+
+    _updateOneHandCruiseVector(clientX, clientY) {
+        const dx = clientX - this.oneHandCruise.anchorX;
+        const dy = clientY - this.oneHandCruise.anchorY;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 6) return;
+
+        const forward = new THREE.Vector3();
+        this.camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+        const worldDX = right.x * dx + forward.x * (-dy);
+        const worldDY = right.z * dx + forward.z * (-dy);
+        const len = Math.hypot(worldDX, worldDY);
+        if (len < 0.001) return;
+
+        this.oneHandCruise.dirX = worldDX / len;
+        this.oneHandCruise.dirY = worldDY / len;
+        const tune = this.touchTuning || {};
+        const cruiseMinSpeed = Number.isFinite(tune.cruiseMinSpeed) ? tune.cruiseMinSpeed : 0.22;
+        const cruiseResponsePx = Number.isFinite(tune.cruiseResponsePx) ? tune.cruiseResponsePx : 120;
+        this.oneHandCruise.speed = Math.max(cruiseMinSpeed, Math.min(1, dist / cruiseResponsePx));
+    },
+
+    _getOneHandCruiseDelta(baseMoveSpeed) {
+        if (!this.oneHandCruise.active) return { dx: 0, dy: 0 };
+        return {
+            dx: this.oneHandCruise.dirX * baseMoveSpeed * this.oneHandCruise.speed,
+            dy: this.oneHandCruise.dirY * baseMoveSpeed * this.oneHandCruise.speed,
+        };
+    },
+
     _setupKeyboard() {
         const moveSpeed = 120; // world-units per tick
+        const verticalSpeed = 30; // altitude-units per tick
         document.addEventListener('keydown', (e) => {
             this.keysPressed[e.key.toLowerCase()] = true;
             if (e.key.toLowerCase() === 'r') this.cycleWeather();
             if (e.key.toLowerCase() === 'h') this.focusHome();
+            if (e.code === 'Space' || e.key === 'PageUp' || e.key === 'PageDown') {
+                e.preventDefault();
+            }
         });
         document.addEventListener('keyup', (e) => {
             this.keysPressed[e.key.toLowerCase()] = false;
@@ -1660,18 +1890,29 @@ const WorldScene = {
             if (this.keysPressed['a'] || this.keysPressed['arrowleft']) { mx -= right.x; mz -= right.z; }
             if (this.keysPressed['d'] || this.keysPressed['arrowright']) { mx += right.x; mz += right.z; }
 
+            let dz = 0;
+            if (this.keysPressed[' '] || this.keysPressed['e'] || this.keysPressed['pageup']) dz += verticalSpeed;
+            if (this.keysPressed['shift'] || this.keysPressed['q'] || this.keysPressed['control'] || this.keysPressed['pagedown']) dz -= verticalSpeed;
+
+            let dx = 0;
+            let dy = 0;
             if (mx !== 0 || mz !== 0) {
                 const len = Math.sqrt(mx * mx + mz * mz);
-                this.playerWorldX += (mx / len) * moveSpeed;
-                this.playerWorldY += (mz / len) * moveSpeed;
-                this.playerWorldX = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldX));
-                this.playerWorldY = Math.max(-WORLD_HALF, Math.min(WORLD_HALF, this.playerWorldY));
-                this._syncPlayerPosition();
+                dx += (mx / len) * moveSpeed;
+                dy += (mz / len) * moveSpeed;
+            }
+
+            const cruiseDelta = this._getOneHandCruiseDelta(moveSpeed);
+            dx += cruiseDelta.dx;
+            dy += cruiseDelta.dy;
+
+            if (dx !== 0 || dy !== 0 || dz !== 0) {
+                this._applyPlayerWorldDelta(dx, dy, dz);
             }
         }, 50);
     },
 
-    _showTravelHint(visible) {
+    _showTravelHint(visible, message) {
         let el = document.getElementById('travel-hint');
         if (!el) {
             el = document.createElement('div');
@@ -1688,7 +1929,7 @@ const WorldScene = {
             document.body.appendChild(el);
         }
         if (visible) {
-            el.textContent = '✈  열기구를 드래그해 여행 중...';
+            el.textContent = message || '✈  화면을 드래그해 이동 중...';
             el.style.opacity = '1';
         } else {
             el.style.opacity = '0';
@@ -1758,9 +1999,53 @@ const WorldScene = {
         return Math.max(1500, Math.min(3200, dist));
     },
 
+    _getAdaptiveTouchTuning() {
+        const nav = window.navigator || {};
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        const shortSide = Math.min(window.innerWidth || 0, window.innerHeight || 0);
+        const hasTouch = ('ontouchstart' in window) || ((nav.maxTouchPoints || 0) > 0);
+        const isMobileLike = hasTouch && shortSide <= 1024;
+
+        let longPressMs = isMobileLike ? 300 : 340;
+        let tapPx = isMobileLike ? 11 : 9;
+        let cancelLongPressPx = isMobileLike ? 18 : 14;
+        let altitudeSwipeGain = isMobileLike ? 2.0 : 1.8;
+        let dragMoveScale = isMobileLike ? 0.0027 : 0.0023;
+        let cruiseResponsePx = isMobileLike ? 105 : 120;
+        let cruiseStartSpeed = isMobileLike ? 0.62 : 0.6;
+
+        if (dpr >= 2.5) {
+            tapPx += 2;
+            cancelLongPressPx += 2;
+            dragMoveScale *= 1.08;
+            altitudeSwipeGain *= 1.08;
+            cruiseResponsePx = Math.max(88, cruiseResponsePx - 8);
+        }
+
+        if (shortSide <= 430) {
+            dragMoveScale *= 1.12;
+            altitudeSwipeGain *= 1.1;
+            longPressMs = Math.max(240, longPressMs - 25);
+        }
+
+        return {
+            altitudeZone: isMobileLike ? 0.74 : 0.72,
+            longPressMs: Math.round(longPressMs),
+            tapPx: Math.round(tapPx),
+            tapMaxMs: 240,
+            cancelLongPressPx: Math.round(cancelLongPressPx),
+            altitudeSwipeGain,
+            dragMoveScale,
+            cruiseMinSpeed: 0.22,
+            cruiseResponsePx,
+            cruiseStartSpeed,
+        };
+    },
+
     _onResize() {
         const W = window.innerWidth, H = window.innerHeight;
         this.balloonLodDistance = this._getAdaptiveBalloonLodDistance();
+        this.touchTuning = this._getAdaptiveTouchTuning();
         this.camera.aspect = W / H;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(W, H);
@@ -1791,7 +2076,7 @@ const WorldScene = {
         if (this.orbitTarget && this.myBalloon) {
             const grp = this.myBalloon.group;
             this.orbitTarget.x += (grp.position.x - this.orbitTarget.x) * 0.1;
-            this.orbitTarget.y += (BALLOON_FLOAT_Y - this.orbitTarget.y) * 0.1;
+            this.orbitTarget.y += (this._getBalloonBaseY() - this.orbitTarget.y) * 0.1;
             this.orbitTarget.z += (grp.position.z - this.orbitTarget.z) * 0.1;
         }
 

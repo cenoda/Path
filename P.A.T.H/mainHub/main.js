@@ -2613,14 +2613,15 @@ const _wsNearby   = new Map(); // userId → player snapshot from socket
  */
 function _startWorldPositionSync() {
     if (_wsPosTimer) return;
-    let lastWx = null, lastWy = null;
+    let lastWx = null, lastWy = null, lastWz = null;
     _wsPosTimer = setInterval(() => {
         if (!worldSocket || !window.WorldScene || !window.WorldScene.isReady) return;
         const pos = window.WorldScene.getWorldPosition();
-        if (lastWx === pos.x && lastWy === pos.y) return;
+        if (lastWx === pos.x && lastWy === pos.y && lastWz === pos.z) return;
         lastWx = pos.x;
         lastWy = pos.y;
-        worldSocket.emit('player:move', { worldX: pos.x, worldY: pos.y });
+        lastWz = pos.z;
+        worldSocket.emit('player:move', { worldX: pos.x, worldY: pos.y, worldZ: pos.z });
     }, POSITION_SYNC_MS);
 }
 
@@ -2673,13 +2674,13 @@ function initWorldSocket(user) {
     });
 
     // ── Remote player moved ──────────────────────────────────────────
-    worldSocket.on('player:moved', ({ id, worldX, worldY }) => {
+    worldSocket.on('player:moved', ({ id, worldX, worldY, worldZ }) => {
         const userId = _normalizeUserId(id);
         if (userId === null) return;
         const p = _wsNearby.get(userId);
-        if (p) { p.worldX = worldX; p.worldY = worldY; }
+        if (p) { p.worldX = worldX; p.worldY = worldY; p.worldZ = worldZ; }
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.moveWorldPlayer(userId, worldX, worldY);
+            window.WorldScene.moveWorldPlayer(userId, worldX, worldY, worldZ);
         }
     });
 
@@ -2696,14 +2697,14 @@ function initWorldSocket(user) {
     });
 
     // ── Spawn at saved position (from server DB) ────────────────────
-    worldSocket.on('player:spawn', ({ worldX, worldY }) => {
+    worldSocket.on('player:spawn', ({ worldX, worldY, worldZ }) => {
         if (window.WorldScene && window.WorldScene.isReady) {
-            window.WorldScene.setSpawnPosition(worldX, worldY);
+            window.WorldScene.setSpawnPosition(worldX, worldY, worldZ);
         } else {
             const prev = window._onWorldSceneReady;
             window._onWorldSceneReady = function() {
                 if (prev) prev();
-                window.WorldScene.setSpawnPosition(worldX, worldY);
+                window.WorldScene.setSpawnPosition(worldX, worldY, worldZ);
             };
         }
     });
@@ -2740,7 +2741,7 @@ function initWorldSocket(user) {
     // ── Announce ourselves to the server ────────────────────────────
     const pos = (window.WorldScene && window.WorldScene.isReady)
         ? window.WorldScene.getWorldPosition()
-        : { x: 0, y: 0 };
+        : { x: 0, y: 0, z: 0 };
 
     worldSocket.emit('player:join', {
         userId:         user.id,
@@ -2751,6 +2752,7 @@ function initWorldSocket(user) {
         status_message: user.status_message || null,
         worldX: pos.x,
         worldY: pos.y,
+        worldZ: pos.z,
     });
 
     // Wire up WorldScene's interaction callback so local clicks are emitted.

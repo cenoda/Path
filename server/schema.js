@@ -502,6 +502,129 @@ async function initSchema() {
             ALTER TABLE users ADD COLUMN IF NOT EXISTS world_z INTEGER DEFAULT 0;
         `);
 
+        // ── 입시 지원 시스템 ───────────────────────────────────────────────────
+
+        // 과목별 점수 (유저당 1행, UPSERT로 업데이트)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS exam_scores (
+                id                      SERIAL PRIMARY KEY,
+                user_id                 INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                -- 국어
+                korean_std              INTEGER,
+                korean_percentile       NUMERIC(5,2),
+                korean_subject          VARCHAR(20),
+                -- 수학
+                math_std                INTEGER,
+                math_percentile         NUMERIC(5,2),
+                math_subject            VARCHAR(20),
+                -- 영어
+                english_grade           SMALLINT,
+                -- 탐구1
+                explore1_subject        VARCHAR(50),
+                explore1_std            INTEGER,
+                explore1_percentile     NUMERIC(5,2),
+                -- 탐구2
+                explore2_subject        VARCHAR(50),
+                explore2_std            INTEGER,
+                explore2_percentile     NUMERIC(5,2),
+                -- 한국사
+                history_grade           SMALLINT,
+                -- 제2외국어/한문 (선택)
+                second_lang_subject     VARCHAR(50),
+                second_lang_std         INTEGER,
+                second_lang_percentile  NUMERIC(5,2),
+                -- 성적표 인증
+                score_image_url         TEXT,
+                verified_status         VARCHAR(20) DEFAULT 'none',
+                verified_at             TIMESTAMP,
+                -- 메타
+                source_round_name       VARCHAR(100),
+                created_at              TIMESTAMP DEFAULT NOW(),
+                updated_at              TIMESTAMP DEFAULT NOW(),
+                UNIQUE(user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_exam_scores_user_id ON exam_scores(user_id);
+            CREATE INDEX IF NOT EXISTS idx_exam_scores_verified ON exam_scores(verified_status);
+        `);
+
+        // 입시 회차
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS admission_rounds (
+                id              SERIAL PRIMARY KEY,
+                name            VARCHAR(100) NOT NULL,
+                exam_type       VARCHAR(20) NOT NULL DEFAULT '모의고사',
+                status          VARCHAR(20) NOT NULL DEFAULT 'upcoming',
+                apply_start_at  TIMESTAMP,
+                apply_end_at    TIMESTAMP,
+                result_at       TIMESTAMP,
+                created_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at      TIMESTAMP DEFAULT NOW(),
+                CONSTRAINT admission_rounds_status_check
+                    CHECK (status IN ('upcoming','open','closed','announcing','announced','final')),
+                CONSTRAINT admission_rounds_exam_type_check
+                    CHECK (exam_type IN ('수능','평가원','교육청'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_admission_rounds_status ON admission_rounds(status);
+        `);
+
+        // 원서
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS applications (
+                id              SERIAL PRIMARY KEY,
+                round_id        INTEGER NOT NULL REFERENCES admission_rounds(id) ON DELETE CASCADE,
+                user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                university      VARCHAR(100) NOT NULL,
+                department      VARCHAR(100),
+                group_type      CHAR(1) NOT NULL,
+                status          VARCHAR(20) NOT NULL DEFAULT 'applied',
+                cancelled_at    TIMESTAMP,
+                result_at       TIMESTAMP,
+                created_at      TIMESTAMP DEFAULT NOW(),
+                UNIQUE(round_id, user_id, group_type),
+                CONSTRAINT applications_group_type_check
+                    CHECK (group_type IN ('가','나','다')),
+                CONSTRAINT applications_status_check
+                    CHECK (status IN ('applied','cancelled','passed','failed','waitlisted','enrolled','declined'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_applications_round_user ON applications(round_id, user_id);
+            CREATE INDEX IF NOT EXISTS idx_applications_round_group ON applications(round_id, group_type);
+            CREATE INDEX IF NOT EXISTS idx_applications_user ON applications(user_id);
+        `);
+
+        // 회차별 대학 통계 (A 추정에 사용)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS admission_stats (
+                id              SERIAL PRIMARY KEY,
+                round_id        INTEGER NOT NULL REFERENCES admission_rounds(id) ON DELETE CASCADE,
+                university      VARCHAR(100) NOT NULL,
+                department      VARCHAR(100),
+                group_type      CHAR(1),
+                site_applicants INTEGER DEFAULT 0,
+                estimated_A     NUMERIC(10,2) DEFAULT 0,
+                accepted_count  INTEGER DEFAULT 0,
+                UNIQUE(round_id, university, department, group_type)
+            );
+            CREATE INDEX IF NOT EXISTS idx_admission_stats_round ON admission_stats(round_id);
+            CREATE INDEX IF NOT EXISTS idx_admission_stats_uni ON admission_stats(university, department);
+        `);
+
+        // 추합 라운드 (1~3차)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS supplementary_rounds (
+                id              SERIAL PRIMARY KEY,
+                round_id        INTEGER NOT NULL REFERENCES admission_rounds(id) ON DELETE CASCADE,
+                sub_round       SMALLINT NOT NULL,
+                status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+                opened_at       TIMESTAMP,
+                closed_at       TIMESTAMP,
+                UNIQUE(round_id, sub_round),
+                CONSTRAINT supplementary_rounds_sub_check CHECK (sub_round IN (1,2,3)),
+                CONSTRAINT supplementary_rounds_status_check
+                    CHECK (status IN ('pending','open','announced','closed'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_supplementary_rounds_round ON supplementary_rounds(round_id);
+        `);
+
         console.log('DB 스키마 초기화 완료');
     } catch (err) {
         console.error('DB 스키마 초기화 오류:', err.message);

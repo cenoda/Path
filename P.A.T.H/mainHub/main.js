@@ -127,6 +127,7 @@ window.toggleTheme = toggleTheme;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadUiSettings();
+    setupMobileBottomLayoutSync();
 });
 
 let currentUser = null;
@@ -154,6 +155,65 @@ function getOnboardingDoneKey(userId) {
 
 function clamp(val, min, max) {
     return Math.max(min, Math.min(max, val));
+}
+
+let mobileBottomLayoutRaf = 0;
+
+function syncMobileBottomLayoutVars() {
+    const root = document.documentElement;
+    if (!root) return;
+
+    const rail = document.querySelector('.fab-rail');
+    const ctaWrap = document.querySelector('.pill-action-wrap');
+
+    if (rail) {
+        const railHeight = Math.ceil(rail.getBoundingClientRect().height || 0);
+        if (railHeight > 0) {
+            root.style.setProperty('--mobile-rail-height', `${railHeight}px`);
+            const dynamicGap = clamp(Math.round(railHeight * 0.22), 12, 22);
+            root.style.setProperty('--mobile-rail-gap', `${dynamicGap}px`);
+        }
+    }
+
+    if (ctaWrap) {
+        const ctaHeight = Math.ceil(ctaWrap.getBoundingClientRect().height || 0);
+        if (ctaHeight > 0) {
+            root.style.setProperty('--mobile-cta-height', `${ctaHeight}px`);
+        }
+    }
+}
+
+function scheduleMobileBottomLayoutSync() {
+    if (mobileBottomLayoutRaf) cancelAnimationFrame(mobileBottomLayoutRaf);
+    mobileBottomLayoutRaf = requestAnimationFrame(() => {
+        mobileBottomLayoutRaf = 0;
+        syncMobileBottomLayoutVars();
+    });
+}
+
+function setupMobileBottomLayoutSync() {
+    if (window.__mobileBottomLayoutSyncBound) return;
+    window.__mobileBottomLayoutSyncBound = true;
+
+    window.addEventListener('resize', scheduleMobileBottomLayoutSync, { passive: true });
+    window.addEventListener('orientationchange', () => {
+        scheduleMobileBottomLayoutSync();
+        setTimeout(scheduleMobileBottomLayoutSync, 120);
+    }, { passive: true });
+
+    const viewport = window.visualViewport;
+    if (viewport) {
+        viewport.addEventListener('resize', scheduleMobileBottomLayoutSync, { passive: true });
+        viewport.addEventListener('scroll', scheduleMobileBottomLayoutSync, { passive: true });
+    }
+
+    if (document.fonts?.ready) {
+        document.fonts.ready.then(() => scheduleMobileBottomLayoutSync()).catch(() => {});
+    }
+
+    scheduleMobileBottomLayoutSync();
+    setTimeout(scheduleMobileBottomLayoutSync, 220);
+    setTimeout(scheduleMobileBottomLayoutSync, 700);
 }
 
 function getOnboardingElements() {

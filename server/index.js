@@ -203,6 +203,7 @@ app.use('/api/friends', require('./routes/friends'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/community', require('./routes/community'));
 app.use('/api/rooms', require('./routes/rooms'));
+app.use('/api/apply', require('./routes/apply'));
 
 app.use('/uploads/scores/:filename', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, private, max-age=0, must-revalidate');
@@ -325,6 +326,7 @@ app.use('/timer', express.static(path.join(projectRoot, 'P.A.T.H', 'mainPageDev'
 app.use('/community', express.static(path.join(projectRoot, 'P.A.T.H', 'community'), noCacheStaticOptions));
 app.use('/setup-profile', express.static(path.join(projectRoot, 'P.A.T.H', 'setup-profile'), noCacheStaticOptions));
 app.use('/admin', express.static(path.join(projectRoot, 'P.A.T.H', 'admin'), noCacheStaticOptions));
+app.use('/apply', express.static(path.join(projectRoot, 'P.A.T.H', 'apply'), noCacheStaticOptions));
 app.use('/legal', express.static(path.join(projectRoot, 'P.A.T.H', 'legal'), staticOptions));
 
 app.get('/community/post/:id', async (req, res) => {

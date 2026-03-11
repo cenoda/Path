@@ -924,6 +924,116 @@ router.post('/posts/:id/report', requireAuth, requireLatestEula, reportLimiter, 
 });
 
 /* ════════════════════════════════════════════════════════════ */
+/* GET /me/summary — 내 커뮤니티 활동 요약                     */
+/* ════════════════════════════════════════════════════════════ */
+router.get('/me/summary', requireAuth, async (req, res) => {
+    const userId = req.session.userId;
+
+    try {
+        const result = await pool.query(
+            `SELECT
+                (SELECT COUNT(*)::int FROM community_posts WHERE user_id = $1) AS posts_count,
+                (SELECT COUNT(*)::int FROM community_comments WHERE user_id = $1) AS comments_count,
+                (SELECT COALESCE(SUM(likes), 0)::int FROM community_posts WHERE user_id = $1) AS received_likes`,
+            [userId]
+        );
+
+        const row = result.rows[0] || {};
+        return res.json({
+            summary: {
+                posts_count: Number(row.posts_count || 0),
+                comments_count: Number(row.comments_count || 0),
+                received_likes: Number(row.received_likes || 0),
+            }
+        });
+    } catch (err) {
+        console.error('[community] GET /me/summary', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+/* ════════════════════════════════════════════════════════════ */
+/* GET /me/posts — 내가 작성한 게시글 목록                      */
+/* ════════════════════════════════════════════════════════════ */
+router.get('/me/posts', requireAuth, async (req, res) => {
+    const userId = req.session.userId;
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
+    try {
+        const [countRes, listRes] = await Promise.all([
+            pool.query(
+                'SELECT COUNT(*)::int AS total FROM community_posts WHERE user_id = $1',
+                [userId]
+            ),
+            pool.query(
+                `SELECT id, category, title, likes, comments_count, views, created_at,
+                        (image_url IS NOT NULL AND image_url <> '') AS has_image
+                 FROM community_posts
+                 WHERE user_id = $1
+                 ORDER BY created_at DESC
+                 LIMIT $2 OFFSET $3`,
+                [userId, limit, offset]
+            )
+        ]);
+
+        const total = Number(countRes.rows[0]?.total || 0);
+        const posts = listRes.rows || [];
+        return res.json({
+            total,
+            offset,
+            limit,
+            has_more: offset + posts.length < total,
+            posts,
+        });
+    } catch (err) {
+        console.error('[community] GET /me/posts', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+/* ════════════════════════════════════════════════════════════ */
+/* GET /me/comments — 내가 작성한 댓글 목록                      */
+/* ════════════════════════════════════════════════════════════ */
+router.get('/me/comments', requireAuth, async (req, res) => {
+    const userId = req.session.userId;
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
+    try {
+        const [countRes, listRes] = await Promise.all([
+            pool.query(
+                'SELECT COUNT(*)::int AS total FROM community_comments WHERE user_id = $1',
+                [userId]
+            ),
+            pool.query(
+                `SELECT c.id, c.post_id, c.body, c.created_at,
+                        p.title AS post_title, p.category AS post_category
+                 FROM community_comments c
+                 JOIN community_posts p ON p.id = c.post_id
+                 WHERE c.user_id = $1
+                 ORDER BY c.created_at DESC
+                 LIMIT $2 OFFSET $3`,
+                [userId, limit, offset]
+            )
+        ]);
+
+        const total = Number(countRes.rows[0]?.total || 0);
+        const comments = listRes.rows || [];
+        return res.json({
+            total,
+            offset,
+            limit,
+            has_more: offset + comments.length < total,
+            comments,
+        });
+    } catch (err) {
+        console.error('[community] GET /me/comments', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+/* ════════════════════════════════════════════════════════════ */
 /* DELETE /posts/:id — 관리자 글 삭제                           */
 /* ════════════════════════════════════════════════════════════ */
 router.delete('/posts/:id', requireAdmin, async (req, res) => {

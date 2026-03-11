@@ -62,6 +62,7 @@ const WorldScene = {
     raindrops: [],
     snowflakes: [],
     fireflies: [],
+    _fireflies: null,
     clickParticles: [],
     weatherMode: 'none',
     hoveredBalloon: null,
@@ -112,10 +113,17 @@ const WorldScene = {
         tapPx: 9,
         tapMaxMs: 230,
         cancelLongPressPx: 14,
+        touchDeadzonePx: 1.4,
+        touchSmoothAlpha: 0.38,
+        altitudeSmoothAlpha: 0.34,
         altitudeSwipeGain: 1.8,
         dragMoveScale: 0.0023,
         twoFingerRotateSpeed: ORBIT_ROTATE_SPEED * 0.55,
         twoFingerTiltSpeed: ORBIT_ROTATE_SPEED * 0.38,
+        rotationDeadzonePx: 1.8,
+        rotationSmoothAlpha: 0.3,
+        rotationImpulseClampPx: 14,
+        maxOrbitVel: 0.085,
         cruiseMinSpeed: 0.22,
         cruiseResponsePx: 120,
         cruiseStartSpeed: 0.6,
@@ -191,6 +199,7 @@ const WorldScene = {
         this._buildStars();
         this._buildMoon();
         this._buildClouds();
+        this._buildFireflies();
         this._buildSkyIslands();
         this.balloonLodDistance = this._getAdaptiveBalloonLodDistance();
         this.touchTuning = this._getAdaptiveTouchTuning();
@@ -212,24 +221,73 @@ const WorldScene = {
         this._loop();
     },
 
-    /** Build a subtle sky-bottom haze layer (no hard ground/grid) */
+    /** Build the 3D ground plane with grid pattern */
     _buildGroundPlane() {
-        // A very soft haze disc keeps depth cues without showing a floor.
+        // Large ground disc
         const groundSize = WORLD_HALF * WORLD_SCALE * 2;
         const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize, 1, 1);
         const groundMat = new THREE.MeshStandardMaterial({
-            color: 0x8ec8ec,
-            roughness: 1.0,
+            color: 0x1a2a1a,
+            roughness: 0.95,
             metalness: 0.0,
             transparent: true,
-            opacity: 0.12,
-            depthWrite: false,
+            opacity: 0.85,
         });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = GROUND_Y;
+        ground.receiveShadow = true;
         this.scene.add(ground);
         this._groundMesh = ground;
+
+        // Grid helper for spatial reference
+        const gridSize = 6000;
+        const gridDivisions = 60;
+        const grid = new THREE.GridHelper(gridSize, gridDivisions, 0x1a3a5a, 0x0a1520);
+        grid.position.y = GROUND_Y + 0.5;
+        grid.material.transparent = true;
+        grid.material.opacity = 0.35;
+        this.scene.add(grid);
+        this._gridHelper = grid;
+
+        // Atmospheric floor haze to avoid a flat/empty distant horizon.
+        const hazeGeo = new THREE.CircleGeometry(groundSize * 0.78, 96);
+        const hazeMat = new THREE.ShaderMaterial({
+            uniforms: {
+                uOpacity: { value: 0.26 },
+                uColorA: { value: new THREE.Color(0x4b7db6) },
+                uColorB: { value: new THREE.Color(0xb8dcff) },
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec2 vUv;
+                uniform float uOpacity;
+                uniform vec3 uColorA;
+                uniform vec3 uColorB;
+                void main() {
+                    float d = distance(vUv, vec2(0.5));
+                    float inner = 1.0 - smoothstep(0.08, 0.55, d);
+                    float ring = smoothstep(0.76, 0.52, d) * (1.0 - smoothstep(0.76, 0.92, d));
+                    float alpha = (inner * 0.35 + ring) * uOpacity;
+                    vec3 col = mix(uColorA, uColorB, inner);
+                    gl_FragColor = vec4(col, alpha);
+                }
+            `,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+        });
+        const haze = new THREE.Mesh(hazeGeo, hazeMat);
+        haze.rotation.x = -Math.PI / 2;
+        haze.position.y = GROUND_Y + 0.9;
+        this.scene.add(haze);
+        this._groundHaze = haze;
     },
 
     /** Update camera position from spherical orbit parameters */
@@ -258,10 +316,10 @@ const WorldScene = {
     _applyDayNightBlend(mix) {
         if (!this.scene) return;
 
-        const nightBg = new THREE.Color(0x040a1c);
-        const dayBg = new THREE.Color(0x9fd8ff);
-        const fogNight = new THREE.Color(0x091327);
-        const fogDay = new THREE.Color(0xc9e8ff);
+        const nightBg = new THREE.Color(0x050814);
+        const dayBg = new THREE.Color(0x87ceeb);
+        const fogNight = new THREE.Color(0x060814);
+        const fogDay = new THREE.Color(0xb0d8f0);
 
         if (!this.scene.background || !this.scene.background.isColor) {
             this.scene.background = nightBg.clone();
@@ -269,7 +327,7 @@ const WorldScene = {
         this.scene.background.copy(nightBg).lerp(dayBg, mix);
 
         const fogColor = fogNight.clone().lerp(fogDay, mix);
-        const fogDensity = 0.00014 * (1 - mix) + 0.00007 * mix;
+        const fogDensity = 0.00012 * (1 - mix) + 0.00004 * mix;
         if (!this.scene.fog || !this.scene.fog.isFogExp2) {
             this.scene.fog = new THREE.FogExp2(fogColor, fogDensity);
         } else {
@@ -294,13 +352,6 @@ const WorldScene = {
 
         if (this.fillLight) {
             this.fillLight.intensity = 0.34 - mix * 0.16;
-        }
-
-        if (this._groundMesh?.material) {
-            const nightGround = new THREE.Color(0x334d78);
-            const dayGround = new THREE.Color(0xbfe5ff);
-            this._groundMesh.material.color.copy(nightGround).lerp(dayGround, mix);
-            this._groundMesh.material.opacity = 0.08 + mix * 0.06;
         }
 
         if (this.starMaterial) {
@@ -329,6 +380,21 @@ const WorldScene = {
         if (this.sunGlow?.material) {
             this.sunGlow.material.opacity = mix * 0.25;
             this.sunGlow.visible = mix > 0.01;
+        }
+
+        if (this._groundHaze?.material?.uniforms) {
+            const hazeNightA = new THREE.Color(0x4b7db6);
+            const hazeDayA = new THREE.Color(0x89c9f7);
+            const hazeNightB = new THREE.Color(0xadd8ff);
+            const hazeDayB = new THREE.Color(0xf2fbff);
+            this._groundHaze.material.uniforms.uColorA.value.copy(hazeNightA).lerp(hazeDayA, mix);
+            this._groundHaze.material.uniforms.uColorB.value.copy(hazeNightB).lerp(hazeDayB, mix);
+            this._groundHaze.material.uniforms.uOpacity.value = 0.2 + mix * 0.16;
+        }
+
+        if (this._fireflies?.material) {
+            this._fireflies.material.opacity = 0.72 * (1 - mix);
+            this._fireflies.visible = (1 - mix) > 0.01;
         }
 
         this.clouds.forEach(c => {
@@ -465,6 +531,13 @@ const WorldScene = {
         group.userData.balloon = balloonMesh;
 
         group.add(balloon3D);
+
+        const shadowGeo = new THREE.CircleGeometry(isMe ? 55 : 35, 24);
+        const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18, depthWrite: false });
+        const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+        shadow.rotation.x = -Math.PI / 2;
+        shadow.position.y = -80;
+        group.add(shadow);
 
         const labelCanvas = this._makeLabel(user, isMe);
         const labelTex = new THREE.CanvasTexture(labelCanvas);
@@ -2123,6 +2196,12 @@ const WorldScene = {
 
         this._updateCameraFromOrbit();
 
+        // Move grid to follow player
+        if (this._gridHelper && this.myBalloon) {
+            this._gridHelper.position.x = this.myBalloon.group.position.x;
+            this._gridHelper.position.z = this.myBalloon.group.position.z;
+        }
+
         this._resolveBalloonCollisions();
 
         this.balloons.forEach((b) => {
@@ -2189,6 +2268,11 @@ const WorldScene = {
 
         if (this.starMaterial) {
             this.starMaterial.uniforms.uTime.value = t;
+        }
+
+        if (this._fireflies?.material) {
+            this._fireflies.rotation.y += 0.00035;
+            this._fireflies.material.opacity = (0.34 + 0.26 * Math.sin(t * 0.7)) * (1 - this.dayNightMix);
         }
 
         if (Math.abs(this.dayNightMix - this.dayNightTarget) > 0.001) {

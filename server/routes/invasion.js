@@ -2,63 +2,9 @@ const express = require('express');
 const pool = require('../db');
 const { findUniversity } = require('../data/universities');
 const { evaluateMilestoneTitles, formatDisplayName, refreshBountyBoard } = require('../utils/progression');
+const { normalCDF, calcAcceptProb, percentileToCutline, getSigma } = require('../utils/admissionCalc');
 
 const router = express.Router();
-
-// ── 정규분포 수학 유틸리티 ────────────────────────────────────────────
-// Abramowitz & Stegun 근사를 이용한 표준정규분포 CDF
-function normalCDF(x) {
-    const t = 1 / (1 + 0.2316419 * Math.abs(x));
-    const d = 0.3989422820 * Math.exp(-x * x / 2);
-    const poly = t * (0.3193815 + t * (-0.3565638 + t * (1.7814779 + t * (-1.8212560 + t * 1.3302744))));
-    const cdf = 1 - d * poly;
-    return x > 0 ? cdf : 1 - cdf;
-}
-
-// 역정규분포 (probit) - Beasley-Springer-Moro 근사
-function probit(p) {
-    if (p <= 0.0001) return -3.7;
-    if (p >= 0.9999) return 3.7;
-    const a = [2.515517, 0.802853, 0.010328];
-    const b = [1.432788, 0.189269, 0.001308];
-    if (p > 0.5) {
-        const t = Math.sqrt(-2 * Math.log(1 - p));
-        return t - (a[0] + t * (a[1] + t * a[2])) / (1 + t * (b[0] + t * (b[1] + t * b[2])));
-    } else {
-        const t = Math.sqrt(-2 * Math.log(p));
-        return -(t - (a[0] + t * (a[1] + t * a[2])) / (1 + t * (b[0] + t * (b[1] + t * b[2]))));
-    }
-}
-
-// 수능 점수 분포 파라미터 (표준점수 합계 기준)
-const SCORE_MEAN = 260;   // 전체 수험생 평균
-const SCORE_STD  = 40;    // 표준편차
-
-// basePercentile → 변환점수 컷트라인
-function percentileToCutline(basePercentile) {
-    const p = Math.min(0.9999, Math.max(0.0001, basePercentile / 100));
-    return SCORE_MEAN + probit(p) * SCORE_STD;
-}
-
-// 대학 수준에 따른 변동폭(Sigma) 계산: 상위권일수록 0에 수렴하고 하위권일수록 큼
-function getSigma(basePercentile) {
-    // basePercentile가 100에 가까울수록(상위권) Sigma가 0에 가까워짐
-    // 100%(최상위): 0, 90%(상위): 1.2, 80%(중위): 2.4, 50%(하위): 6.0
-    const p = Math.max(0, Math.min(100, basePercentile));
-    return (100 - p) * 0.12; 
-}
-
-// 유저 변환점수 + 대학 컷트라인 → 합격 확률 (0~1, 0.1 단위로 반올림)
-function calcAcceptProb(userScore, basePercentile) {
-    const cutline = percentileToCutline(basePercentile);
-    const sigma = getSigma(basePercentile);
-    const z = (userScore - cutline) / sigma;
-    const rawProb = normalCDF(z);
-    // 일의 자리에서 반올림 → 10% 단위
-    const rounded = Math.round(rawProb * 10) / 10;
-    // 최소 10%, 최대 90% (0%/100%는 현실에서 불가능하므로 클램핑)
-    return Math.max(0.1, Math.min(0.9, rounded));
-}
 
 // 대학 이름으로 basePercentile 조회
 function getBasePercentile(universityName) {

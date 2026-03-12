@@ -103,3 +103,19 @@
 - [ ] 심사 중 만료되지 않도록 계정/플랜 유효기간 확보
 - [ ] 대체 계정 1개 이상 준비
 - [ ] Play Console 앱 액세스 항목과 본 문서 내용 일치
+
+## 8) 이 저장소에서 심사용 계정 자동 생성
+
+아래 명령은 DB에 심사용 계정을 생성(또는 기존 닉네임이면 비밀번호 갱신)합니다.
+
+```bash
+DATABASE_URL='postgresql://USER:PASS@HOST:5432/DB' \
+REVIEW_NICKNAME='gp_review_test' \
+REVIEW_PASSWORD='StrongPass!234' \
+REVIEW_REAL_NAME='Google Play Reviewer' \
+npm run create:review-account
+```
+
+옵션:
+- `REVIEW_PASSWORD`를 생략하면 랜덤 비밀번호가 생성되어 출력됩니다.
+- 동일 `REVIEW_NICKNAME`이 이미 존재하면 계정을 새로 만들지 않고 비밀번호/약관 동의 정보만 업데이트합니다.

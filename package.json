@@ -14,6 +14,7 @@
     "univ:cli": "node scripts/university-data-cli.js",
     "validate:universities": "node scripts/validate-university-real-data.js",
     "generate:apple-secret": "node scripts/generate-apple-client-secret.js",
+    "create:review-account": "node scripts/create-review-account.js",
     "set-admin": "node set-admin.js",
     "list-admins": "node -e \"const pool=require('./server/db'); pool.query('SELECT id,nickname,real_name,is_admin FROM users WHERE is_admin=TRUE ORDER BY id').then(r=>{console.log(JSON.stringify(r.rows,null,2));}).catch(e=>{console.error(e.message); process.exitCode=1;}).finally(()=>pool.end());\"",
     "cap:sync": "cap sync",

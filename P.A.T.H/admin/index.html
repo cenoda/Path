@@ -1149,7 +1149,6 @@
                 return;
             }
 
-            if (!window.confirm(`유저 ${userId} 정보를 수정하시겠습니까?`)) return;
 
             await withActionLock(button, async () => {
                 await apiFetch('/api/admin/update-user', {
@@ -1169,7 +1168,6 @@
                 setNotice('주관리자만 랜덤 소환을 사용할 수 있습니다.', 'error');
                 return;
             }
-            if (!window.confirm(`유저 ${userId}를 랜덤 위치로 소환하시겠습니까?`)) return;
 
             await withActionLock(button, async () => {
                 const data = await apiFetch('/api/admin/teleport-random-user', {
@@ -1276,7 +1274,6 @@
 
         async function reviewReport(reportId, decision, button) {
             const label = decision === 'dismiss' ? '기각' : '처리 완료';
-            if (!window.confirm(`신고 #${reportId}을(를) ${label} 처리할까요?`)) return;
 
             await withActionLock(button, async () => {
                 await apiFetch(`/api/admin/community-reports/${reportId}/review`, {
@@ -1324,7 +1321,6 @@
         }
 
         async function rejectScore(userId, button) {
-            if (!window.confirm('평가원 점수 제출을 반려하시겠습니까?')) return;
             await withActionLock(button, async () => {
                 await apiFetch('/api/admin/reject-score', {
                     method: 'POST',
@@ -1360,7 +1356,6 @@
         }
 
         async function rejectGpa(userId, button) {
-            if (!window.confirm('내신 제출을 반려하시겠습니까?')) return;
             await withActionLock(button, async () => {
                 await apiFetch('/api/admin/reject-gpa', {
                     method: 'POST',

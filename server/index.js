@@ -108,6 +108,17 @@ function corsOriginHandler(origin, callback) {
     return callback(null, allowedOrigins.includes(origin));
 }
 
+function isSecureRequest(req) {
+  if (req.secure) return true;
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  if (!forwardedProto || typeof forwardedProto !== 'string') return false;
+  return forwardedProto.split(',')[0].trim() === 'https';
+}
+
+const cspConnectSrc = isProduction
+  ? ["'self'", 'wss:', 'https:']
+  : ["'self'", 'wss:', 'ws:', 'https:'];
+
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -116,7 +127,7 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
             imgSrc: ["'self'", "data:", "https:", "blob:"],
-            connectSrc: ["'self'", "wss:", "ws:", "https:"],
+      connectSrc: cspConnectSrc,
             workerSrc: ["'self'"],
             frameSrc: ["'none'"],
             objectSrc: ["'none'"],
@@ -124,6 +135,13 @@ app.use(helmet({
         },
     },
     crossOriginEmbedderPolicy: false,
+      hsts: isProduction
+        ? {
+          maxAge: 31536000,
+          includeSubDomains: true,
+          preload: true,
+        }
+        : false,
 }));
 app.use(compression());
 app.use(express.json());
@@ -132,6 +150,19 @@ app.use(cors({
     origin: corsOriginHandler,
     credentials: true
 }));
+
+// 프로덕션에서는 HTTPS 전송만 허용한다.
+app.use((req, res, next) => {
+  if (!isProduction) return next();
+  if (isSecureRequest(req)) return next();
+
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    const host = req.get('host');
+    if (host) return res.redirect(308, `https://${host}${req.originalUrl}`);
+  }
+
+  return res.status(400).json({ error: 'HTTPS 요청만 허용됩니다.' });
+});
 
 app.use(session({
     store: new pgSession({ pool, tableName: 'sessions' }),

@@ -57,6 +57,17 @@
 - [x] **Responsive Design**: Ads scale appropriately on different screen sizes
 - [x] **Safe Area**: Ads are contained within clearly defined containers
 
+## 8) Google Play App Access (Restricted Access Compliance)
+- [ ] Prepare and maintain reviewer test credentials (ID/PW) for full app access.
+- [ ] If 2FA is enabled, provide bypass steps or fixed test code for review.
+- [ ] If geo-restrictions exist, whitelist reviewer flow or provide unrestricted test account.
+- [ ] If membership/subscription is required, pre-activate entitlement on review account.
+- [ ] If another device is required, provide reproducible alternative path in-app.
+- [ ] Add fallback account credentials in case primary test account fails.
+- [ ] Ensure reviewer can access all major surfaces without signup/free-trial/developer contact.
+- [ ] Keep all provided review access information valid until review completion.
+- [ ] Submission reference doc: `GOOGLE_PLAY_REVIEW_ACCESS_GUIDE.md`
+
 ### Apple App Store Advertising Guidelines Compliance:
 1. **Guideline 3.1.1 - Advertising**: Ads are clearly distinguished from app content
 2. **Guideline 5.1.1 - Data Collection**: Uses Google AdSense with user consent

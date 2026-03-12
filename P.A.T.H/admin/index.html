@@ -1438,11 +1438,30 @@
         }
 
         function bindEvents() {
+            // Touch + click dedup helper (pointerup for touch, click for mouse)
+            const _ts = new WeakMap();
+            function _bind(el, fn) {
+                if (!el) return;
+                el.addEventListener('pointerup', function (e) {
+                    if (e.pointerType !== 'touch') return;
+                    var now = Date.now();
+                    if (now - (_ts.get(el) || 0) < 250) return;
+                    _ts.set(el, now);
+                    e.preventDefault();
+                    fn.call(el, e);
+                }, { passive: false });
+                el.addEventListener('click', function (e) {
+                    var now = Date.now();
+                    if (now - (_ts.get(el) || 0) < 350) { e.preventDefault(); return; }
+                    fn.call(el, e);
+                });
+            }
+
             document.querySelectorAll('.tab-btn').forEach((btn) => {
-                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+                _bind(btn, () => switchTab(btn.dataset.tab));
             });
 
-            document.getElementById('refresh-btn').addEventListener('click', () => refreshAll(true));
+            _bind(document.getElementById('refresh-btn'), () => refreshAll(true));
 
             ['search-input', 'score-filter', 'gpa-filter', 'admin-only'].forEach((id) => {
                 document.getElementById(id).addEventListener('input', renderUsers);
@@ -1461,7 +1480,7 @@
                 });
             });
 
-            document.getElementById('report-refresh-btn').addEventListener('click', async () => {
+            _bind(document.getElementById('report-refresh-btn'), async function () {
                 try {
                     await loadReports();
                     updateStats();
@@ -1479,7 +1498,7 @@
                 });
             });
 
-            document.getElementById('log-refresh-btn').addEventListener('click', async () => {
+            _bind(document.getElementById('log-refresh-btn'), async function () {
                 try {
                     await loadLogs();
                     setLastUpdated();
@@ -1489,7 +1508,7 @@
                 }
             });
 
-            document.getElementById('uni-refresh-config-btn').addEventListener('click', async () => {
+            _bind(document.getElementById('uni-refresh-config-btn'), async function () {
                 try {
                     await loadUniversityDataConfig();
                     setNotice('대학 데이터 설정을 새로고침했습니다.', 'ok');
@@ -1498,11 +1517,11 @@
                 }
             });
 
-            document.getElementById('uni-save-config-btn').addEventListener('click', function () {
+            _bind(document.getElementById('uni-save-config-btn'), function () {
                 saveUniversityConfig(this);
             });
 
-            document.getElementById('uni-collect-btn').addEventListener('click', function () {
+            _bind(document.getElementById('uni-collect-btn'), function () {
                 const source = document.getElementById('uni-collect-source').value.trim();
                 const dryRun = document.getElementById('uni-collect-dryrun').checked;
                 runUniversityAction(
@@ -1513,15 +1532,15 @@
                 );
             });
 
-            document.getElementById('uni-report-btn').addEventListener('click', function () {
+            _bind(document.getElementById('uni-report-btn'), function () {
                 runUniversityAction('/api/admin/university-data/report', {}, this, '품질 리포트 실행 완료');
             });
 
-            document.getElementById('uni-export-btn').addEventListener('click', function () {
+            _bind(document.getElementById('uni-export-btn'), function () {
                 runUniversityAction('/api/admin/university-data/export', {}, this, 'Export 실행 완료');
             });
 
-            document.getElementById('uni-validate-btn').addEventListener('click', function () {
+            _bind(document.getElementById('uni-validate-btn'), function () {
                 runUniversityAction('/api/admin/university-data/validate', {}, this, 'Validate 실행 완료');
             });
 
@@ -1540,6 +1559,10 @@
         state.autoRefreshId = setInterval(() => refreshAll(false), 30000);
 
         window.reviewReport = reviewReport;
+        window.approveScore = approveScore;
+        window.rejectScore = rejectScore;
+        window.approveGpa = approveGpa;
+        window.rejectGpa = rejectGpa;
         window.saveUserEdit = saveUserEdit;
         window.teleportRandomUser = teleportRandomUser;
         window.resetUserEdit = resetUserEdit;

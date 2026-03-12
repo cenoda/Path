@@ -352,6 +352,66 @@
             color: var(--muted);
         }
 
+        .uni-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .uni-card {
+            border: 1px solid var(--line);
+            background: var(--surface);
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .uni-card .label {
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .uni-card .value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .uni-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .json-editor {
+            width: 100%;
+            min-height: 190px;
+            resize: vertical;
+            border-radius: 9px;
+            border: 1px solid var(--line);
+            background: #0e1422;
+            color: var(--text);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            padding: 10px;
+            margin-top: 8px;
+        }
+
+        .cmd-output {
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #0d1220;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 12px;
+            color: var(--muted);
+            min-height: 90px;
+        }
+
         @media (max-width: 980px) {
             .title-logo {
                 width: 26px;
@@ -369,6 +429,10 @@
 
             .edit-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .uni-grid {
+                grid-template-columns: repeat(2, minmax(120px, 1fr));
             }
         }
     </style>
@@ -409,6 +473,7 @@
             <button class="tab-btn" data-tab="reports" type="button">신고 큐</button>
             <button class="tab-btn" data-tab="users" type="button">사용자 관리</button>
             <button class="tab-btn" data-tab="logs" type="button">관리 로그</button>
+            <button class="tab-btn" data-tab="university-data" type="button">대학 데이터</button>
         </nav>
 
         <section class="panel active" id="panel-pending">
@@ -483,6 +548,51 @@
                 <div class="empty">관리 로그를 불러오는 중입니다.</div>
             </div>
         </section>
+
+        <section class="panel" id="panel-university-data">
+            <div class="uni-grid" id="uni-summary-cards">
+                <div class="uni-card"><p class="label">Manifest 소스</p><p class="value" id="uni-source-count">-</p></div>
+                <div class="uni-card"><p class="label">활성 소스</p><p class="value" id="uni-enabled-count">-</p></div>
+                <div class="uni-card"><p class="label">파이프라인 레코드</p><p class="value" id="uni-record-count">-</p></div>
+                <div class="uni-card"><p class="label">Rejected</p><p class="value" id="uni-rejected-count">-</p></div>
+            </div>
+
+            <div class="card" style="margin-bottom:10px;">
+                <div class="card-head">
+                    <h3 class="name">수집/검증 실행</h3>
+                    <span class="meta">서버에서 CLI 실행</span>
+                </div>
+                <div class="uni-actions">
+                    <input id="uni-collect-source" class="field" style="max-width:240px;" type="text" placeholder="특정 source ID (선택)">
+                    <label class="auto-refresh"><input id="uni-collect-dryrun" type="checkbox"> dryRun</label>
+                    <button class="btn" type="button" id="uni-refresh-config-btn">설정 새로고침</button>
+                    <button class="btn" type="button" id="uni-collect-btn">Collect 실행</button>
+                    <button class="btn" type="button" id="uni-report-btn">품질 리포트</button>
+                    <button class="btn" type="button" id="uni-export-btn">Export 실행</button>
+                    <button class="btn" type="button" id="uni-validate-btn">Validate 실행</button>
+                </div>
+                <div class="cmd-output" id="uni-output">아직 실행 로그가 없습니다.</div>
+            </div>
+
+            <div class="card" style="margin-bottom:10px;">
+                <div class="card-head">
+                    <h3 class="name">Manifest 편집</h3>
+                    <span class="meta">source-manifest.json</span>
+                </div>
+                <textarea id="uni-manifest-editor" class="json-editor" spellcheck="false"></textarea>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <h3 class="name">신뢰 정책 편집</h3>
+                    <span class="meta">university-trust-policy.json</span>
+                </div>
+                <textarea id="uni-policy-editor" class="json-editor" spellcheck="false"></textarea>
+                <div class="action-row">
+                    <button class="btn primary" type="button" id="uni-save-config-btn">설정 저장</button>
+                </div>
+            </div>
+        </section>
     </div>
 
     <script src="/shared/nav.js?v=5"></script>
@@ -492,6 +602,11 @@
             users: [],
             reports: [],
             logs: [],
+            universityData: {
+                manifest: { sources: [] },
+                trustPolicy: {},
+                summary: {}
+            },
             adminRole: 'none',
             loading: false,
             autoRefreshId: null,
@@ -603,6 +718,13 @@
             }
             el.classList.add(type === 'error' ? 'error' : 'ok');
             el.textContent = message;
+        }
+
+        function setUniversityOutput(text, isError = false) {
+            const el = document.getElementById('uni-output');
+            if (!el) return;
+            el.style.color = isError ? '#ffd0d0' : 'var(--muted)';
+            el.textContent = text || '-';
         }
 
         async function apiFetch(url, options) {
@@ -754,6 +876,31 @@
                     </article>
                 `;
             }).join('');
+        }
+
+        function renderUniversityData() {
+            const summary = state.universityData.summary || {};
+            document.getElementById('uni-source-count').textContent = Number(summary.sourceCount || 0);
+            document.getElementById('uni-enabled-count').textContent = Number(summary.enabledSourceCount || 0);
+            document.getElementById('uni-record-count').textContent = Number(summary.recordCount || 0);
+            document.getElementById('uni-rejected-count').textContent = Number(summary.rejectedCount || 0);
+
+            const manifestEditor = document.getElementById('uni-manifest-editor');
+            const policyEditor = document.getElementById('uni-policy-editor');
+            if (manifestEditor) {
+                manifestEditor.value = JSON.stringify(state.universityData.manifest || { sources: [] }, null, 2);
+            }
+            if (policyEditor) {
+                policyEditor.value = JSON.stringify(state.universityData.trustPolicy || {}, null, 2);
+            }
+
+            const mainOnly = state.adminRole !== 'main';
+            const saveBtn = document.getElementById('uni-save-config-btn');
+            const collectBtn = document.getElementById('uni-collect-btn');
+            const exportBtn = document.getElementById('uni-export-btn');
+            if (saveBtn) saveBtn.disabled = mainOnly;
+            if (collectBtn) collectBtn.disabled = mainOnly;
+            if (exportBtn) exportBtn.disabled = mainOnly;
         }
 
         function renderPending() {
@@ -1078,6 +1225,16 @@
             renderLogs();
         }
 
+        async function loadUniversityDataConfig() {
+            const data = await apiFetch('/api/admin/university-data/config');
+            state.universityData = {
+                manifest: data.manifest || { sources: [] },
+                trustPolicy: data.trustPolicy || {},
+                summary: data.summary || {}
+            };
+            renderUniversityData();
+        }
+
         function setLastUpdated() {
             document.getElementById('last-updated').textContent = `마지막 동기화: ${new Date().toLocaleString('ko-KR', { hour12: false })}`;
         }
@@ -1088,7 +1245,7 @@
             setNotice('', 'ok');
 
             try {
-                await Promise.all([loadAdminMeta(), loadPending(), loadUsers(), loadReports(), loadLogs()]);
+                await Promise.all([loadAdminMeta(), loadPending(), loadUsers(), loadReports(), loadLogs(), loadUniversityDataConfig()]);
                 updateStats();
                 setLastUpdated();
                 if (showMessage) setNotice('데이터를 최신 상태로 반영했습니다.', 'ok');
@@ -1097,6 +1254,7 @@
                 const usersEl = document.getElementById('user-list');
                 const reportsEl = document.getElementById('reports-list');
                 const logsEl = document.getElementById('logs-list');
+                const uniOutEl = document.getElementById('uni-output');
                 const blocked = error.status === 401 || error.status === 403;
                 const guide = blocked
                     ? '관리자 권한이 필요합니다. 관리자 계정으로 로그인 후 다시 시도해주세요.'
@@ -1106,6 +1264,7 @@
                 usersEl.innerHTML = `<div class="empty">${esc(guide)}</div>`;
                 reportsEl.innerHTML = `<div class="empty">${esc(guide)}</div>`;
                 logsEl.innerHTML = `<div class="empty">${esc(guide)}</div>`;
+                if (uniOutEl) uniOutEl.textContent = guide;
                 document.getElementById('users-result-meta').textContent = '';
                 document.getElementById('reports-result-meta').textContent = '';
                 document.getElementById('logs-result-meta').textContent = '';
@@ -1215,6 +1374,59 @@
             });
         }
 
+        async function runUniversityAction(endpoint, body, button, successLabel) {
+            await withActionLock(button, async () => {
+                const data = await apiFetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body || {})
+                });
+
+                const out = [data.stdout, data.stderr].filter(Boolean).join('\n\n') || '[ok] done';
+                setUniversityOutput(out, false);
+                setNotice(successLabel, 'ok');
+                await loadUniversityDataConfig();
+            }).catch((error) => {
+                setUniversityOutput(error.message, true);
+                setNotice(error.message, 'error');
+            });
+        }
+
+        async function saveUniversityConfig(button) {
+            const manifestText = document.getElementById('uni-manifest-editor').value;
+            const policyText = document.getElementById('uni-policy-editor').value;
+            let manifest;
+            let trustPolicy;
+
+            try {
+                manifest = JSON.parse(manifestText);
+            } catch (err) {
+                setNotice(`Manifest JSON 파싱 오류: ${err.message}`, 'error');
+                return;
+            }
+
+            try {
+                trustPolicy = JSON.parse(policyText);
+            } catch (err) {
+                setNotice(`정책 JSON 파싱 오류: ${err.message}`, 'error');
+                return;
+            }
+
+            await withActionLock(button, async () => {
+                await apiFetch('/api/admin/university-data/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ manifest, trustPolicy })
+                });
+                setNotice('대학 데이터 설정 저장 완료', 'ok');
+                setUniversityOutput('[ok] config saved');
+                await loadUniversityDataConfig();
+            }).catch((error) => {
+                setUniversityOutput(error.message, true);
+                setNotice(error.message, 'error');
+            });
+        }
+
         function switchTab(tab) {
             state.activeTab = tab;
             document.querySelectorAll('.tab-btn').forEach((btn) => {
@@ -1275,6 +1487,42 @@
                 } catch (error) {
                     setNotice(error.message, 'error');
                 }
+            });
+
+            document.getElementById('uni-refresh-config-btn').addEventListener('click', async () => {
+                try {
+                    await loadUniversityDataConfig();
+                    setNotice('대학 데이터 설정을 새로고침했습니다.', 'ok');
+                } catch (error) {
+                    setNotice(error.message, 'error');
+                }
+            });
+
+            document.getElementById('uni-save-config-btn').addEventListener('click', function () {
+                saveUniversityConfig(this);
+            });
+
+            document.getElementById('uni-collect-btn').addEventListener('click', function () {
+                const source = document.getElementById('uni-collect-source').value.trim();
+                const dryRun = document.getElementById('uni-collect-dryrun').checked;
+                runUniversityAction(
+                    '/api/admin/university-data/collect',
+                    { source, dryRun },
+                    this,
+                    'Collect 실행 완료'
+                );
+            });
+
+            document.getElementById('uni-report-btn').addEventListener('click', function () {
+                runUniversityAction('/api/admin/university-data/report', {}, this, '품질 리포트 실행 완료');
+            });
+
+            document.getElementById('uni-export-btn').addEventListener('click', function () {
+                runUniversityAction('/api/admin/university-data/export', {}, this, 'Export 실행 완료');
+            });
+
+            document.getElementById('uni-validate-btn').addEventListener('click', function () {
+                runUniversityAction('/api/admin/university-data/validate', {}, this, 'Validate 실행 완료');
             });
 
             document.getElementById('auto-refresh').addEventListener('change', (event) => {

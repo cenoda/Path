@@ -4101,6 +4101,24 @@ body.path-interface:not(.light) {
     background: linear-gradient(120deg, rgba(49, 130, 246, 0.08), rgba(49, 130, 246, 0));
 }
 
+body:not(.light) .timer-display {
+    border-color: rgba(130, 165, 215, 0.24);
+    background: linear-gradient(160deg, rgba(18, 25, 36, 0.92) 0%, rgba(14, 20, 30, 0.9) 100%);
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32);
+}
+
+body:not(.light) .timer-display::after {
+    background: linear-gradient(120deg, rgba(90, 155, 255, 0.16), rgba(90, 155, 255, 0));
+}
+
+body:not(.light) .timer-display {
+    color: #e6eefb;
+}
+
+body:not(.light) .timer-display .timer-ms {
+    color: #a9b8d1;
+}
+
 .control-group {
     margin-top: 0;
     padding: 12px;

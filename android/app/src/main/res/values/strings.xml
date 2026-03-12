@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">P.A.T.H</string>
+    <string name="title_activity_main">P.A.T.H</string>
+    <string name="package_name">cloud.sdij.path</string>
+    <string name="custom_url_scheme">cloud.sdij.path</string>
+</resources>

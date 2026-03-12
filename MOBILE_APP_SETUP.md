@@ -58,11 +58,19 @@ npm run apk:debug
 
 2. 원클릭 릴리스 APK 빌드
 ```bash
+export ANDROID_KEYSTORE_PATH=/abs/path/to/upload-keystore.jks
+export ANDROID_KEYSTORE_PASSWORD=your_keystore_password
+export ANDROID_KEY_ALIAS=upload
+export ANDROID_KEY_PASSWORD=your_key_password
 npm run apk:release
 ```
 
 3. 원클릭 릴리스 AAB 빌드 (Play Store 업로드용)
 ```bash
+export ANDROID_KEYSTORE_PATH=/abs/path/to/upload-keystore.jks
+export ANDROID_KEYSTORE_PASSWORD=your_keystore_password
+export ANDROID_KEY_ALIAS=upload
+export ANDROID_KEY_PASSWORD=your_key_password
 npm run aab:release
 ```
 
@@ -89,18 +97,22 @@ cd android
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-9. 릴리스 APK 빌드(서명 설정 필요)
+9. 릴리스 APK 빌드(서명 필수)
 ```bash
 cd android
-./gradlew assembleRelease
+./gradlew assembleRelease \
+  -Pandroid.injected.signing.store.file=/abs/path/to/upload-keystore.jks \
+  -Pandroid.injected.signing.store.password=your_keystore_password \
+  -Pandroid.injected.signing.key.alias=upload \
+  -Pandroid.injected.signing.key.password=your_key_password
 ```
 
 10. 생성 파일 경로
 ```bash
-android/app/build/outputs/apk/release/app-release-unsigned.apk
+android/app/build/outputs/apk/release/app-release.apk
 ```
 
-릴리스 배포용은 `unsigned` 상태이므로, Play 배포 전 서명 절차가 필요합니다.
+업로드되는 릴리스 번들(APK/AAB)은 반드시 서명된 산출물만 사용하세요.
 
 ## 3) iOS 앱 만들기 (macOS 필요)
 1. iOS 프로젝트 생성 (최초 1회)
@@ -168,7 +180,7 @@ npm run cap:sync
 - `.github/workflows/android-build.yml`
 
 참고:
-- 현재 AAB는 기본 release 빌드 산출물입니다.
+- 현재 AAB는 release 빌드 시 서명 정보가 없으면 실패하도록 설정되어 있습니다.
 - Play 스토어 정식 배포 전에는 서명/버전코드 정책을 최종 점검하세요.
 - APK/AAB 런처 아이콘은 `.github/workflows/android-build.yml`의 `ICON_SOURCE` 파일(현재 `icons/IMG_0219.png`)로 자동 생성됩니다.
 

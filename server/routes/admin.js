@@ -1,12 +1,75 @@
 const express = require('express');
 const pool = require('../db');
+const fs = require('fs/promises');
+const path = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 
 const router = express.Router();
+const execFileAsync = promisify(execFile);
 const ALWAYS_MAIN_ADMIN_NICKNAME = '낭만화1';
 const ADMIN_WORLD_XY_LIMIT = 100000;
 const ADMIN_WORLD_Z_MIN = -40;
 const ADMIN_WORLD_Z_MAX = 500;
 const ADMIN_RANDOM_SPAWN_RANGE_XY = 5800;
+const ROOT_DIR = path.resolve(__dirname, '..', '..');
+const UNIVERSITY_DATA_DIR = path.join(ROOT_DIR, 'server', 'data');
+const UNIVERSITY_MANIFEST_PATH = path.join(UNIVERSITY_DATA_DIR, 'source-manifest.json');
+const UNIVERSITY_TRUST_POLICY_PATH = path.join(UNIVERSITY_DATA_DIR, 'university-trust-policy.json');
+const UNIVERSITY_PIPELINE_PATH = path.join(UNIVERSITY_DATA_DIR, 'university-pipeline.json');
+const UNIVERSITY_REJECTS_PATH = path.join(UNIVERSITY_DATA_DIR, 'university-rejects.json');
+
+async function readJsonFile(filePath, fallback = null) {
+    try {
+        const raw = await fs.readFile(filePath, 'utf8');
+        return JSON.parse(raw);
+    } catch (err) {
+        if (err.code === 'ENOENT') return fallback;
+        throw err;
+    }
+}
+
+async function writeJsonFile(filePath, payload) {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+}
+
+async function runUniversityCli(args = []) {
+    const scriptPath = path.join(ROOT_DIR, 'scripts', 'university-data-cli.js');
+    const { stdout, stderr } = await execFileAsync('node', [scriptPath, ...args], {
+        cwd: ROOT_DIR,
+        timeout: 120000,
+        maxBuffer: 1024 * 1024 * 8,
+    });
+    return {
+        stdout: (stdout || '').trim(),
+        stderr: (stderr || '').trim(),
+    };
+}
+
+async function runUniversityValidate() {
+    const scriptPath = path.join(ROOT_DIR, 'scripts', 'validate-university-real-data.js');
+    const realPath = path.join(ROOT_DIR, 'server', 'data', 'universities.real.json');
+    const { stdout, stderr } = await execFileAsync('node', [scriptPath, realPath], {
+        cwd: ROOT_DIR,
+        timeout: 120000,
+        maxBuffer: 1024 * 1024 * 4,
+    });
+    return {
+        stdout: (stdout || '').trim(),
+        stderr: (stderr || '').trim(),
+    };
+}
+
+function normalizeTrustPolicy(input = {}) {
+    return {
+        minConfidence: Number.isFinite(Number(input.minConfidence)) ? Number(input.minConfidence) : 0.75,
+        requireYear: input.requireYear !== false,
+        requireSourceId: input.requireSourceId !== false,
+        requireSourceUrl: input.requireSourceUrl !== false,
+        requireAtLeastOneScore: input.requireAtLeastOneScore !== false,
+    };
+}
 
 function randomInt(min, max) {
     const lo = Math.ceil(min);
@@ -96,7 +159,13 @@ router.get('/', requireAdmin, (req, res) => {
             'GET /api/admin/roles',
             'GET /api/admin/audit-logs',
             'GET /api/admin/community-reports',
+            'GET /api/admin/university-data/config',
             'POST /api/admin/update-user',
+            'POST /api/admin/university-data/config (main only)',
+            'POST /api/admin/university-data/collect (main only)',
+            'POST /api/admin/university-data/export (main only)',
+            'POST /api/admin/university-data/report',
+            'POST /api/admin/university-data/validate',
             'POST /api/admin/teleport-random-user (main only)',
             'POST /api/admin/set-role (main only)',
             'POST /api/admin/approve-score',
@@ -278,6 +347,120 @@ router.get('/pending', requireAdmin, async (req, res) => {
     } catch (err) {
         console.error('admin pending error:', err);
         res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.get('/university-data/config', requireAdmin, async (_req, res) => {
+    try {
+        const [manifest, trustPolicy, pipeline, rejects] = await Promise.all([
+            readJsonFile(UNIVERSITY_MANIFEST_PATH, { sources: [] }),
+            readJsonFile(UNIVERSITY_TRUST_POLICY_PATH, normalizeTrustPolicy()),
+            readJsonFile(UNIVERSITY_PIPELINE_PATH, { sources: [], records: [] }),
+            readJsonFile(UNIVERSITY_REJECTS_PATH, { totalRejected: 0, rejects: [] }),
+        ]);
+
+        return res.json({
+            manifest,
+            trustPolicy,
+            summary: {
+                sourceCount: Array.isArray(manifest?.sources) ? manifest.sources.length : 0,
+                enabledSourceCount: Array.isArray(manifest?.sources)
+                    ? manifest.sources.filter(s => s && s.enabled !== false).length
+                    : 0,
+                pipelineSourceCount: Array.isArray(pipeline?.sources) ? pipeline.sources.length : 0,
+                recordCount: Array.isArray(pipeline?.records) ? pipeline.records.length : 0,
+                rejectedCount: Number.isFinite(Number(rejects?.totalRejected)) ? Number(rejects.totalRejected) : 0,
+                pipelineUpdatedAt: pipeline?.updatedAt || null,
+            }
+        });
+    } catch (err) {
+        console.error('admin university-data config error:', err.message);
+        return res.status(500).json({ error: '대학 데이터 설정을 불러오지 못했습니다.' });
+    }
+});
+
+router.post('/university-data/config', requireMainAdmin, async (req, res) => {
+    const manifest = req.body?.manifest;
+    const trustPolicyRaw = req.body?.trustPolicy;
+
+    if (!manifest || typeof manifest !== 'object' || !Array.isArray(manifest.sources)) {
+        return res.status(400).json({ error: 'manifest.sources 배열이 필요합니다.' });
+    }
+
+    const trustPolicy = normalizeTrustPolicy(trustPolicyRaw || {});
+    if (!Number.isFinite(trustPolicy.minConfidence) || trustPolicy.minConfidence < 0 || trustPolicy.minConfidence > 1) {
+        return res.status(400).json({ error: 'minConfidence는 0~1 사이여야 합니다.' });
+    }
+
+    try {
+        await Promise.all([
+            writeJsonFile(UNIVERSITY_MANIFEST_PATH, {
+                ...manifest,
+                updatedAt: new Date().toISOString().slice(0, 10),
+            }),
+            writeJsonFile(UNIVERSITY_TRUST_POLICY_PATH, trustPolicy),
+        ]);
+
+        return res.json({ ok: true });
+    } catch (err) {
+        console.error('admin university-data config save error:', err.message);
+        return res.status(500).json({ error: '대학 데이터 설정 저장에 실패했습니다.' });
+    }
+});
+
+router.post('/university-data/collect', requireMainAdmin, async (req, res) => {
+    const source = typeof req.body?.source === 'string' ? req.body.source.trim() : '';
+    const dryRun = req.body?.dryRun === true;
+    const args = ['collect'];
+    if (source) args.push('--source', source);
+    if (dryRun) args.push('--dryRun', 'true');
+
+    try {
+        const result = await runUniversityCli(args);
+        return res.json({ ok: true, ...result });
+    } catch (err) {
+        console.error('admin university-data collect error:', err.message);
+        return res.status(500).json({ error: err.message || 'collect 실행 실패' });
+    }
+});
+
+router.post('/university-data/export', requireMainAdmin, async (req, res) => {
+    const allowUntrusted = req.body?.allowUntrusted === true;
+    const args = ['export-real'];
+    if (allowUntrusted) args.push('--allowUntrusted', 'true');
+
+    try {
+        const result = await runUniversityCli(args);
+        return res.json({ ok: true, ...result });
+    } catch (err) {
+        console.error('admin university-data export error:', err.message);
+        return res.status(500).json({ error: err.message || 'export 실행 실패' });
+    }
+});
+
+router.post('/university-data/report', requireAdmin, async (_req, res) => {
+    try {
+        const result = await runUniversityCli(['quality-report']);
+        let parsed = null;
+        try {
+            parsed = result.stdout ? JSON.parse(result.stdout) : null;
+        } catch (_) {
+            parsed = null;
+        }
+        return res.json({ ok: true, ...result, report: parsed });
+    } catch (err) {
+        console.error('admin university-data report error:', err.message);
+        return res.status(500).json({ error: err.message || 'report 실행 실패' });
+    }
+});
+
+router.post('/university-data/validate', requireAdmin, async (_req, res) => {
+    try {
+        const result = await runUniversityValidate();
+        return res.json({ ok: true, ...result });
+    } catch (err) {
+        console.error('admin university-data validate error:', err.message);
+        return res.status(500).json({ error: err.message || 'validate 실행 실패' });
     }
 });
 

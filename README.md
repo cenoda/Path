@@ -160,6 +160,17 @@ npm start
 - `npm run apk:release`: 릴리스 APK 빌드
 - `npm run aab:release`: Play Store AAB 빌드
 
+릴리스 업로드 번들 서명(필수):
+
+```bash
+export ANDROID_KEYSTORE_PATH=/abs/path/to/upload-keystore.jks
+export ANDROID_KEYSTORE_PASSWORD=your_keystore_password
+export ANDROID_KEY_ALIAS=upload
+export ANDROID_KEY_PASSWORD=your_key_password
+```
+
+위 4개 환경변수가 없으면 `npm run apk:release`, `npm run aab:release`는 실패합니다.
+
 ## API 라우트 맵
 
 서버에 마운트된 API prefix:

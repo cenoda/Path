@@ -2875,6 +2875,29 @@ function initWorldSocket(user) {
 }
 
 function _startApp() {
+    const showLoadFailure = (reason) => {
+        if (window.__hubLoadFailureShown) return;
+        window.__hubLoadFailureShown = true;
+
+        const detail = String(reason || '').trim();
+        const message = detail
+            ? `메인 허브 로드 실패\n${detail}\n\n네트워크를 확인한 후 다시 시도해 주세요.`
+            : '메인 허브 로드 실패\n\n네트워크를 확인한 후 다시 시도해 주세요.';
+
+        alert(message);
+
+        const rankList = document.getElementById('rank-list');
+        if (rankList) {
+            rankList.innerHTML = '<div style="color:#e55;padding:16px;font-size:12px;line-height:1.6">메인 허브 로드 실패<br>새로고침 후 다시 시도해 주세요.</div>';
+        }
+    };
+
+    if (window.__worldSceneLoadFailed) {
+        const errorMessage = window.__worldSceneLoadError?.message || '3D 엔진 초기화 오류';
+        showLoadFailure(errorMessage);
+        return;
+    }
+
     if (window._worldSceneReady && window.WorldScene) {
         window.WorldScene.init();
         initHub().then(() => { if (currentUser) initWorldSocket(currentUser); });
@@ -2883,6 +2906,18 @@ function _startApp() {
             window.WorldScene.init();
             initHub().then(() => { if (currentUser) initWorldSocket(currentUser); });
         };
+
+        // Prevent infinite waiting when module import/CDN loading fails.
+        setTimeout(() => {
+            if (window._worldSceneReady && window.WorldScene) return;
+            const errorMessage = window.__worldSceneLoadError?.message || '월드 리소스 로드 시간 초과';
+            showLoadFailure(errorMessage);
+        }, 8000);
+
+        window.addEventListener('worldscene:loaderror', (e) => {
+            const errorMessage = e?.detail?.message || window.__worldSceneLoadError?.message || '3D 엔진 초기화 오류';
+            showLoadFailure(errorMessage);
+        }, { once: true });
     }
 }
 _startApp();

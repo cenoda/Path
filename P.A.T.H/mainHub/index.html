@@ -36,7 +36,25 @@
     })();
     </script>
     <script src="balloonSkins.js?v=10" defer></script>
-    <script type="module" src="scene.js?v=8"></script>
+    <script>
+    window.__worldSceneLoadFailed = false;
+    window.__worldSceneLoadError = null;
+
+    // Load the world scene module with explicit error handling so
+    // startup can fail gracefully instead of hanging forever.
+    (async function loadWorldSceneModule() {
+        try {
+            await import('./scene.js?v=8');
+        } catch (err) {
+            window.__worldSceneLoadFailed = true;
+            window.__worldSceneLoadError = err;
+            try {
+                window.dispatchEvent(new CustomEvent('worldscene:loaderror', { detail: err }));
+            } catch (_) {}
+            console.error('World scene module failed to load:', err);
+        }
+    })();
+    </script>
 </head>
 <body>
 <script>

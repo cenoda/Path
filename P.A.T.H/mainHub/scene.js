@@ -495,11 +495,6 @@ const WorldScene = {
                 m.depthWrite = original.depthWrite;
             });
         });
-
-        const pullback = 16;
-        const minDistance = Math.max(90, ORBIT_MIN_RADIUS * 0.42);
-        const safeDistance = Math.max(minDistance, hits[0].distance - pullback);
-        return from.add(dir.multiplyScalar(safeDistance));
     },
 
     setDayNightMode(isLight, animate = true) {

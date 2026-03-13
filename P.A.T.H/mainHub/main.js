@@ -1,5 +1,33 @@
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+function resolveApiOrigin() {
+    const envOrigin = String(window.PATH_API_ORIGIN || '').trim();
+    if (envOrigin) return envOrigin.replace(/\/$/, '');
+
+    const host = String(window.location.hostname || '').toLowerCase();
+    if (host === 'sdij.cloud' || host === 'www.sdij.cloud' || host === 'path.sdij.cloud') {
+        return 'https://api.sdij.cloud';
+    }
+    return '';
+}
+
+const PATH_API_ORIGIN = resolveApiOrigin();
+
+function toApiUrl(input) {
+    if (!PATH_API_ORIGIN) return input;
+    if (typeof input === 'string' && input.startsWith('/api/')) {
+        return `${PATH_API_ORIGIN}${input}`;
+    }
+    return input;
+}
+
+// Route relative /api calls to API origin when hub is served from a separate web origin.
+if (typeof window.fetch === 'function' && !window.__pathApiFetchPatched) {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => nativeFetch(toApiUrl(input), init);
+    window.__pathApiFetchPatched = true;
+}
+
 const BALLOON_SKINS = (window.BALLOON_SKINS && Object.keys(window.BALLOON_SKINS).length > 0)
     ? window.BALLOON_SKINS
     : {
@@ -2714,7 +2742,8 @@ function initWorldSocket(user) {
         return;
     }
 
-    worldSocket = io({ transports: ['websocket', 'polling'] });
+    const socketTarget = PATH_API_ORIGIN || undefined;
+    worldSocket = io(socketTarget, { transports: ['websocket', 'polling'] });
 
     // ── Receive world seed → build seeded world ──────────────────────
     worldSocket.on('world:seed', ({ seed }) => {

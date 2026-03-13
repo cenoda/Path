@@ -17,8 +17,24 @@
         }
     }
     </script>
-    <!-- socket.io client – loaded before scene.js so it is available globally -->
-    <script src="/socket.io/socket.io.js" defer></script>
+    <!-- socket.io client – supports split web/api origin deployments -->
+    <script>
+    (function () {
+        var raw = String(window.PATH_API_ORIGIN || '').trim();
+        var apiOrigin = raw ? raw.replace(/\/$/, '') : '';
+        if (!apiOrigin) {
+            var host = String(window.location.hostname || '').toLowerCase();
+            if (host === 'sdij.cloud' || host === 'www.sdij.cloud' || host === 'path.sdij.cloud') {
+                apiOrigin = 'https://api.sdij.cloud';
+            }
+        }
+        var src = (apiOrigin ? apiOrigin : '') + '/socket.io/socket.io.js';
+        var s = document.createElement('script');
+        s.src = src;
+        s.defer = true;
+        document.head.appendChild(s);
+    })();
+    </script>
     <script src="balloonSkins.js?v=10" defer></script>
     <script type="module" src="scene.js?v=8"></script>
 </head>

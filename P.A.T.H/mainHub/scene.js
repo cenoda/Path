@@ -587,13 +587,16 @@ const WorldScene = {
             });
         });
 
-        this.skyIslands.forEach(island => {
-            island.children.forEach(child => {
-                if (child.material && child.geometry && child.geometry.type === 'CylinderGeometry' && child.position.y > 0) {
-                    const nightGrass = new THREE.Color(0x2d5a3d);
-                    const dayGrass = new THREE.Color(0x6fbf73);
-                    child.material.color.copy(nightGrass).lerp(dayGrass, mix);
-                }
+        const nightGrass = new THREE.Color(0x2d5a3d);
+        const dayGrass = new THREE.Color(0x6fbf73);
+        this.skyIslands.forEach((island) => {
+            island.children.forEach((child) => {
+                if (!(child.geometry && child.geometry.type === 'CylinderGeometry' && child.position.y > 0)) return;
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                mats.forEach((mat) => {
+                    if (!mat?.color?.copy) return;
+                    mat.color.copy(nightGrass).lerp(dayGrass, mix);
+                });
             });
         });
     },

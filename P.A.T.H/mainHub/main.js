@@ -2892,6 +2892,23 @@ function _startApp() {
         }
     };
 
+    const startWithWorldScene = () => {
+        try {
+            window.WorldScene.init();
+        } catch (err) {
+            console.error('WorldScene init 오류:', err);
+            showLoadFailure(err?.message || '3D 엔진 초기화 오류');
+            return;
+        }
+
+        initHub()
+            .then(() => { if (currentUser) initWorldSocket(currentUser); })
+            .catch((err) => {
+                console.error('initHub 연동 오류:', err);
+                showLoadFailure(err?.message || '허브 데이터 초기화 오류');
+            });
+    };
+
     if (window.__worldSceneLoadFailed) {
         const errorMessage = window.__worldSceneLoadError?.message || '3D 엔진 초기화 오류';
         showLoadFailure(errorMessage);
@@ -2899,12 +2916,10 @@ function _startApp() {
     }
 
     if (window._worldSceneReady && window.WorldScene) {
-        window.WorldScene.init();
-        initHub().then(() => { if (currentUser) initWorldSocket(currentUser); });
+        startWithWorldScene();
     } else {
         window._onWorldSceneReady = function() {
-            window.WorldScene.init();
-            initHub().then(() => { if (currentUser) initWorldSocket(currentUser); });
+            startWithWorldScene();
         };
 
         // Prevent infinite waiting when module import/CDN loading fails.

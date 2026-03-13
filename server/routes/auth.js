@@ -970,8 +970,22 @@ async function handleAppleCallback(req, res) {
     }
 
     if (!code || !state || !expectedState || state !== expectedState) {
+        let reason = 'invalid_state';
+        if (!code) reason = 'missing_code';
+        else if (!state) reason = 'missing_state';
+        else if (!expectedState) reason = 'missing_session_state';
+        else if (state !== expectedState) reason = 'state_mismatch';
+
+        console.warn('apple callback precheck failed:', {
+            reason,
+            method: req.method,
+            hasCode: !!code,
+            hasState: !!state,
+            hasExpectedState: !!expectedState,
+            platform,
+        });
         clearOauthState();
-        return res.redirect(errorRedirect);
+        return res.redirect(appendQueryParam(errorRedirect, 'reason', reason));
     }
 
     if (!clientId || !clientSecret || !redirectUri) {

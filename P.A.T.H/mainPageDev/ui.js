@@ -2,7 +2,7 @@ const UI = {
     defaultEngGradeRatio: [1.0, 0.97, 0.92, 0.84, 0.74, 0.6, 0.44, 0.26, 0.1],
     defaultHistGradeRatio: [1.0, 1.0, 1.0, 0.98, 0.96, 0.94, 0.92, 0.9, 0.8],
     currentMode: 'timer',
-    currentTab: 'study',
+    currentTab: 'home',
     currentUser: null,
     rankingInfo: null,
     universityList: [],
@@ -19,6 +19,7 @@ const UI = {
     quickSubjectNames: ['국어', '영어', '수학', '사회', '과학', '코딩', '전공'],
     plannerDate: null,
     plannerData: null,
+    homeRefreshIntervalId: null,
     timetableConfig: {
         dayStartMinute: 6 * 60,
         dayEndMinute: 24 * 60,
@@ -33,16 +34,24 @@ const UI = {
         ticketVal:   document.getElementById('ticket-val'),
         tierTag:     document.querySelector('.tier-tag'),
         rankPct:     document.getElementById('rank-pct'),
+        tabHomeBtn: document.getElementById('tab-home-btn'),
         tabStudyBtn: document.getElementById('tab-study-btn'),
         tabPlannerBtn: document.getElementById('tab-planner-btn'),
         tabCalendarBtn: document.getElementById('tab-calendar-btn'),
         tabScoreCalcBtn: document.getElementById('tab-scorecalc-btn'),
         tabBalloonBtn: document.getElementById('tab-balloon-btn'),
+        tabHome: document.getElementById('tab-home'),
         tabStudy:    document.getElementById('tab-study'),
         tabPlanner:  document.getElementById('tab-planner'),
         tabCalendar: document.getElementById('tab-calendar'),
         tabScoreCalc: document.getElementById('tab-scorecalc'),
         tabBalloon:  document.getElementById('tab-balloon'),
+        homeRefreshBtn: document.getElementById('home-refresh-btn'),
+        homeStatToday: document.getElementById('home-stat-today'),
+        homeStatTotal: document.getElementById('home-stat-total'),
+        homeStatActive: document.getElementById('home-stat-active'),
+        homeTopList: document.getElementById('home-top-list'),
+        homeRoomList: document.getElementById('home-room-list'),
         scoreCalcUniversity: document.getElementById('scorecalc-university'),
         scoreCalcTrack: document.getElementById('scorecalc-track'),
         scoreCalcCategory: document.getElementById('scorecalc-category'),
@@ -123,6 +132,9 @@ const UI = {
         await this.loadWeekCalendar(0);
         await this.loadUniversityCalculator(userData?.university);
         await this.loadBalloonMetrics();
+        await this.loadHomeHubData();
+        this.switchTab('home');
+        this.startHomeAutoRefresh();
 
         if (typeof CamManager !== 'undefined') CamManager.loadSettings();
         if (typeof applyStudyPowerSaveMode === 'function') applyStudyPowerSaveMode(false);
@@ -159,12 +171,16 @@ const UI = {
         this.elements.inputHr.oninput  = syncAction;
         this.elements.inputMin.oninput = syncAction;
 
+        this.elements.tabHomeBtn.onclick = () => this.switchTab('home');
         this.elements.tabStudyBtn.onclick = () => this.switchTab('study');
         this.elements.tabPlannerBtn.onclick = () => this.switchTab('planner');
         this.elements.tabCalendarBtn.onclick = () => this.switchTab('calendar');
         this.elements.tabScoreCalcBtn.onclick = () => this.switchTab('scorecalc');
         this.elements.tabBalloonBtn.onclick = () => this.switchTab('balloon');
         document.getElementById('tab-rooms-btn')?.addEventListener('click', () => this.switchTab('rooms'));
+        this.elements.homeRefreshBtn?.addEventListener('click', () => {
+            this.loadHomeHubData(true).catch(() => {});
+        });
 
         this.elements.scoreCalcUniversity?.addEventListener('change', () => {
             this.handleScoreCalcUniversityChange().catch(() => {});
@@ -339,13 +355,15 @@ const UI = {
     },
 
     switchTab(tab) {
-        const validTabs = ['calendar', 'balloon', 'scorecalc', 'rooms', 'planner'];
-        const nextTab = validTabs.includes(tab) ? tab : 'study';
+        const validTabs = ['home', 'study', 'calendar', 'balloon', 'scorecalc', 'rooms', 'planner'];
+        const nextTab = validTabs.includes(tab) ? tab : 'home';
         this.currentTab = nextTab;
+        const isHome = this.currentTab === 'home';
         const isCalendar = this.currentTab === 'calendar';
         const isRooms = this.currentTab === 'rooms';
         const isPlanner = this.currentTab === 'planner';
 
+        this.elements.tabHomeBtn.classList.toggle('active', isHome);
         this.elements.tabStudyBtn.classList.toggle('active', this.currentTab === 'study');
         this.elements.tabPlannerBtn.classList.toggle('active', isPlanner);
         this.elements.tabCalendarBtn.classList.toggle('active', this.currentTab === 'calendar');
@@ -353,6 +371,7 @@ const UI = {
         this.elements.tabBalloonBtn.classList.toggle('active', this.currentTab === 'balloon');
         document.getElementById('tab-rooms-btn')?.classList.toggle('active', isRooms);
 
+        this.elements.tabHome.classList.toggle('active', isHome);
         this.elements.tabStudy.classList.toggle('active', this.currentTab === 'study');
         this.elements.tabPlanner.classList.toggle('active', isPlanner);
         this.elements.tabCalendar.classList.toggle('active', this.currentTab === 'calendar');
@@ -362,6 +381,11 @@ const UI = {
 
         this.elements.body.classList.remove('active');
         this.elements.body.classList.toggle('tab-calendar-active', isCalendar);
+
+        if (isHome) {
+            this.loadHomeHubData().catch(() => {});
+            return;
+        }
 
         if (isCalendar) {
             this.loadWeekCalendar(this.weekOffset).catch(() => {});
@@ -383,6 +407,85 @@ const UI = {
         if (isRooms) {
             if (typeof GroupRooms !== 'undefined') GroupRooms.loadMyRooms().catch(() => {});
         }
+    },
+
+    startHomeAutoRefresh() {
+        if (this.homeRefreshIntervalId) clearInterval(this.homeRefreshIntervalId);
+        this.homeRefreshIntervalId = setInterval(() => {
+            if (this.currentTab !== 'home') return;
+            this.loadHomeHubData().catch(() => {});
+        }, 60000);
+    },
+
+    async loadHomeHubData(forceReload = false) {
+        if (!this.elements.homeTopList || !this.elements.homeRoomList) return;
+        if (forceReload) {
+            this.elements.homeTopList.textContent = '갱신 중...';
+            this.elements.homeRoomList.textContent = '갱신 중...';
+        }
+
+        const [stats, ranking, rooms] = await Promise.all([
+            StorageManager.fetchStudyStats(),
+            StorageManager.fetchTodayRanking(50),
+            StorageManager.fetchPublicRooms(5)
+        ]);
+
+        const todaySec = parseInt(stats?.today_sec, 10) || 0;
+        const totalSec = parseInt(stats?.total_sec, 10) || 0;
+        const activeCount = ranking.reduce((acc, row) => acc + (row?.is_studying ? 1 : 0), 0);
+
+        if (this.elements.homeStatToday) this.elements.homeStatToday.textContent = this.formatDuration(todaySec);
+        if (this.elements.homeStatTotal) this.elements.homeStatTotal.textContent = this.formatDuration(totalSec);
+        if (this.elements.homeStatActive) this.elements.homeStatActive.textContent = `${activeCount}명`;
+
+        this.renderHomeTopRanking(ranking.slice(0, 5));
+        this.renderHomePublicRooms(rooms);
+    },
+
+    renderHomeTopRanking(rows) {
+        if (!this.elements.homeTopList) return;
+        if (!Array.isArray(rows) || rows.length === 0) {
+            this.elements.homeTopList.innerHTML = '<div class="home-empty">아직 오늘 랭킹 데이터가 없습니다.</div>';
+            return;
+        }
+
+        this.elements.homeTopList.innerHTML = rows.map((row, idx) => {
+            const sec = parseInt(row?.today_sec, 10) || 0;
+            const nickname = this.escapeHtml(row?.display_nickname || row?.nickname || '익명');
+            const university = this.escapeHtml(row?.university || '소속 미설정');
+            const studying = row?.is_studying ? '<span class="home-badge-live">공부중</span>' : '';
+            return `<div class="home-row-item">
+                <div class="home-row-rank">${idx + 1}</div>
+                <div class="home-row-main">
+                    <div class="home-row-title">${nickname} ${studying}</div>
+                    <div class="home-row-sub">${university}</div>
+                </div>
+                <div class="home-row-val">${this.formatDuration(sec)}</div>
+            </div>`;
+        }).join('');
+    },
+
+    renderHomePublicRooms(rooms) {
+        if (!this.elements.homeRoomList) return;
+        if (!Array.isArray(rooms) || rooms.length === 0) {
+            this.elements.homeRoomList.innerHTML = '<div class="home-empty">현재 공개 그룹이 없습니다.</div>';
+            return;
+        }
+
+        this.elements.homeRoomList.innerHTML = rooms.map((room) => {
+            const name = this.escapeHtml(room?.name || '이름 없는 방');
+            const goal = this.escapeHtml(room?.goal || '목표 미설정');
+            const members = parseInt(room?.member_count, 10) || 0;
+            const maxMembers = parseInt(room?.max_members, 10) || 0;
+            const todaySec = parseInt(room?.today_sec, 10) || 0;
+            return `<div class="home-row-item home-room-item">
+                <div class="home-row-main">
+                    <div class="home-row-title">${name}</div>
+                    <div class="home-row-sub">${goal}</div>
+                </div>
+                <div class="home-row-val">${members}/${maxMembers || '-'}명 · ${this.formatDuration(todaySec)}</div>
+            </div>`;
+        }).join('');
     },
 
     async loadUniversityCalculator(preferredUniversity) {

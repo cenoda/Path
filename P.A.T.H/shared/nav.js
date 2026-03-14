@@ -157,7 +157,8 @@
 
     // ── 페이지 로드 시 인접 라우트 사전 prefetch ──────────────
     var routePrefetchMap = {
-        '/study-hub/': ['/community/', '/mainPageDev/'],
+        '/study-hub/': ['/community/'],
+        '/timer/': ['/study-hub/', '/community/'],
         '/mainPageDev/': ['/study-hub/'],
         '/community/': ['/study-hub/'],
         '/login/':     ['/study-hub/', '/setup-profile/'],

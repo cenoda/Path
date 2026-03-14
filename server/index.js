@@ -354,14 +354,20 @@ app.get('/pwa-install.js', (req, res) => {
 app.use('/assets', express.static(path.join(projectRoot, 'P.A.T.H', 'assets'), staticOptions));
 app.use('/shared', express.static(path.join(projectRoot, 'P.A.T.H', 'shared'), staticOptions));
 app.use('/login', express.static(path.join(projectRoot, 'P.A.T.H', 'login'), noCacheStaticOptions));
-app.use('/study-hub', express.static(path.join(projectRoot, 'P.A.T.H', 'mainHub'), noCacheStaticOptions));
+app.use('/study-hub/assets', express.static(path.join(projectRoot, 'P.A.T.H', 'mainHub', 'assets'), staticOptions));
+app.use('/study-hub', express.static(path.join(projectRoot, 'P.A.T.H', 'mainPageDev'), noCacheStaticOptions));
 app.use('/mainHub', (req, res) => {
   const queryIndex = req.url.indexOf('?');
   const query = queryIndex >= 0 ? req.url.slice(queryIndex) : '';
   const targetPath = req.path === '/' ? '/study-hub/' : `/study-hub${req.path}`;
   return res.redirect(301, `${targetPath}${query}`);
 });
-app.use('/timer', express.static(path.join(projectRoot, 'P.A.T.H', 'mainPageDev'), noCacheStaticOptions));
+app.use('/timer', (req, res) => {
+  const queryIndex = req.url.indexOf('?');
+  const query = queryIndex >= 0 ? req.url.slice(queryIndex) : '';
+  const targetPath = req.path === '/' ? '/study-hub/' : `/study-hub${req.path}`;
+  return res.redirect(301, `${targetPath}${query}`);
+});
 app.use('/community', express.static(path.join(projectRoot, 'P.A.T.H', 'community'), noCacheStaticOptions));
 app.use('/setup-profile', express.static(path.join(projectRoot, 'P.A.T.H', 'setup-profile'), noCacheStaticOptions));
 app.use('/admin', express.static(path.join(projectRoot, 'P.A.T.H', 'admin'), noCacheStaticOptions));

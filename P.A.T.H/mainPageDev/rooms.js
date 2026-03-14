@@ -1255,7 +1255,7 @@
         _generateDecorShareText() {
             const data = this._renderDecorShowcase();
             const code = document.getElementById('room-view-code')?.textContent?.trim() || '';
-            const roomUrl = code ? `${location.origin}/room/${code}` : `${location.origin}/timer/`;
+            const roomUrl = code ? `${location.origin}/room/${code}` : `${location.origin}/study-hub/`;
             return `🏠 ${data.roomName}\n${data.caption}\n무드: ${data.mood}\n오늘 그룹 공부: ${data.totalStudy} · ${data.rankText}\n\n같이 꾸미고 공부하러 오기\n${roomUrl}`;
         },
 
@@ -1394,7 +1394,7 @@
         async shareDecorShowcase() {
             const text = this._generateDecorShareText();
             const code = document.getElementById('room-view-code')?.textContent?.trim() || '';
-            const roomUrl = code ? `${location.origin}/room/${code}` : `${location.origin}/timer/`;
+            const roomUrl = code ? `${location.origin}/room/${code}` : `${location.origin}/study-hub/`;
             const roomName = document.getElementById('room-view-name')?.textContent?.trim() || '그룹룸';
 
             let file = null;

@@ -339,7 +339,7 @@ function saveTimerUiSettings() {
         note.textContent = `저장됨 — 테마: ${shouldLight ? '라이트' : '다크'} · 학습 절전: ${powerSaveLabel}`;
         note.style.color = '#D4AF37';
         setTimeout(() => {
-            note.textContent = '메인허브와 동일한 테마 설정을 공유합니다.';
+            note.textContent = '학습 화면 전반에서 동일한 테마 설정을 공유합니다.';
             note.style.color = '';
         }, 1800);
     }
@@ -420,7 +420,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const backBtn = document.getElementById('btn-back-mainhub');
     const settingsBtn = document.getElementById('btn-open-timer-settings');
 
+    if (backBtn && window.location.pathname === '/study-hub/') {
+        backBtn.classList.add('hidden');
+        backBtn.setAttribute('aria-hidden', 'true');
+        backBtn.tabIndex = -1;
+    }
+
     bindTapAction(backBtn, () => {
+        if (window.location.pathname === '/study-hub/') {
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('/community/');
+                return;
+            }
+            window.location.href = '/community/';
+            return;
+        }
         if (typeof window.navigateTo === 'function') {
             window.navigateTo('/study-hub/');
             return;

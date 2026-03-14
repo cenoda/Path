@@ -115,6 +115,32 @@ const StorageManager = {
         }
     },
 
+    async fetchTodayRanking(limit = 5) {
+        try {
+            const r = await fetch('/api/ranking/today', { credentials: 'include' });
+            if (!r.ok) throw new Error('오늘 랭킹 조회 실패');
+            const data = await r.json();
+            const rows = Array.isArray(data.ranking) ? data.ranking : [];
+            return rows.slice(0, Math.max(1, limit));
+        } catch (e) {
+            console.error('StorageManager.fetchTodayRanking 오류:', e);
+            return [];
+        }
+    },
+
+    async fetchPublicRooms(limit = 5) {
+        try {
+            const r = await fetch('/api/rooms/public?sort=study&page=1', { credentials: 'include' });
+            if (!r.ok) throw new Error('공개 그룹 조회 실패');
+            const data = await r.json();
+            const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+            return rooms.slice(0, Math.max(1, limit));
+        } catch (e) {
+            console.error('StorageManager.fetchPublicRooms 오류:', e);
+            return [];
+        }
+    },
+
     async addPlan(payload) {
         try {
             const r = await fetch('/api/study/calendar/plan', {

@@ -1124,6 +1124,50 @@ body.tab-calendar-active .focus-container {
     align-items: flex-end;
 }
 
+.hub-social-chat-actions {
+    width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hub-social-file-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hub-social-file-input {
+    display: none;
+}
+
+.hub-social-file-pick-btn,
+.hub-social-send-file-btn {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 11px;
+}
+
+.hub-social-file-name {
+    color: var(--text-muted);
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hub-social-send-row {
+    display: flex;
+    gap: 6px;
+}
+
+.hub-social-send-row .btn-primary,
+.hub-social-send-row .home-refresh-btn {
+    flex: 1;
+    min-height: 36px;
+    font-size: 11px;
+}
+
 .hub-social-chat-input {
     flex: 1;
     min-height: 42px;
@@ -6488,6 +6532,15 @@ body:not(.light) .planner-paper::before {
 
     .hub-notif-grid {
         grid-template-columns: 1fr;
+    }
+
+    .hub-social-chat-input-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .hub-social-chat-actions {
+        width: 100%;
     }
 }
 

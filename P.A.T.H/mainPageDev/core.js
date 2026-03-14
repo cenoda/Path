@@ -7,11 +7,28 @@ let studyMode = 'timer';
 
 const FocusGuard = {
     armed: false,
+    nativeHandles: [],
+
+    isNativeApp() {
+        const cap = window.Capacitor;
+        if (!cap) return false;
+        if (typeof cap.isNativePlatform === 'function') return !!cap.isNativePlatform();
+        return cap.getPlatform?.() !== 'web';
+    },
+
+    getAppPlugin() {
+        return window.Capacitor?.Plugins?.App || null;
+    },
+
+    triggerFail(reason) {
+        if (!isRunning) return;
+        console.warn(reason);
+        TimerEngine.finish('FAILED');
+    },
 
     onVisibilityChange() {
         if (document.hidden && isRunning) {
-            console.warn('P.A.T.H: 탭 전환/백그라운드 감지됨.');
-            TimerEngine.finish('FAILED');
+            FocusGuard.triggerFail('P.A.T.H: 탭 전환/백그라운드 감지됨.');
         }
     },
 
@@ -21,16 +38,14 @@ const FocusGuard = {
         setTimeout(() => {
             if (!isRunning) return;
             if (!document.hasFocus()) {
-                console.warn('P.A.T.H: 창 포커스 이탈 감지됨.');
-                TimerEngine.finish('FAILED');
+                FocusGuard.triggerFail('P.A.T.H: 창 포커스 이탈 감지됨.');
             }
         }, 50);
     },
 
     onPageHide() {
         if (isRunning) {
-            console.warn('P.A.T.H: 페이지 이탈 감지됨.');
-            TimerEngine.finish('FAILED');
+            FocusGuard.triggerFail('P.A.T.H: 페이지 이탈 감지됨.');
         }
     },
 
@@ -40,10 +55,53 @@ const FocusGuard = {
         e.returnValue = '';
     },
 
+    onAppStateChange(state) {
+        if (!isRunning) return;
+        if (state?.isActive === false) {
+            FocusGuard.triggerFail('P.A.T.H: 앱 백그라운드 전환 감지됨.');
+        }
+    },
+
+    onBackButton() {
+        if (!isRunning) return;
+        alert('학습 중에는 앱을 종료할 수 없습니다. 먼저 중단 버튼을 눌러주세요.');
+    },
+
+    registerNativeListener(eventName, handler) {
+        const app = this.getAppPlugin();
+        if (!app || typeof app.addListener !== 'function') return;
+
+        Promise.resolve(app.addListener(eventName, handler))
+            .then((handle) => {
+                if (handle && typeof handle.remove === 'function') {
+                    this.nativeHandles.push(handle);
+                }
+            })
+            .catch(() => {});
+    },
+
+    addNativeListeners() {
+        if (!this.isNativeApp()) return;
+        this.registerNativeListener('appStateChange', this.onAppStateChange);
+        this.registerNativeListener('backButton', this.onBackButton);
+    },
+
+    async removeNativeListeners() {
+        const handles = this.nativeHandles.splice(0, this.nativeHandles.length);
+        await Promise.all(handles.map((h) => Promise.resolve(h.remove()).catch(() => {})));
+    },
+
     activate() {
         if (this.armed) return;
         this.armed = true;
         document.addEventListener('visibilitychange', this.onVisibilityChange);
+
+        if (this.isNativeApp()) {
+            this.addNativeListeners();
+            return;
+        }
+
+        // 웹 브라우저에서는 네이티브 이벤트가 없어 window 이벤트를 폴백으로 사용한다.
         window.addEventListener('blur', this.onBlur);
         window.addEventListener('pagehide', this.onPageHide);
         window.addEventListener('beforeunload', this.onBeforeUnload);
@@ -56,6 +114,7 @@ const FocusGuard = {
         window.removeEventListener('blur', this.onBlur);
         window.removeEventListener('pagehide', this.onPageHide);
         window.removeEventListener('beforeunload', this.onBeforeUnload);
+        this.removeNativeListeners().catch(() => {});
     }
 };
 

@@ -1142,7 +1142,17 @@ const UI = {
                             <div id="hub-social-messages" class="hub-social-messages"></div>
                             <div class="hub-social-chat-input-row">
                                 <textarea id="hub-social-chat-input" class="hub-social-chat-input" maxlength="500" placeholder="메시지를 입력하세요"></textarea>
-                                <button type="button" id="hub-social-send-btn" class="btn-primary">보내기</button>
+                                <div class="hub-social-chat-actions">
+                                    <div class="hub-social-file-row">
+                                        <input type="file" id="hub-social-file-input" class="hub-social-file-input" />
+                                        <button type="button" id="hub-social-file-pick-btn" class="home-refresh-btn hub-social-file-pick-btn">파일 선택</button>
+                                        <span id="hub-social-file-name" class="hub-social-file-name">선택된 파일 없음</span>
+                                    </div>
+                                    <div class="hub-social-send-row">
+                                        <button type="button" id="hub-social-send-file-btn" class="home-refresh-btn hub-social-send-file-btn">파일 전송</button>
+                                        <button type="button" id="hub-social-send-btn" class="btn-primary">보내기</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -1165,8 +1175,14 @@ const UI = {
         });
 
         const sendBtn = this.elements.hubOverlayBody.querySelector('#hub-social-send-btn');
+        const sendFileBtn = this.elements.hubOverlayBody.querySelector('#hub-social-send-file-btn');
+        const pickFileBtn = this.elements.hubOverlayBody.querySelector('#hub-social-file-pick-btn');
+        const fileInput = this.elements.hubOverlayBody.querySelector('#hub-social-file-input');
         const input = this.elements.hubOverlayBody.querySelector('#hub-social-chat-input');
         sendBtn?.addEventListener('click', () => this.sendHubSocialMessage());
+        sendFileBtn?.addEventListener('click', () => this.sendHubSocialFile());
+        pickFileBtn?.addEventListener('click', () => fileInput?.click());
+        fileInput?.addEventListener('change', () => this.updateHubSocialFileSelectionLabel());
         input?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -1249,18 +1265,24 @@ const UI = {
         const titleEl = this.elements.hubOverlayBody?.querySelector('#hub-social-chat-title');
         const listEl = this.elements.hubOverlayBody?.querySelector('#hub-social-messages');
         const sendBtn = this.elements.hubOverlayBody?.querySelector('#hub-social-send-btn');
+        const sendFileBtn = this.elements.hubOverlayBody?.querySelector('#hub-social-send-file-btn');
+        const fileInput = this.elements.hubOverlayBody?.querySelector('#hub-social-file-input');
 
-        if (!titleEl || !listEl || !sendBtn) return;
+        if (!titleEl || !listEl || !sendBtn || !sendFileBtn || !fileInput) return;
 
         const targetId = Number(this.hubSocialCurrentChatId || 0);
         if (!targetId) {
             titleEl.textContent = '대화 상대를 선택하세요';
             listEl.innerHTML = '<div class="hub-social-empty-chat">메시지 내역이 없습니다.</div>';
             sendBtn.disabled = true;
+            sendFileBtn.disabled = true;
+            fileInput.disabled = true;
             return;
         }
 
         sendBtn.disabled = false;
+        sendFileBtn.disabled = false;
+        fileInput.disabled = false;
         titleEl.textContent = `${this.hubSocialCurrentChatNickname || '대화'}와의 대화`;
         listEl.innerHTML = '<div class="hub-social-empty-chat">메시지 불러오는 중...</div>';
 
@@ -1299,6 +1321,19 @@ const UI = {
         listEl.scrollTop = listEl.scrollHeight;
     },
 
+    updateHubSocialFileSelectionLabel() {
+        const fileInput = this.elements.hubOverlayBody?.querySelector('#hub-social-file-input');
+        const nameEl = this.elements.hubOverlayBody?.querySelector('#hub-social-file-name');
+        if (!fileInput || !nameEl) return;
+        const file = fileInput.files?.[0];
+        if (!file) {
+            nameEl.textContent = '선택된 파일 없음';
+            return;
+        }
+        const sizeKb = Math.max(1, Math.round((Number(file.size || 0) / 1024)));
+        nameEl.textContent = `${file.name} (${sizeKb}KB)`;
+    },
+
     async sendHubSocialMessage() {
         const targetId = Number(this.hubSocialCurrentChatId || 0);
         if (!targetId) {
@@ -1330,6 +1365,50 @@ const UI = {
         } finally {
             sendBtn.disabled = false;
             sendBtn.textContent = prevText || '보내기';
+        }
+    },
+
+    async sendHubSocialFile() {
+        const targetId = Number(this.hubSocialCurrentChatId || 0);
+        if (!targetId) {
+            alert('먼저 대화 상대를 선택하세요.');
+            return;
+        }
+
+        const fileInput = this.elements.hubOverlayBody?.querySelector('#hub-social-file-input');
+        const sendFileBtn = this.elements.hubOverlayBody?.querySelector('#hub-social-send-file-btn');
+        const textInput = this.elements.hubOverlayBody?.querySelector('#hub-social-chat-input');
+        if (!fileInput || !sendFileBtn) return;
+
+        const file = fileInput.files?.[0];
+        if (!file) {
+            alert('전송할 파일을 먼저 선택하세요.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('receiver_id', String(targetId));
+        formData.append('content', String(textInput?.value || '').trim());
+        formData.append('file', file);
+
+        sendFileBtn.disabled = true;
+        const prevText = sendFileBtn.textContent;
+        sendFileBtn.textContent = '업로드중...';
+
+        try {
+            await this.requestJson('/api/messages/send-file', {
+                method: 'POST',
+                body: formData
+            });
+            fileInput.value = '';
+            this.updateHubSocialFileSelectionLabel();
+            if (textInput) textInput.value = '';
+            await this.renderHubSocialConversation();
+        } catch (err) {
+            alert(err?.message || '파일 전송에 실패했습니다.');
+        } finally {
+            sendFileBtn.disabled = false;
+            sendFileBtn.textContent = prevText || '파일 전송';
         }
     },
 

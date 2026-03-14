@@ -892,6 +892,408 @@ body.tab-calendar-active .focus-container {
     cursor: default;
 }
 
+.hub-social-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.hub-social-summary {
+    border: 1px solid var(--line-color);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    padding: 12px;
+}
+
+.hub-social-grid {
+    display: grid;
+    grid-template-columns: 0.95fr 1.05fr;
+    gap: 10px;
+}
+
+.hub-social-panel {
+    border: 1px solid var(--line-color);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    padding: 10px;
+    min-height: 220px;
+}
+
+.hub-social-panel h4 {
+    font-size: 13px;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.hub-social-subtitle {
+    margin-top: 10px;
+}
+
+.hub-social-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hub-social-request-item,
+.hub-social-friend-item,
+.hub-social-convo-item {
+    border: 1px solid var(--line-color);
+    border-radius: 10px;
+    background: var(--surface-strong);
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.hub-social-friend-item.active,
+.hub-social-convo-item.active {
+    border-color: rgba(49, 130, 246, 0.35);
+    background: rgba(49, 130, 246, 0.08);
+}
+
+.hub-social-user-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.hub-social-user-main strong {
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hub-social-user-main span {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.hub-social-mini-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.hub-social-danger {
+    border-color: rgba(211, 79, 91, 0.35);
+    background: rgba(211, 79, 91, 0.1);
+    color: #c53e4d;
+}
+
+.hub-social-friend-main,
+.hub-social-convo-main {
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.hub-social-friend-main strong,
+.hub-social-convo-main strong {
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hub-social-friend-main span,
+.hub-social-convo-main span {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hub-social-convo-item em {
+    min-width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: rgba(49, 130, 246, 0.2);
+    color: var(--accent-blue);
+    font-style: normal;
+    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+}
+
+.hub-social-chat-box {
+    margin-top: 10px;
+    border: 1px solid var(--line-color);
+    border-radius: 10px;
+    background: var(--surface-strong);
+    padding: 8px;
+}
+
+.hub-social-chat-title {
+    font-size: 12px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+
+.hub-social-messages {
+    border: 1px solid var(--line-color);
+    border-radius: 8px;
+    background: var(--surface-soft);
+    min-height: 170px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hub-social-empty-chat {
+    color: var(--text-muted);
+    font-size: 11px;
+    text-align: center;
+    padding: 20px 10px;
+}
+
+.hub-social-msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 92%;
+    gap: 3px;
+}
+
+.hub-social-msg.mine {
+    align-self: flex-end;
+}
+
+.hub-social-msg.other {
+    align-self: flex-start;
+}
+
+.hub-social-msg-bubble {
+    border: 1px solid var(--line-color);
+    border-radius: 10px;
+    padding: 7px 9px;
+    background: var(--surface-strong);
+    color: var(--text-primary);
+    font-size: 11px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.hub-social-msg.mine .hub-social-msg-bubble {
+    border-color: rgba(49, 130, 246, 0.35);
+    background: rgba(49, 130, 246, 0.12);
+}
+
+.hub-social-msg-time {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.hub-social-file-link {
+    display: inline-block;
+    margin-top: 5px;
+    font-size: 10px;
+    color: var(--accent-blue);
+    text-decoration: none;
+}
+
+.hub-social-file-link:hover {
+    text-decoration: underline;
+}
+
+.hub-social-chat-input-row {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+    align-items: flex-end;
+}
+
+.hub-social-chat-input {
+    flex: 1;
+    min-height: 42px;
+    max-height: 96px;
+    resize: vertical;
+    border: 1px solid var(--line-color);
+    border-radius: 9px;
+    background: var(--surface-soft);
+    color: var(--text-primary);
+    padding: 9px 10px;
+    font-size: 12px;
+}
+
+.hub-social-chat-input:focus {
+    outline: none;
+    border-color: rgba(49, 130, 246, 0.4);
+}
+
+.hub-notif-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.hub-notif-summary {
+    border: 1px solid var(--line-color);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    padding: 12px;
+}
+
+.hub-notif-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.hub-notif-panel {
+    border: 1px solid var(--line-color);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    padding: 10px;
+    min-height: 220px;
+}
+
+.hub-notif-panel h4 {
+    font-size: 13px;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.hub-notif-list,
+.hub-rank-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hub-notif-item {
+    border: 1px solid var(--line-color);
+    border-radius: 10px;
+    background: var(--surface-strong);
+    padding: 8px;
+}
+
+.hub-notif-item.unread {
+    border-color: rgba(49, 130, 246, 0.35);
+    background: rgba(49, 130, 246, 0.08);
+}
+
+.hub-notif-msg {
+    font-size: 11px;
+    color: var(--text-primary);
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.hub-notif-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.hub-notif-rank-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.hub-notif-rank-tabs {
+    display: flex;
+    gap: 6px;
+}
+
+.hub-notif-rank-tab {
+    border: 1px solid var(--line-color);
+    border-radius: 999px;
+    background: var(--surface-strong);
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+.hub-notif-rank-tab.active {
+    border-color: rgba(49, 130, 246, 0.35);
+    background: rgba(49, 130, 246, 0.12);
+    color: var(--accent-blue);
+    font-weight: 700;
+}
+
+.hub-rank-item {
+    border: 1px solid var(--line-color);
+    border-radius: 10px;
+    background: var(--surface-strong);
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hub-rank-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(49, 130, 246, 0.12);
+    color: var(--accent-blue);
+    font-size: 11px;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.hub-rank-main {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.hub-rank-main strong {
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hub-rank-main span {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hub-rank-val {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
 .hub-overlay-foot {
     padding: 0 16px 16px;
     display: flex;
@@ -6077,6 +6479,14 @@ body:not(.light) .planner-paper::before {
     }
 
     .hub-shop-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hub-social-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hub-notif-grid {
         grid-template-columns: 1fr;
     }
 }

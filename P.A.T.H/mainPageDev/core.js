@@ -2,7 +2,62 @@ let timeLeft = 0;
 let originalTime = 0;
 let timerInterval = null;
 let isRunning = false;
+let isFinishing = false;
 let studyMode = 'timer';
+
+const FocusGuard = {
+    armed: false,
+
+    onVisibilityChange() {
+        if (document.hidden && isRunning) {
+            console.warn('P.A.T.H: 탭 전환/백그라운드 감지됨.');
+            TimerEngine.finish('FAILED');
+        }
+    },
+
+    onBlur() {
+        if (!isRunning) return;
+        // 일부 브라우저는 blur만 먼저 발생하므로 한 틱 뒤 실제 포커스 상태를 확인한다.
+        setTimeout(() => {
+            if (!isRunning) return;
+            if (!document.hasFocus()) {
+                console.warn('P.A.T.H: 창 포커스 이탈 감지됨.');
+                TimerEngine.finish('FAILED');
+            }
+        }, 50);
+    },
+
+    onPageHide() {
+        if (isRunning) {
+            console.warn('P.A.T.H: 페이지 이탈 감지됨.');
+            TimerEngine.finish('FAILED');
+        }
+    },
+
+    onBeforeUnload(e) {
+        if (!isRunning) return;
+        e.preventDefault();
+        e.returnValue = '';
+    },
+
+    activate() {
+        if (this.armed) return;
+        this.armed = true;
+        document.addEventListener('visibilitychange', this.onVisibilityChange);
+        window.addEventListener('blur', this.onBlur);
+        window.addEventListener('pagehide', this.onPageHide);
+        window.addEventListener('beforeunload', this.onBeforeUnload);
+    },
+
+    deactivate() {
+        if (!this.armed) return;
+        this.armed = false;
+        document.removeEventListener('visibilitychange', this.onVisibilityChange);
+        window.removeEventListener('blur', this.onBlur);
+        window.removeEventListener('pagehide', this.onPageHide);
+        window.removeEventListener('beforeunload', this.onBeforeUnload);
+    }
+};
 
 const TimerEngine = {
     setMode(mode) {
@@ -11,6 +66,10 @@ const TimerEngine = {
 
     getMode() {
         return studyMode;
+    },
+
+    isActive() {
+        return isRunning;
     },
 
     async start(hr, min, subjectId) {
@@ -23,6 +82,7 @@ const TimerEngine = {
 
         // 타이머를 즉시 시작해서 클릭 반응을 바로 보여줌 (낙관적 업데이트)
         isRunning = true;
+        FocusGuard.activate();
         if (typeof WakeLockManager !== 'undefined') WakeLockManager.request();
         if (typeof CamManager !== 'undefined') CamManager.startCapturing();
         UI.updateTimer(timeLeft);
@@ -53,6 +113,7 @@ const TimerEngine = {
             clearInterval(timerInterval);
             timerInterval = null;
             isRunning = false;
+            FocusGuard.deactivate();
             timeLeft = 0;
             const err = await startRes.json().catch(() => ({}));
             throw new Error(err.error || '공부 시작에 실패했습니다.');
@@ -74,23 +135,26 @@ const TimerEngine = {
     },
 
     async finish(type) {
+        if (isFinishing) return;
+        if (!isRunning && !timerInterval) return;
+
+        isFinishing = true;
         clearInterval(timerInterval);
+        timerInterval = null;
         isRunning = false;
+        FocusGuard.deactivate();
         if (typeof WakeLockManager !== 'undefined') WakeLockManager.release();
         if (typeof CamManager !== 'undefined') CamManager.stopCapturing();
 
-        const result = await StorageManager.completeStudy(type, studyMode);
+        try {
+            const result = await StorageManager.completeStudy(type, studyMode);
 
-        if (result?.user) UI.updateAssets(result.user);
-        UI.showResult(type, result?.earnedGold || 0, studyMode, result?.studyRecordId || null);
+            if (result?.user) UI.updateAssets(result.user);
+            UI.showResult(type, result?.earnedGold || 0, studyMode, result?.studyRecordId || null);
 
-        console.log(`P.A.T.H: 완료 [${type}] [${studyMode}] Gold: ${result?.earnedGold}`);
+            console.log(`P.A.T.H: 완료 [${type}] [${studyMode}] Gold: ${result?.earnedGold}`);
+        } finally {
+            isFinishing = false;
+        }
     }
 };
-
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden && isRunning) {
-        console.warn('P.A.T.H: 탈주 감지됨.');
-        TimerEngine.finish('FAILED');
-    }
-});

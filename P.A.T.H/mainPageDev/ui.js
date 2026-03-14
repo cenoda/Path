@@ -25,6 +25,9 @@ const UI = {
     homeRefreshIntervalId: null,
     activeHubOverlay: null,
     hubApplyTargets: new Map(),
+    hubSocialCurrentChatId: null,
+    hubSocialCurrentChatNickname: '',
+    hubNotifRankTab: 'today',
     timetableConfig: {
         dayStartMinute: 6 * 60,
         dayEndMinute: 24 * 60,
@@ -198,6 +201,16 @@ const UI = {
     },
 
     bindEvents() {
+        const blockWhenStudying = (e, message = '타이머 진행 중에는 이동할 수 없습니다. 중단 후 이용해주세요.') => {
+            if (typeof TimerEngine === 'undefined' || !TimerEngine.isActive || !TimerEngine.isActive()) return false;
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            alert(message);
+            return true;
+        };
+
         const syncAction = () => this.syncInputToDisplay();
         this.elements.inputHr.oninput  = syncAction;
         this.elements.inputMin.oninput = syncAction;
@@ -210,12 +223,34 @@ const UI = {
         this.elements.tabBalloonBtn.onclick = () => this.switchTab('balloon');
         document.getElementById('tab-rooms-btn')?.addEventListener('click', () => this.switchTab('rooms'));
         this.elements.tabCommunityBtn?.addEventListener('click', () => {
+            if (blockWhenStudying(null, '타이머 진행 중에는 커뮤니티로 이동할 수 없습니다.')) return;
             if (typeof window.navigateTo === 'function') {
                 window.navigateTo('/community/');
                 return;
             }
             window.location.href = '/community/';
         });
+        const backBtn = document.getElementById('btn-back-mainhub');
+        if (backBtn) {
+            backBtn.onclick = (e) => {
+                if (blockWhenStudying(e, '타이머 진행 중에는 메인 허브로 나갈 수 없습니다.')) return false;
+                if (typeof window.navigateTo === 'function') {
+                    window.navigateTo('/study-hub/');
+                } else {
+                    window.location.href = '/study-hub/';
+                }
+                return false;
+            };
+        }
+
+        const settingsBtn = document.getElementById('btn-open-timer-settings');
+        if (settingsBtn) {
+            settingsBtn.onclick = (e) => {
+                if (blockWhenStudying(e, '타이머 진행 중에는 설정을 열 수 없습니다.')) return false;
+                if (typeof openTimerSettings === 'function') openTimerSettings();
+                return false;
+            };
+        }
         this.elements.homeStartBtn?.addEventListener('click', () => this.switchTab('study'));
         this.elements.homeRefreshBtn?.addEventListener('click', () => {
             this.loadHomeHubData(true).catch(() => {});
@@ -421,6 +456,12 @@ const UI = {
     switchTab(tab) {
         const validTabs = ['home', 'study', 'calendar', 'balloon', 'scorecalc', 'rooms', 'planner'];
         const nextTab = validTabs.includes(tab) ? tab : 'home';
+
+        if (typeof TimerEngine !== 'undefined' && TimerEngine.isActive && TimerEngine.isActive() && nextTab !== 'study') {
+            alert('타이머 진행 중에는 학습 탭을 벗어날 수 없습니다. 중단 후 이동해주세요.');
+            return;
+        }
+
         this.currentTab = nextTab;
         const isHome = this.currentTab === 'home';
         const isCalendar = this.currentTab === 'calendar';
@@ -577,6 +618,22 @@ const UI = {
             this.elements.hubOverlayTitle.textContent = '상점 · 성장';
             this.renderHubShopPanel().catch((err) => {
                 this.elements.hubOverlayBody.innerHTML = `<div class="hub-apply-error">${this.escapeHtml(err?.message || '상점 데이터를 불러오지 못했습니다.')}</div>`;
+            });
+            return;
+        }
+
+        if (type === 'social') {
+            this.elements.hubOverlayTitle.textContent = '친구 · 메시지';
+            this.renderHubSocialPanel().catch((err) => {
+                this.elements.hubOverlayBody.innerHTML = `<div class="hub-apply-error">${this.escapeHtml(err?.message || '소셜 데이터를 불러오지 못했습니다.')}</div>`;
+            });
+            return;
+        }
+
+        if (type === 'notif') {
+            this.elements.hubOverlayTitle.textContent = '알림 · 랭킹';
+            this.renderHubNotifPanel().catch((err) => {
+                this.elements.hubOverlayBody.innerHTML = `<div class="hub-apply-error">${this.escapeHtml(err?.message || '알림 데이터를 불러오지 못했습니다.')}</div>`;
             });
             return;
         }
@@ -979,6 +1036,413 @@ const UI = {
             button.disabled = false;
             button.textContent = prev;
         }
+    },
+
+    async renderHubSocialPanel() {
+        if (!this.elements.hubOverlayBody || !this.elements.hubOverlayConfirmBtn) return;
+
+        this.elements.hubOverlayConfirmBtn.textContent = '닫기';
+        this.elements.hubOverlayBody.innerHTML = '<div class="hub-apply-loading">불러오는 중...</div>';
+
+        const [friends, requests, conversations, unreadCount] = await Promise.all([
+            this.requestJson('/api/friends/list'),
+            this.requestJson('/api/friends/requests'),
+            this.requestJson('/api/messages/conversations'),
+            this.requestJson('/api/messages/unread-count')
+        ]);
+
+        const friendList = Array.isArray(friends) ? friends : [];
+        const requestList = Array.isArray(requests) ? requests : [];
+        const convoList = Array.isArray(conversations) ? conversations : [];
+        const unread = Number(unreadCount?.count || 0);
+
+        if (!this.hubSocialCurrentChatId) {
+            const firstConvo = convoList[0];
+            const firstFriend = friendList[0];
+            this.hubSocialCurrentChatId = Number(firstConvo?.other_user || firstFriend?.id || 0) || null;
+            this.hubSocialCurrentChatNickname = String(firstConvo?.nickname || firstFriend?.nickname || '');
+        }
+
+        const requestHtml = requestList.length
+            ? requestList.map((req) => {
+                const id = Number(req?.friendship_id || 0);
+                const nick = this.escapeHtml(req?.nickname || '익명');
+                const univ = this.escapeHtml(req?.university || '소속 미설정');
+                return `<li class="hub-social-request-item">
+                    <div class="hub-social-user-main">
+                        <strong>${nick}</strong>
+                        <span>${univ}</span>
+                    </div>
+                    <div class="hub-social-mini-actions">
+                        <button type="button" class="hub-shop-action-btn" data-social-act="accept" data-friendship-id="${id}">수락</button>
+                        <button type="button" class="hub-shop-action-btn hub-social-danger" data-social-act="reject" data-friendship-id="${id}">거절</button>
+                    </div>
+                </li>`;
+            }).join('')
+            : '<li class="hub-apply-empty">대기 중인 동맹 신청이 없습니다.</li>';
+
+        const friendHtml = friendList.length
+            ? friendList.map((f) => {
+                const userId = Number(f?.id || 0);
+                const nick = this.escapeHtml(f?.nickname || '익명');
+                const univ = this.escapeHtml(f?.university || '소속 미설정');
+                const studying = f?.is_studying ? ' · 공부중' : '';
+                const activeClass = this.hubSocialCurrentChatId === userId ? 'active' : '';
+                return `<li class="hub-social-friend-item ${activeClass}">
+                    <button type="button" class="hub-social-friend-main" data-social-act="open-chat" data-chat-user-id="${userId}" data-chat-user-name="${nick}">
+                        <strong>${nick}</strong>
+                        <span>${univ}${studying}</span>
+                    </button>
+                    <button type="button" class="hub-shop-action-btn hub-social-danger" data-social-act="remove-friend" data-target-id="${userId}">해제</button>
+                </li>`;
+            }).join('')
+            : '<li class="hub-apply-empty">동맹이 없습니다.</li>';
+
+        const convoPreviewHtml = convoList.length
+            ? convoList.slice(0, 10).map((c) => {
+                const userId = Number(c?.other_user || 0);
+                const nick = this.escapeHtml(c?.nickname || '익명');
+                const msg = this.escapeHtml(c?.last_msg || '대화 내역 없음');
+                const activeClass = this.hubSocialCurrentChatId === userId ? 'active' : '';
+                const unreadBadge = Number(c?.unread_count || 0) > 0 ? `<em>${Math.min(99, Number(c.unread_count))}</em>` : '';
+                return `<li class="hub-social-convo-item ${activeClass}">
+                    <button type="button" class="hub-social-convo-main" data-social-act="open-chat" data-chat-user-id="${userId}" data-chat-user-name="${nick}">
+                        <strong>${nick}</strong>
+                        <span>${msg}</span>
+                    </button>
+                    ${unreadBadge}
+                </li>`;
+            }).join('')
+            : '<li class="hub-apply-empty">대화 내역이 없습니다.</li>';
+
+        this.elements.hubOverlayBody.innerHTML = `
+            <section class="hub-social-wrap">
+                <div class="hub-social-summary">
+                    <div class="hub-shop-meta-row"><span>동맹 수</span><strong>${friendList.length}명</strong></div>
+                    <div class="hub-shop-meta-row"><span>대기 신청</span><strong>${requestList.length}건</strong></div>
+                    <div class="hub-shop-meta-row"><span>읽지 않은 메시지</span><strong>${unread}개</strong></div>
+                    <div class="hub-shop-actions-row">
+                        <button type="button" id="hub-social-refresh-btn" class="home-refresh-btn">새로고침</button>
+                    </div>
+                </div>
+
+                <div class="hub-social-grid">
+                    <section class="hub-social-panel">
+                        <h4>동맹 신청</h4>
+                        <ul class="hub-social-list">${requestHtml}</ul>
+                        <h4 class="hub-social-subtitle">내 동맹</h4>
+                        <ul class="hub-social-list">${friendHtml}</ul>
+                    </section>
+
+                    <section class="hub-social-panel">
+                        <h4>대화</h4>
+                        <ul class="hub-social-list hub-social-convo-list">${convoPreviewHtml}</ul>
+                        <div class="hub-social-chat-box">
+                            <div id="hub-social-chat-title" class="hub-social-chat-title">대화 상대를 선택하세요</div>
+                            <div id="hub-social-messages" class="hub-social-messages"></div>
+                            <div class="hub-social-chat-input-row">
+                                <textarea id="hub-social-chat-input" class="hub-social-chat-input" maxlength="500" placeholder="메시지를 입력하세요"></textarea>
+                                <button type="button" id="hub-social-send-btn" class="btn-primary">보내기</button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </section>
+        `;
+
+        this.elements.hubOverlayBody.querySelector('#hub-social-refresh-btn')?.addEventListener('click', () => {
+            this.renderHubSocialPanel().catch((err) => {
+                this.elements.hubOverlayBody.innerHTML = `<div class="hub-apply-error">${this.escapeHtml(err?.message || '새로고침 실패')}</div>`;
+            });
+        });
+
+        this.elements.hubOverlayBody.querySelectorAll('[data-social-act]').forEach((el) => {
+            el.addEventListener('click', async () => {
+                const action = String(el.dataset.socialAct || '');
+                if (!action) return;
+                await this.handleHubSocialAction(action, el);
+            });
+        });
+
+        const sendBtn = this.elements.hubOverlayBody.querySelector('#hub-social-send-btn');
+        const input = this.elements.hubOverlayBody.querySelector('#hub-social-chat-input');
+        sendBtn?.addEventListener('click', () => this.sendHubSocialMessage());
+        input?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendHubSocialMessage();
+            }
+        });
+
+        await this.renderHubSocialConversation();
+    },
+
+    async handleHubSocialAction(action, element) {
+        const markBusy = () => {
+            element.disabled = true;
+            element.dataset.prevText = element.textContent || '';
+            element.textContent = '처리중...';
+        };
+        const restoreBusy = () => {
+            element.disabled = false;
+            element.textContent = element.dataset.prevText || element.textContent || '';
+        };
+
+        try {
+            if (action === 'accept') {
+                const friendshipId = Number(element.dataset.friendshipId || 0);
+                if (!friendshipId) return;
+                markBusy();
+                await this.requestJson('/api/friends/accept', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ friendship_id: friendshipId })
+                });
+                await this.renderHubSocialPanel();
+                return;
+            }
+
+            if (action === 'reject') {
+                const friendshipId = Number(element.dataset.friendshipId || 0);
+                if (!friendshipId) return;
+                markBusy();
+                await this.requestJson('/api/friends/reject', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ friendship_id: friendshipId })
+                });
+                await this.renderHubSocialPanel();
+                return;
+            }
+
+            if (action === 'remove-friend') {
+                const targetId = Number(element.dataset.targetId || 0);
+                if (!targetId) return;
+                if (!confirm('동맹을 해제하시겠습니까?')) return;
+                markBusy();
+                await this.requestJson(`/api/friends/${targetId}`, {
+                    method: 'DELETE'
+                });
+                if (this.hubSocialCurrentChatId === targetId) {
+                    this.hubSocialCurrentChatId = null;
+                    this.hubSocialCurrentChatNickname = '';
+                }
+                await this.renderHubSocialPanel();
+                return;
+            }
+
+            if (action === 'open-chat') {
+                const userId = Number(element.dataset.chatUserId || 0);
+                if (!userId) return;
+                this.hubSocialCurrentChatId = userId;
+                this.hubSocialCurrentChatNickname = String(element.dataset.chatUserName || '');
+                await this.renderHubSocialPanel();
+                return;
+            }
+        } catch (err) {
+            alert(err?.message || '소셜 작업 중 오류가 발생했습니다.');
+            restoreBusy();
+        }
+    },
+
+    async renderHubSocialConversation() {
+        const titleEl = this.elements.hubOverlayBody?.querySelector('#hub-social-chat-title');
+        const listEl = this.elements.hubOverlayBody?.querySelector('#hub-social-messages');
+        const sendBtn = this.elements.hubOverlayBody?.querySelector('#hub-social-send-btn');
+
+        if (!titleEl || !listEl || !sendBtn) return;
+
+        const targetId = Number(this.hubSocialCurrentChatId || 0);
+        if (!targetId) {
+            titleEl.textContent = '대화 상대를 선택하세요';
+            listEl.innerHTML = '<div class="hub-social-empty-chat">메시지 내역이 없습니다.</div>';
+            sendBtn.disabled = true;
+            return;
+        }
+
+        sendBtn.disabled = false;
+        titleEl.textContent = `${this.hubSocialCurrentChatNickname || '대화'}와의 대화`;
+        listEl.innerHTML = '<div class="hub-social-empty-chat">메시지 불러오는 중...</div>';
+
+        const rows = await this.requestJson(`/api/messages/conversation/${targetId}`);
+        const messages = Array.isArray(rows) ? rows : [];
+
+        if (!messages.length) {
+            listEl.innerHTML = '<div class="hub-social-empty-chat">아직 주고받은 메시지가 없습니다.</div>';
+            return;
+        }
+
+        listEl.innerHTML = messages.map((m) => {
+            const mine = !!m?.is_mine;
+            const content = this.escapeHtml(m?.content || '');
+            const ts = m?.created_at ? new Date(m.created_at).toLocaleString('ko-KR', {
+                month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            }) : '-';
+
+            let fileHtml = '';
+            if (m?.file_path) {
+                const filename = String(m.file_path).split('/').pop() || '';
+                if (filename) {
+                    fileHtml = `<a class="hub-social-file-link" href="/api/messages/file/${encodeURIComponent(filename)}" target="_blank" rel="noopener">첨부파일 보기</a>`;
+                }
+            }
+
+            return `<div class="hub-social-msg ${mine ? 'mine' : 'other'}">
+                <div class="hub-social-msg-bubble">
+                    <div>${content}</div>
+                    ${fileHtml}
+                </div>
+                <div class="hub-social-msg-time">${ts}</div>
+            </div>`;
+        }).join('');
+
+        listEl.scrollTop = listEl.scrollHeight;
+    },
+
+    async sendHubSocialMessage() {
+        const targetId = Number(this.hubSocialCurrentChatId || 0);
+        if (!targetId) {
+            alert('먼저 대화 상대를 선택하세요.');
+            return;
+        }
+
+        const input = this.elements.hubOverlayBody?.querySelector('#hub-social-chat-input');
+        const sendBtn = this.elements.hubOverlayBody?.querySelector('#hub-social-send-btn');
+        if (!input || !sendBtn) return;
+
+        const content = String(input.value || '').trim();
+        if (!content) return;
+
+        sendBtn.disabled = true;
+        const prevText = sendBtn.textContent;
+        sendBtn.textContent = '전송중...';
+
+        try {
+            await this.requestJson('/api/messages/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ receiver_id: targetId, content })
+            });
+            input.value = '';
+            await this.renderHubSocialConversation();
+        } catch (err) {
+            alert(err?.message || '메시지 전송에 실패했습니다.');
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = prevText || '보내기';
+        }
+    },
+
+    async renderHubNotifPanel() {
+        if (!this.elements.hubOverlayBody || !this.elements.hubOverlayConfirmBtn) return;
+
+        this.elements.hubOverlayConfirmBtn.textContent = '닫기';
+        this.elements.hubOverlayBody.innerHTML = '<div class="hub-apply-loading">불러오는 중...</div>';
+
+        const [notifData, todayData, totalData] = await Promise.all([
+            this.requestJson('/api/notifications'),
+            this.requestJson('/api/ranking/today'),
+            this.requestJson('/api/ranking')
+        ]);
+
+        const notifications = Array.isArray(notifData?.notifications) ? notifData.notifications : [];
+        const unread = Number(notifData?.unread || 0);
+        const todayRows = Array.isArray(todayData?.ranking) ? todayData.ranking : [];
+        const totalRows = Array.isArray(totalData?.ranking) ? totalData.ranking : [];
+        const activeRows = this.hubNotifRankTab === 'total' ? totalRows : todayRows;
+
+        const notifHtml = notifications.length
+            ? notifications.slice(0, 12).map((n) => {
+                const text = this.escapeHtml(n?.message || '알림');
+                const ts = n?.created_at ? new Date(n.created_at).toLocaleString('ko-KR', {
+                    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                }) : '-';
+                const unreadClass = n?.is_read ? '' : 'unread';
+                return `<li class="hub-notif-item ${unreadClass}">
+                    <div class="hub-notif-msg">${text}</div>
+                    <div class="hub-notif-time">${ts}</div>
+                </li>`;
+            }).join('')
+            : '<li class="hub-apply-empty">알림이 없습니다.</li>';
+
+        const rankHtml = activeRows.length
+            ? activeRows.slice(0, 20).map((u, idx) => {
+                const nick = this.escapeHtml(u?.display_nickname || u?.nickname || '익명');
+                const univ = this.escapeHtml(u?.university || '소속 미설정');
+                const metric = this.hubNotifRankTab === 'total'
+                    ? this.formatDuration(Number(u?.total_sec || 0))
+                    : this.formatDuration(Number(u?.today_sec || 0));
+                return `<li class="hub-rank-item">
+                    <span class="hub-rank-num">${idx + 1}</span>
+                    <div class="hub-rank-main">
+                        <strong>${nick}</strong>
+                        <span>${univ}</span>
+                    </div>
+                    <span class="hub-rank-val">${metric}</span>
+                </li>`;
+            }).join('')
+            : '<li class="hub-apply-empty">랭킹 데이터가 없습니다.</li>';
+
+        this.elements.hubOverlayBody.innerHTML = `
+            <section class="hub-notif-wrap">
+                <div class="hub-notif-summary">
+                    <div class="hub-shop-meta-row"><span>읽지 않은 알림</span><strong>${unread}개</strong></div>
+                    <div class="hub-shop-actions-row">
+                        <button type="button" id="hub-notif-refresh-btn" class="home-refresh-btn">새로고침</button>
+                        <button type="button" id="hub-notif-readall-btn" class="btn-primary home-start-btn">전체 읽음</button>
+                    </div>
+                </div>
+
+                <div class="hub-notif-grid">
+                    <section class="hub-notif-panel">
+                        <h4>알림</h4>
+                        <ul class="hub-notif-list">${notifHtml}</ul>
+                    </section>
+
+                    <section class="hub-notif-panel">
+                        <div class="hub-notif-rank-head">
+                            <h4>랭킹</h4>
+                            <div class="hub-notif-rank-tabs">
+                                <button type="button" class="hub-notif-rank-tab ${this.hubNotifRankTab === 'today' ? 'active' : ''}" data-rank-tab="today">오늘</button>
+                                <button type="button" class="hub-notif-rank-tab ${this.hubNotifRankTab === 'total' ? 'active' : ''}" data-rank-tab="total">누적</button>
+                            </div>
+                        </div>
+                        <ul class="hub-rank-list">${rankHtml}</ul>
+                    </section>
+                </div>
+            </section>
+        `;
+
+        this.elements.hubOverlayBody.querySelector('#hub-notif-refresh-btn')?.addEventListener('click', () => {
+            this.renderHubNotifPanel().catch((err) => {
+                this.elements.hubOverlayBody.innerHTML = `<div class="hub-apply-error">${this.escapeHtml(err?.message || '새로고침 실패')}</div>`;
+            });
+        });
+
+        this.elements.hubOverlayBody.querySelector('#hub-notif-readall-btn')?.addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            const prev = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '처리중...';
+            try {
+                await this.requestJson('/api/notifications/read-all', { method: 'POST' });
+                await this.renderHubNotifPanel();
+            } catch (err) {
+                alert(err?.message || '읽음 처리 중 오류가 발생했습니다.');
+                btn.disabled = false;
+                btn.textContent = prev;
+            }
+        });
+
+        this.elements.hubOverlayBody.querySelectorAll('[data-rank-tab]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const tab = String(btn.dataset.rankTab || 'today');
+                this.hubNotifRankTab = tab === 'total' ? 'total' : 'today';
+                this.renderHubNotifPanel().catch((err) => {
+                    this.elements.hubOverlayBody.innerHTML = `<div class="hub-apply-error">${this.escapeHtml(err?.message || '랭킹 로드 실패')}</div>`;
+                });
+            });
+        });
     },
 
     async loadUniversityCalculator(preferredUniversity) {

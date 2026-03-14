@@ -40,12 +40,14 @@ const UI = {
         tabCalendarBtn: document.getElementById('tab-calendar-btn'),
         tabScoreCalcBtn: document.getElementById('tab-scorecalc-btn'),
         tabBalloonBtn: document.getElementById('tab-balloon-btn'),
+        tabCommunityBtn: document.getElementById('tab-community-btn'),
         tabHome: document.getElementById('tab-home'),
         tabStudy:    document.getElementById('tab-study'),
         tabPlanner:  document.getElementById('tab-planner'),
         tabCalendar: document.getElementById('tab-calendar'),
         tabScoreCalc: document.getElementById('tab-scorecalc'),
         tabBalloon:  document.getElementById('tab-balloon'),
+        homeStartBtn: document.getElementById('home-start-btn'),
         homeRefreshBtn: document.getElementById('home-refresh-btn'),
         homeStatToday: document.getElementById('home-stat-today'),
         homeStatTotal: document.getElementById('home-stat-total'),
@@ -178,6 +180,14 @@ const UI = {
         this.elements.tabScoreCalcBtn.onclick = () => this.switchTab('scorecalc');
         this.elements.tabBalloonBtn.onclick = () => this.switchTab('balloon');
         document.getElementById('tab-rooms-btn')?.addEventListener('click', () => this.switchTab('rooms'));
+        this.elements.tabCommunityBtn?.addEventListener('click', () => {
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('/community/');
+                return;
+            }
+            window.location.href = '/community/';
+        });
+        this.elements.homeStartBtn?.addEventListener('click', () => this.switchTab('study'));
         this.elements.homeRefreshBtn?.addEventListener('click', () => {
             this.loadHomeHubData(true).catch(() => {});
         });

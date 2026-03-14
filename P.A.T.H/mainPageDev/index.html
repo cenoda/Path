@@ -133,6 +133,7 @@ function toggleTheme() {
             <button id="tab-scorecalc-btn" class="page-tab-btn" type="button">환산점수</button>
             <button id="tab-balloon-btn" class="page-tab-btn" type="button">성장 리포트</button>
             <button id="tab-rooms-btn" class="page-tab-btn" type="button">그룹 🔥</button>
+            <button id="tab-community-btn" class="page-tab-btn" type="button">커뮤니티</button>
         </div>
 
         <section id="tab-home" class="tab-panel active">
@@ -141,7 +142,7 @@ function toggleTheme() {
                 <h2 class="home-hero-title">지금 공부 중인 사람들을 보며 바로 시작하세요</h2>
                 <p class="home-hero-copy">실시간 순위와 공개 그룹 현황을 한눈에 보고 바로 학습 탭으로 이동할 수 있습니다.</p>
                 <div class="home-hero-actions">
-                    <button type="button" class="btn-primary home-start-btn" onclick="UI.switchTab('study')">바로 학습 시작</button>
+                    <button type="button" class="btn-primary home-start-btn" id="home-start-btn">바로 학습 시작</button>
                     <button type="button" class="home-refresh-btn" id="home-refresh-btn">새로고침</button>
                 </div>
             </div>

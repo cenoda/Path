@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // balloonSkins.js가 window.BALLOON_SKINS를 먼저 정의합니다.
 export function getBalloonColors(skinId) {
@@ -66,6 +67,107 @@ const metalMat = new THREE.MeshStandardMaterial({ color: 0x8a8f96, roughness: 0.
 const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x5a5e64, roughness: 0.35, metalness: 0.80 });
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const gltfLoader = new GLTFLoader();
+const glbLoadCache = new Map();
+
+function getBalloonModelCandidates(skinId) {
+    const fromWindow = typeof window !== 'undefined' ? String(window.PATH_BALLOON_GLB_URL || '').trim() : '';
+    const list = [
+        fromWindow,
+        `./assets/models/${skinId}.glb`,
+        './assets/models/default.glb',
+        './assets/models/balloon.glb'
+    ].filter(Boolean);
+    return Array.from(new Set(list));
+}
+
+function loadGlbOnce(url) {
+    if (glbLoadCache.has(url)) return glbLoadCache.get(url);
+    const promise = new Promise((resolve) => {
+        gltfLoader.load(
+            url,
+            (gltf) => resolve(gltf?.scene || null),
+            undefined,
+            () => resolve(null)
+        );
+    });
+    glbLoadCache.set(url, promise);
+    return promise;
+}
+
+async function loadFirstAvailableBalloonGlb(skinId) {
+    const candidates = getBalloonModelCandidates(skinId);
+    for (const url of candidates) {
+        const scene = await loadGlbOnce(url);
+        if (scene) return scene;
+    }
+    return null;
+}
+
+function fitGlbToBalloonSpace(modelRoot, scale) {
+    const box = new THREE.Box3().setFromObject(modelRoot);
+    if (box.isEmpty()) return;
+
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    if (size.y < 0.0001) return;
+
+    const targetHeight = scale * 145;
+    const ratio = targetHeight / size.y;
+    modelRoot.scale.multiplyScalar(ratio);
+
+    const fittedBox = new THREE.Box3().setFromObject(modelRoot);
+    const center = new THREE.Vector3();
+    fittedBox.getCenter(center);
+
+    modelRoot.position.x -= center.x;
+    modelRoot.position.z -= center.z;
+
+    const desiredBottomY = scale * -70;
+    modelRoot.position.y += desiredBottomY - fittedBox.min.y;
+}
+
+function findFirstMesh(root) {
+    let firstMesh = null;
+    root.traverse((child) => {
+        if (!firstMesh && child?.isMesh) firstMesh = child;
+    });
+    return firstMesh;
+}
+
+async function tryAttachGlbBalloonModel(fallbackGroup, scale, skinId) {
+    const glbTemplate = await loadFirstAvailableBalloonGlb(skinId);
+    if (!glbTemplate || !fallbackGroup?.userData) return;
+
+    const glbRoot = glbTemplate.clone(true);
+    fitGlbToBalloonSpace(glbRoot, scale);
+    glbRoot.traverse((child) => {
+        if (!child?.isMesh) return;
+        child.castShadow = true;
+        child.receiveShadow = true;
+    });
+
+    const lowGroup = fallbackGroup.userData.lowDetailGroup || null;
+    const wasLowDetail = fallbackGroup.userData.currentDetail === 'low';
+
+    fallbackGroup.userData.detailedChildren?.forEach((child) => {
+        child.visible = false;
+    });
+
+    glbRoot.visible = !wasLowDetail;
+    if (lowGroup) lowGroup.visible = wasLowDetail;
+
+    fallbackGroup.add(glbRoot);
+    fallbackGroup.userData.detailedChildren = [glbRoot];
+    fallbackGroup.userData.currentDetail = wasLowDetail ? 'low' : 'high';
+
+    const firstMesh = findFirstMesh(glbRoot);
+    if (firstMesh) {
+        if (!fallbackGroup.userData.colorParts) fallbackGroup.userData.colorParts = {};
+        fallbackGroup.userData.colorParts.primary = [firstMesh];
+    }
+}
+
 function placeCable(mesh, from, to) {
     const dir = new THREE.Vector3().subVectors(to, from);
     const len = dir.length();
@@ -85,7 +187,7 @@ function goreColor(colors, index) {
 
 // ── 메인 3D 모델 ───────────────────────────────────────────
 
-export function create3DBalloon(scale, colorScheme, isMe) {
+function createFallback3DBalloon(scale, colorScheme, isMe) {
     const group  = new THREE.Group();
     const colors = getBalloonColors(colorScheme);
     const mat    = getBalloonMaterial(colorScheme);
@@ -665,6 +767,12 @@ export function create3DBalloon(scale, colorScheme, isMe) {
     group.userData.currentDetail    = 'high';
     group.userData.colorParts       = colorParts;
     return group;
+}
+
+export function create3DBalloon(scale, colorScheme, isMe) {
+    const fallback = createFallback3DBalloon(scale, colorScheme, isMe);
+    tryAttachGlbBalloonModel(fallback, scale, colorScheme).catch(() => {});
+    return fallback;
 }
 
 // ── 상점 미리보기용 간소화 모델 ─────────────────────────────

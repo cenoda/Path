@@ -24,6 +24,8 @@
     --text-primary:   #EEF2FF;
     --text-secondary: #7E94B8;
     --text-tertiary:  #4A5A7A;
+    --text-sub:       var(--text-secondary);
+    --text-dim:       var(--text-tertiary);
     --shadow-sm:  0 1px 4px rgba(0,0,0,0.35);
     --shadow-md:  0 4px 16px rgba(0,0,0,0.45);
     --shadow-lg:  0 8px 32px rgba(0,0,0,0.55);
@@ -60,6 +62,8 @@ body.light {
     --text-primary:   #191F28;
     --text-secondary: #6B7280;
     --text-tertiary:  #9CA3AF;
+    --text-sub:       var(--text-secondary);
+    --text-dim:       var(--text-tertiary);
     --shadow-sm:  0 1px 4px rgba(0,0,0,0.07);
     --shadow-md:  0 4px 16px rgba(0,0,0,0.10);
     --shadow-lg:  0 8px 32px rgba(0,0,0,0.12);

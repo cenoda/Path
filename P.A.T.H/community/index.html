@@ -55,6 +55,22 @@
   </script>
 </head>
 <body class="community-page">
+<script src="/shared/theme.js?v=1"></script>
+<script>
+  (function () {
+    var prefersLight = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+    var fallback = prefersLight ? 'light' : 'dark';
+
+    if (window.PathTheme && typeof window.PathTheme.applyStoredTheme === 'function') {
+      window.PathTheme.applyStoredTheme({ fallback: fallback });
+      return;
+    }
+
+    var mode = localStorage.getItem('path_theme');
+    var isLight = mode ? mode === 'light' : prefersLight;
+    document.body.classList.toggle('light', isLight);
+  })();
+</script>
 
 <!-- ── 헤더 ──────────────────────────────────────────────────── -->
 <header class="c-header" id="app-header">

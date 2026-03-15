@@ -399,7 +399,7 @@ async function loadChatMessages() {
                                 <span class="file-icon">${fileIcon}</span>
                                 <div>
                                     <div>${esc(m.file_name ?? 'file')}</div>
-                                    <div style="font-size:9px;color:#888;">${fileSize}</div>
+                                    <div style="font-size:9px;color:var(--text-sub);">${fileSize}</div>
                                 </div>
                             </div>
                             <a href="${esc(m.file_path)}" download="${esc(m.file_name ?? '')}" class="file-download">다운로드</a>

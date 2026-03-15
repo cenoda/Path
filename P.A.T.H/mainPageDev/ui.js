@@ -160,6 +160,9 @@ const UI = {
         if (!userData) return;
         this.currentUser = userData;
 
+        // Defensive reset in case the page was restored with an open more-sheet state.
+        this.elements.body?.classList.remove('tab-more-open', 'tab-more-closing');
+
         this.updateAssets(userData);
         await this.ensureSkinCatalog();
         if (this.elements.bottomInfo) {
@@ -316,7 +319,13 @@ const UI = {
             if (e.target === this.elements.hubOverlay) this.closeHomeHubOverlay();
         });
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') this.closeHomeHubOverlay();
+            if (e.key === 'Escape') {
+                this.setMoreMenuOpen(false);
+                this.closeHomeHubOverlay();
+            }
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) this.setMoreMenuOpen(false);
         });
 
         this.elements.scoreCalcUniversity?.addEventListener('change', () => {

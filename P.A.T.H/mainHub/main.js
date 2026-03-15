@@ -80,8 +80,12 @@ function toggleTheme(forceLight) {
     const isLight = typeof forceLight === 'boolean'
         ? forceLight
         : !document.body.classList.contains('light');
-    document.body.classList.toggle('light', isLight);
-    localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
+    if (window.PathTheme && typeof window.PathTheme.setLightMode === 'function') {
+        window.PathTheme.setLightMode(isLight, { fallback: 'light' });
+    } else {
+        document.body.classList.toggle('light', isLight);
+        localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
+    }
 
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) themeToggle.checked = isLight;
@@ -670,8 +674,8 @@ async function loadRankPanel(tab) {
         listEl.innerHTML = list.map((u, i) => {
             const isMe = u.id === currentUser?.id;
             const val = tab === 'today'
-                ? `<span style="color:#aaa">${secToHour(u.today_sec || 0)}</span>`
-                : `<span style="color:#aaa">${secToHour(u.total_sec || 0)}</span>`;
+                ? `<span style="color:var(--text-sub)">${secToHour(u.today_sec || 0)}</span>`
+                : `<span style="color:var(--text-sub)">${secToHour(u.total_sec || 0)}</span>`;
             return `<div class="rank-item ${isMe ? 'me' : ''}" onclick="focusUser(${u.id})">
                 <span class="rank-num">${i + 1}</span>
                 <div style="flex:1;min-width:0">
@@ -784,9 +788,9 @@ async function openEstate() {
                                 placeholder="열기구 위에 표시될 메시지를 입력하세요"
                                 value="${esc(currentUser?.status_message || '')}">
                             <button id="status-msg-save-btn" class="inline-btn" onclick="saveStatusMsg(event)">저장</button>
-                            <button class="inline-btn" style="color:#888;background:rgba(255,255,255,0.05);" onclick="document.getElementById('status-msg-input').value='';saveStatusMsg(event)">지우기</button>
+                            <button class="inline-btn" style="color:var(--text-sub);background:rgba(255,255,255,0.05);" onclick="document.getElementById('status-msg-input').value='';saveStatusMsg(event)">지우기</button>
                         </div>
-                        <div style="margin-top:5px;font-size:10px;color:#555;">최대 30자 · 내 열기구 위에 말풍선으로 표시됩니다</div>
+                        <div style="margin-top:5px;font-size:10px;color:var(--text-dim);">최대 30자 · 내 열기구 위에 말풍선으로 표시됩니다</div>
                     </div>
                 </div>
                 <div class="interior-card">
@@ -865,7 +869,7 @@ function buildGpaSection() {
                     <input type="checkbox" ${gpaPublic ? 'checked' : ''} onchange="toggleGpaPublic()">
                     내신 공개
                 </label>
-                <span style="font-size:10px;color:#555">${gpaPublic ? '다른 유저에게 표시됨' : '비공개 상태'}</span>
+                <span style="font-size:10px;color:var(--text-dim)">${gpaPublic ? '다른 유저에게 표시됨' : '비공개 상태'}</span>
             </div>`;
     }
     if (gpaStatus === 'pending') {
@@ -934,7 +938,7 @@ async function compareGpa() {
     const univ = univInput.value.trim();
     if (!univ) { resultEl.innerHTML = '<div style="color:var(--accent);font-size:11px">대학명을 입력해주세요.</div>'; return; }
 
-    resultEl.innerHTML = '<div style="color:#888;font-size:11px">분석 중...</div>';
+    resultEl.innerHTML = '<div style="color:var(--text-sub);font-size:11px">분석 중...</div>';
     try {
         const r = await fetch(`/api/university/compare-gpa?university=${encodeURIComponent(univ)}&gpa=${currentUser.gpa_score}`, { credentials: 'include' });
         const data = await r.json();
@@ -945,7 +949,7 @@ async function compareGpa() {
         }
 
         if (!data.departments || data.departments.length === 0) {
-            resultEl.innerHTML = '<div style="color:#888;font-size:11px">내신 기준 입결 데이터가 없습니다.</div>';
+            resultEl.innerHTML = '<div style="color:var(--text-sub);font-size:11px">내신 기준 입결 데이터가 없습니다.</div>';
             return;
         }
 
@@ -956,12 +960,12 @@ async function compareGpa() {
         html += '<div style="max-height:200px;overflow-y:auto">';
         data.departments.forEach(dept => {
             html += `<div style="padding:6px 0;border-bottom:1px solid var(--border)">`;
-            html += `<div style="font-size:12px;font-weight:600;color:var(--text)">${esc(dept.department)} <span style="font-size:10px;color:#666">${esc(dept.category)}</span></div>`;
+            html += `<div style="font-size:12px;font-weight:600;color:var(--text)">${esc(dept.department)} <span style="font-size:10px;color:var(--text-sub)">${esc(dept.category)}</span></div>`;
             for (const [type, comp] of Object.entries(dept.comparisons)) {
                 const cutoff = comp.cutoff || comp.reference;
                 const chance = chanceLabel[comp.chance] || comp.chance;
-                const color = chanceColor[comp.chance] || '#888';
-                html += `<div style="font-size:11px;color:#aaa;margin-top:2px">${type}: 커트라인 ${cutoff}등급 → <span style="color:${color};font-weight:600">${chance}</span></div>`;
+                const color = chanceColor[comp.chance] || 'var(--text-sub)';
+                html += `<div style="font-size:11px;color:var(--text-sub);margin-top:2px">${type}: 커트라인 ${cutoff}등급 → <span style="color:${color};font-weight:600">${chance}</span></div>`;
             }
             html += `</div>`;
         });
@@ -1048,7 +1052,7 @@ function openUserModal(user) {
             <div class="estate-label">상태</div>
             <div class="estate-val">${user.is_studying ? '📖 공부 중' : '휴식 중'}</div>
         </div>
-        <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;font-size:11px;color:#666;line-height:1.6;">
+        <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-sub);line-height:1.6;">
             유저 간 모의지원은 종료되었습니다.<br>
             대학 원서 지원은 입시 지원 페이지에서 진행해 주세요.
         </div>
@@ -1189,8 +1193,8 @@ async function renderApplyPanel() {
             content.innerHTML = `
                 <div style="padding:16px;line-height:1.7;">
                     <div style="font-size:12px;font-weight:700;margin-bottom:6px;">현재 진행 중인 입시 회차가 없습니다.</div>
-                    <div style="font-size:11px;color:#666;margin-bottom:12px;">다음 회차가 열리면 이곳에서 바로 확인할 수 있습니다.</div>
-                    <div style="font-size:11px;color:#666;">보유 원서비: <strong style="color:var(--accent-gold)">${tickets}장</strong></div>
+                    <div style="font-size:11px;color:var(--text-sub);margin-bottom:12px;">다음 회차가 열리면 이곳에서 바로 확인할 수 있습니다.</div>
+                    <div style="font-size:11px;color:var(--text-sub);">보유 원서비: <strong style="color:var(--accent-gold)">${tickets}장</strong></div>
                     <button class="shop-btn" style="width:100%;padding:8px;font-size:11px;margin-top:12px;" onclick="window.location.href='/apply/'">입시 지원 페이지 열기 →</button>
                 </div>
             `;
@@ -1219,14 +1223,14 @@ async function renderApplyPanel() {
 
         const scoreStatus = String(score?.verified_status || 'none');
         const scoreLabel = !score?.korean_std
-            ? '<span style="color:#888">점수 미입력</span>'
+            ? '<span style="color:var(--text-sub)">점수 미입력</span>'
             : scoreStatus === 'approved'
                 ? '<span style="color:var(--accent-gold)">점수 인증 완료</span>'
                 : scoreStatus === 'pending'
                     ? '<span style="color:var(--accent-gold)">점수 심사 대기 중</span>'
                     : scoreStatus === 'rejected'
                         ? '<span style="color:#e55">점수 반려됨 (재업로드 필요)</span>'
-                        : '<span style="color:#888">점수 입력 완료 (인증 전)</span>';
+                        : '<span style="color:var(--text-sub)">점수 입력 완료 (인증 전)</span>';
 
         const groupRows = ['가', '나', '다'].map((groupType) => {
             const app = grouped[groupType];
@@ -1235,9 +1239,9 @@ async function renderApplyPanel() {
                     <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--border);border-radius:4px;">
                         <div>
                             <div style="font-size:12px;font-weight:600;color:var(--text);">${groupType}군</div>
-                            <div style="font-size:10px;color:#666;margin-top:1px;">미지원</div>
+                            <div style="font-size:10px;color:var(--text-sub);margin-top:1px;">미지원</div>
                         </div>
-                        <div style="font-size:11px;color:#666;">대기</div>
+                        <div style="font-size:11px;color:var(--text-sub);">대기</div>
                     </div>
                 `;
             }
@@ -1252,13 +1256,13 @@ async function renderApplyPanel() {
                         : status === 'enrolled'
                             ? '등록완료'
                             : '지원완료';
-            const statusColor = (status === 'passed' || status === 'enrolled') ? 'var(--accent-gold)' : '#666';
+            const statusColor = (status === 'passed' || status === 'enrolled') ? 'var(--accent-gold)' : 'var(--text-sub)';
 
             return `
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--border);border-radius:4px;">
                     <div>
                         <div style="font-size:12px;font-weight:600;color:var(--text);">${groupType}군 · ${esc(app.university || '?')}</div>
-                        <div style="font-size:10px;color:#666;margin-top:1px;">${esc(app.department || '학과 미설정')}</div>
+                        <div style="font-size:10px;color:var(--text-sub);margin-top:1px;">${esc(app.department || '학과 미설정')}</div>
                     </div>
                     <div style="font-size:11px;color:${statusColor};font-weight:700;">${statusLabel}</div>
                 </div>
@@ -1276,7 +1280,7 @@ async function renderApplyPanel() {
                 <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">
                     내 점수 상태: ${scoreLabel}
                 </div>
-                <div style="font-size:10px;color:#555;line-height:1.5;">
+                <div style="font-size:10px;color:var(--text-dim);line-height:1.5;">
                     원서비: <strong style="color:var(--accent-gold)">${tickets}장</strong> 보유 · <strong style="color:${remaining > 0 ? 'var(--accent-gold)' : '#e55'}">${remaining}회</strong> 추가 지원 가능
                 </div>
             </div>
@@ -1590,7 +1594,7 @@ function createSkinPreviewElement(skin, isLight, size = 80) {
 async function renderShopContent(tab) {
     const container = document.getElementById('shop-content');
     if (!container) return;
-    container.innerHTML = '<div style="color:#666;text-align:center;padding:20px;font-size:12px">로딩 중...</div>';
+    container.innerHTML = '<div style="color:var(--text-sub);text-align:center;padding:20px;font-size:12px">로딩 중...</div>';
 
         const medicalUnivs = [
             { name: '의예과', region: '전국', basePercentile: 99.8, aliases: ['의대'] },
@@ -1611,11 +1615,11 @@ async function renderShopContent(tab) {
 
             container.innerHTML = `
                 <div style="padding:10px 0 6px;">
-                    <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:10px;">
+                    <div style="font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-bottom:10px;">
                         보유 원서비: <strong style="color:var(--gold)">${myTickets}장</strong>
                         &nbsp;|&nbsp; 보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
                     </div>
-                    <div style="font-size:10px;color:#666;margin-bottom:8px;">목표 대학을 선택하면 해당 대학 기준 원서비를 구매할 수 있습니다.</div>
+                    <div style="font-size:10px;color:var(--text-sub);margin-bottom:8px;">목표 대학을 선택하면 해당 대학 기준 원서비를 구매할 수 있습니다.</div>
                     <input type="text" id="shop-univ-search" placeholder="대학 검색..."
                         style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text);padding:7px 10px;font-size:12px;border-radius:4px;outline:none;margin-bottom:10px;"
                         oninput="filterShopUnivList(this.value)">
@@ -1638,7 +1642,7 @@ async function renderShopContent(tab) {
 
             container.innerHTML = `
                 <div style="padding:10px 0 6px;">
-                    <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:12px;">
+                    <div style="font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-bottom:12px;">
                         보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
                     </div>
                     <div id="skin-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
@@ -1665,7 +1669,7 @@ async function renderShopContent(tab) {
                 card.appendChild(nameDiv);
 
                 const priceDiv = document.createElement('div');
-                priceDiv.style.cssText = 'font-size:10px;color:#666;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:3px;';
+                priceDiv.style.cssText = 'font-size:10px;color:var(--text-sub);margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:3px;';
                 if (skin.price === 0) {
                     priceDiv.textContent = '무료';
                 } else {
@@ -1704,7 +1708,7 @@ async function renderShopContent(tab) {
 
             container.innerHTML = `
                 <div style="padding:10px 0 6px;">
-                    <div style="font-size:10px;color:#555;letter-spacing:1px;margin-bottom:12px;">
+                    <div style="font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-bottom:12px;">
                         보유 골드: <strong style="color:var(--gold)">${myGold.toLocaleString()}G</strong>
                     </div>
                     <div id="aura-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
@@ -1742,7 +1746,7 @@ async function renderShopContent(tab) {
                 card.appendChild(descDiv);
 
                 const priceDiv = document.createElement('div');
-                priceDiv.style.cssText = 'font-size:10px;color:#666;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:3px;';
+                priceDiv.style.cssText = 'font-size:10px;color:var(--text-sub);margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:3px;';
                 if (aura.price === 0) {
                     priceDiv.textContent = '무료';
                 } else {
@@ -1770,7 +1774,7 @@ async function renderShopContent(tab) {
         }
     } else {
         container.innerHTML = `
-            <div style="text-align:center;padding:30px 0;color:#555;font-size:12px;letter-spacing:1px;">
+            <div style="text-align:center;padding:30px 0;color:var(--text-dim);font-size:12px;letter-spacing:1px;">
                 준비 중입니다.
             </div>
         `;
@@ -1793,7 +1797,7 @@ function renderShopUnivList(universities) {
     const listEl = document.getElementById('shop-univ-list');
     if (!listEl) return;
     if (universities.length === 0) {
-        listEl.innerHTML = '<div style="color:#555;font-size:11px;text-align:center;padding:16px;">검색 결과가 없습니다.</div>';
+        listEl.innerHTML = '<div style="color:var(--text-dim);font-size:11px;text-align:center;padding:16px;">검색 결과가 없습니다.</div>';
         return;
     }
     listEl.innerHTML = universities.map(uni => {
@@ -1804,7 +1808,7 @@ function renderShopUnivList(universities) {
             <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid ${isMyUniv ? 'var(--gold)' : 'var(--border)'};border-radius:4px;background:${isMyUniv ? 'rgba(255,193,7,0.05)' : 'transparent'};">
                 <div style="min-width:0;">
                     <div style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(uni.name)}${isMyUniv ? ' <span style="color:var(--gold);font-size:9px;">내 대학</span>' : ''}</div>
-                    <div style="font-size:10px;color:#666;margin-top:1px;">${esc(uni.region)} &nbsp;·&nbsp; <span style="color:${tierColor}">TOP ${uni.basePercentile}%</span></div>
+                    <div style="font-size:10px;color:var(--text-sub);margin-top:1px;">${esc(uni.region)} &nbsp;·&nbsp; <span style="color:${tierColor}">TOP ${uni.basePercentile}%</span></div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:8px;">
                     <span style="font-size:12px;font-weight:700;color:${tierColor};display:flex;align-items:center;gap:3px;"><img src="assets/coin.png" style="width:12px;height:12px;">${price.toLocaleString()}G</span>
@@ -2363,7 +2367,7 @@ function switchAllyTab(tab, btn) {
 
 async function loadAllyTab(tab) {
     const content = document.getElementById('ally-content');
-    content.innerHTML = '<div style="text-align:center;padding:20px;font-size:11px;color:#666">로딩 중...</div>';
+    content.innerHTML = '<div style="text-align:center;padding:20px;font-size:11px;color:var(--text-sub)">로딩 중...</div>';
     if (tab === 'list') {
         await loadFriendList(content);
     } else {
@@ -2377,7 +2381,7 @@ async function loadFriendList(content) {
         const friends = r.ok ? await r.json() : [];
         if (window.WorldScene) window.WorldScene.setFriendIds(friends.map(f => f.id));
         if (friends.length === 0) {
-            content.innerHTML = '<div style="text-align:center;padding:30px;font-size:11px;color:#555">동맹이 없습니다.<br>다른 유저의 열기구를 클릭해서 신청하세요.</div>';
+            content.innerHTML = '<div style="text-align:center;padding:30px;font-size:11px;color:var(--text-dim)">동맹이 없습니다.<br>다른 유저의 열기구를 클릭해서 신청하세요.</div>';
             return;
         }
         content.innerHTML = friends.map(f => {
@@ -2385,7 +2389,7 @@ async function loadFriendList(content) {
             if (window.WorldScene) {
                 const pos = window.WorldScene.getUserPosition(f.id);
                 if (pos) {
-                    posStr = `<div style="font-size:9px;color:#555;margin-top:2px;">📍 (${pos.x}, ${pos.y})</div>`;
+                    posStr = `<div style="font-size:9px;color:var(--text-dim);margin-top:2px;">📍 (${pos.x}, ${pos.y})</div>`;
                 }
             }
             return `
@@ -2413,7 +2417,7 @@ async function loadFriendRequests(content) {
         const r = await fetch('/api/friends/requests', { credentials: 'include' });
         const reqs = r.ok ? await r.json() : [];
         if (reqs.length === 0) {
-            content.innerHTML = '<div style="text-align:center;padding:30px;font-size:11px;color:#555">받은 동맹 신청이 없습니다.</div>';
+            content.innerHTML = '<div style="text-align:center;padding:30px;font-size:11px;color:var(--text-dim)">받은 동맹 신청이 없습니다.</div>';
             return;
         }
         content.innerHTML = reqs.map(req => `
@@ -2941,7 +2945,7 @@ async function loadChatMessages() {
                                 <span class="file-icon">${fileIcon}</span>
                                 <div>
                                     <div>${esc(m.file_name || 'file')}</div>
-                                    <div style="font-size:9px;color:#888;">${fileSize}</div>
+                                    <div style="font-size:9px;color:var(--text-sub);">${fileSize}</div>
                                 </div>
                             </div>
                             <a href="${m.file_path}" download="${m.file_name}" class="file-download">다운로드</a>

@@ -319,7 +319,7 @@ function saveTimerUiSettings() {
     const isLightNow = document.body.classList.contains('light');
     if (shouldLight !== isLightNow) {
         if (typeof window.toggleTheme === 'function') {
-            window.toggleTheme();
+            window.toggleTheme(shouldLight);
         } else {
             document.body.classList.toggle('light', shouldLight);
             localStorage.setItem('path_theme', shouldLight ? 'light' : 'dark');

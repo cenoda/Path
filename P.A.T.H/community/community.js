@@ -119,20 +119,34 @@ function hasRequiredDom() {
 }
 
 /* ─── 테마(다크/라이트) ───────────────────────────────────── */
-function applyThemeFromStorage() {
-  const savedTheme = localStorage.getItem('path_theme');
-  const isLight = savedTheme
-    ? savedTheme === 'light'
-    : window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+function getSystemFallbackTheme() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+    ? 'light'
+    : 'dark';
+}
 
-  document.body.classList.toggle('light', !!isLight);
+function applyThemeFromStorage() {
+  const fallback = getSystemFallbackTheme();
+  if (window.PathTheme && typeof window.PathTheme.applyStoredTheme === 'function') {
+    window.PathTheme.applyStoredTheme({ fallback });
+    syncThemeButton();
+    return;
+  }
+
+  const savedTheme = localStorage.getItem('path_theme');
+  const isLight = savedTheme ? savedTheme === 'light' : fallback === 'light';
+  document.body.classList.toggle('light', isLight);
   syncThemeButton();
 }
 
 function toggleTheme() {
   const nextIsLight = !document.body.classList.contains('light');
-  document.body.classList.toggle('light', nextIsLight);
-  localStorage.setItem('path_theme', nextIsLight ? 'light' : 'dark');
+  if (window.PathTheme && typeof window.PathTheme.setLightMode === 'function') {
+    window.PathTheme.setLightMode(nextIsLight, { fallback: getSystemFallbackTheme() });
+  } else {
+    document.body.classList.toggle('light', nextIsLight);
+    localStorage.setItem('path_theme', nextIsLight ? 'light' : 'dark');
+  }
   syncThemeButton();
 }
 
@@ -1380,7 +1394,11 @@ function getThemeMode() {
 
 function setThemeMode(mode) {
   if (mode === 'light' || mode === 'dark') {
-    localStorage.setItem('path_theme', mode);
+    if (window.PathTheme && typeof window.PathTheme.setMode === 'function') {
+      window.PathTheme.setMode(mode, { fallback: getSystemFallbackTheme() });
+    } else {
+      localStorage.setItem('path_theme', mode);
+    }
   } else {
     localStorage.removeItem('path_theme');
   }

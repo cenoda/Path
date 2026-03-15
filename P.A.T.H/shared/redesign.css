@@ -16,6 +16,25 @@
   --rd-radius-sm: 12px;
   --rd-font-ui: "SUIT Variable", "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --rd-font-display: "MaruBuri", "Iropke Batang", "Noto Serif KR", serif;
+
+  /* Global readability aliases used by inline templates across pages. */
+  --text-sub: #5b6777;
+  --text-dim: #8b95a1;
+}
+
+body.light,
+body[data-theme-mode="light"] {
+  --text-sub: #5b6777;
+  --text-dim: #8b95a1;
+}
+
+body.login-page:not(.light),
+body.path-interface:not(.light),
+body.world-hub-page:not(.light),
+body.community-page:not(.light),
+body[data-theme-mode="dark"] {
+  --text-sub: #9fb0c9;
+  --text-dim: #7487a5;
 }
 
 body {

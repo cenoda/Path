@@ -20,6 +20,7 @@
     <meta name="msapplication-TileImage" content="/icons/icon-144.png">
     <meta name="msapplication-TileColor" content="#000000">
     <script src="/shared/nav.js?v=5"></script>
+    <script src="/shared/theme.js?v=1"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -620,19 +621,37 @@
 <body class="login-page">
 <script>
 (function(){
-    const th = localStorage.getItem('path_theme') || 'light';
-    if (th === 'light') document.body.classList.add('light');
-    document.addEventListener('DOMContentLoaded', function(){
+    function setLightMode(isLight) {
+        if (window.PathTheme && typeof window.PathTheme.setLightMode === 'function') {
+            return window.PathTheme.setLightMode(isLight, { fallback: 'light' });
+        }
+        document.body.classList.toggle('light', isLight);
+        localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
+        return isLight ? 'light' : 'dark';
+    }
+
+    function syncThemeButton(mode) {
         const btn = document.getElementById('theme-btn');
-        if (btn) btn.textContent = (th === 'light') ? '🌙' : '☀️';
+        if (!btn) return;
+        btn.textContent = mode === 'light' ? '🌙' : '☀️';
+    }
+
+    const initialMode = (window.PathTheme && typeof window.PathTheme.applyStoredTheme === 'function')
+        ? window.PathTheme.applyStoredTheme({ fallback: 'light' })
+        : setLightMode((localStorage.getItem('path_theme') || 'light') === 'light');
+
+    document.addEventListener('DOMContentLoaded', function(){
+        syncThemeButton(initialMode);
     });
+
+    window.toggleTheme = function(forceLight) {
+        const isLight = typeof forceLight === 'boolean'
+            ? forceLight
+            : !document.body.classList.contains('light');
+        const nextMode = setLightMode(isLight);
+        syncThemeButton(nextMode);
+    };
 })();
-function toggleTheme() {
-    const isLight = document.body.classList.toggle('light');
-    localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
-    const btn = document.getElementById('theme-btn');
-    if (btn) btn.textContent = isLight ? '🌙' : '☀️';
-}
 </script>
 <button id="theme-btn" class="theme-toggle-btn">🌙</button>
     <main class="auth-shell">

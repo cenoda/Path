@@ -14,6 +14,7 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <script src="/shared/nav.js?v=5"></script>
+    <script src="/shared/theme.js?v=1"></script>
     <script>
     (function () {
         function resolveApiOrigin() {
@@ -55,19 +56,28 @@
 <body class="path-interface">
 <script>
 (function(){
-    const t = localStorage.getItem('path_theme') || 'light';
-    if (t === 'light') document.body.classList.add('light');
-    document.addEventListener('DOMContentLoaded', function(){
-        const btn = document.getElementById('theme-btn');
-        if (btn) btn.textContent = (t === 'light') ? '🌙' : '☀️';
-    });
+    function setLightMode(isLight) {
+        if (window.PathTheme && typeof window.PathTheme.setLightMode === 'function') {
+            return window.PathTheme.setLightMode(isLight, { fallback: 'light' });
+        }
+        document.body.classList.toggle('light', isLight);
+        localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
+        return isLight ? 'light' : 'dark';
+    }
+
+    if (window.PathTheme && typeof window.PathTheme.applyStoredTheme === 'function') {
+        window.PathTheme.applyStoredTheme({ fallback: 'light' });
+    } else {
+        setLightMode((localStorage.getItem('path_theme') || 'light') === 'light');
+    }
+
+    window.toggleTheme = function(forceLight) {
+        const isLight = typeof forceLight === 'boolean'
+            ? forceLight
+            : !document.body.classList.contains('light');
+        return setLightMode(isLight);
+    };
 })();
-function toggleTheme() {
-    const isLight = document.body.classList.toggle('light');
-    localStorage.setItem('path_theme', isLight ? 'light' : 'dark');
-    const btn = document.getElementById('theme-btn');
-    if (btn) btn.textContent = isLight ? '🌙' : '☀️';
-}
 </script>
     
     <!-- Top Status Line -->

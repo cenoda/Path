@@ -15,6 +15,7 @@
     <noscript><link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="style.css?v=6">
     <link rel="stylesheet" href="/shared/redesign.css?v=2">
+    <script src="/shared/theme.js?v=1"></script>
     <script type="importmap">
     {
         "imports": {
@@ -57,8 +58,13 @@
 <body class="world-hub-page">
 <script>
 (function(){
-    const t = localStorage.getItem('path_theme') || 'light';
-    if (t === 'light') document.body.classList.add('light');
+    if (window.PathTheme && typeof window.PathTheme.applyStoredTheme === 'function') {
+        window.PathTheme.applyStoredTheme({ fallback: 'light' });
+        return;
+    }
+
+    const mode = localStorage.getItem('path_theme') || 'light';
+    document.body.classList.toggle('light', mode === 'light');
 })();
 </script>
     <div id="ui-overlay">
@@ -129,32 +135,32 @@
 
         <!-- 미니맵 -->
         <div id="minimap" class="hidden" style="position:fixed;top:80px;right:20px;width:200px;height:200px;background:rgba(10,10,20,0.9);border:2px solid rgba(212,175,55,0.4);border-radius:12px;backdrop-filter:blur(8px);z-index:10;padding:8px;">
-            <div style="font-size:10px;color:#888;margin-bottom:6px;text-align:center;font-weight:600;letter-spacing:0.5px;">MINIMAP</div>
+            <div style="font-size:10px;color:var(--text-sub);margin-bottom:6px;text-align:center;font-weight:600;letter-spacing:0.5px;">MINIMAP</div>
             <canvas id="minimap-canvas" width="184" height="160" style="width:100%;height:calc(100% - 20px);border-radius:6px;"></canvas>
         </div>
 
         <!-- 키보드 가이드 -->
-        <div id="keyboard-guide" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(10,10,20,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px 14px;font-family:'Pretendard Variable',sans-serif;font-size:10px;color:#888;z-index:10;backdrop-filter:blur(8px);pointer-events:none;">
+        <div id="keyboard-guide" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(10,10,20,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:8px 14px;font-family:'Pretendard Variable',sans-serif;font-size:10px;color:var(--text-sub);z-index:10;backdrop-filter:blur(8px);pointer-events:none;">
             <span style="color:var(--accent-gold);margin-right:8px;">⌨️</span>
-            <span style="color:#aaa;">WASD: 이동</span>
-            <span style="color:#666;margin:0 6px;">|</span>
-            <span style="color:#aaa;">R: 날씨</span>
-            <span style="color:#666;margin:0 6px;">|</span>
-            <span style="color:#aaa;">H: 홈</span>
-            <span style="color:#666;margin:0 6px;">|</span>
-            <span style="color:#aaa;">더블클릭: 이동</span>
+            <span style="color:var(--text-sub);">WASD: 이동</span>
+            <span style="color:var(--text-dim);margin:0 6px;">|</span>
+            <span style="color:var(--text-sub);">R: 날씨</span>
+            <span style="color:var(--text-dim);margin:0 6px;">|</span>
+            <span style="color:var(--text-sub);">H: 홈</span>
+            <span style="color:var(--text-dim);margin:0 6px;">|</span>
+            <span style="color:var(--text-sub);">더블클릭: 이동</span>
         </div>
 
         <!-- 좌표 표시 -->
-        <div id="coordinates-display" style="position:fixed;bottom:20px;left:20px;background:rgba(10,10,20,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 14px;font-family:'Pretendard Variable',sans-serif;font-size:11px;color:#aaa;z-index:10;min-width:200px;backdrop-filter:blur(8px);">
+        <div id="coordinates-display" style="position:fixed;bottom:20px;left:20px;background:rgba(10,10,20,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 14px;font-family:'Pretendard Variable',sans-serif;font-size:11px;color:var(--text-sub);z-index:10;min-width:200px;backdrop-filter:blur(8px);">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                 <span style="color:var(--accent-gold);font-size:13px;">📍</span>
                 <span style="font-weight:600;color:var(--text);letter-spacing:0.5px;">내 위치</span>
             </div>
             <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:10px;">
-                <span style="color:#666;">X:</span><span id="coord-x" style="color:#8af;font-family:monospace;">0</span>
-                <span style="color:#666;">Y:</span><span id="coord-y" style="color:#8af;font-family:monospace;">0</span>
-                <span style="color:#666;">Z:</span><span id="coord-z" style="color:#8af;font-family:monospace;">0</span>
+                <span style="color:var(--text-dim);">X:</span><span id="coord-x" style="color:#8af;font-family:monospace;">0</span>
+                <span style="color:var(--text-dim);">Y:</span><span id="coord-y" style="color:#8af;font-family:monospace;">0</span>
+                <span style="color:var(--text-dim);">Z:</span><span id="coord-z" style="color:#8af;font-family:monospace;">0</span>
             </div>
             <button id="btn-teleport" onclick="openTeleportDialog()" style="width:100%;margin-top:8px;padding:6px;background:rgba(212,175,55,0.15);border:1px solid rgba(212,175,55,0.3);border-radius:6px;color:var(--accent-gold);font-size:10px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.25)'" onmouseout="this.style.background='rgba(212,175,55,0.15)'">⚡ 텔레포트</button>
         </div>
@@ -370,14 +376,14 @@
             <h3 style="font-size:14px;margin-bottom:16px;">⚡ 텔레포트</h3>
             <div class="modal-content">
                 <div style="margin-bottom:12px;">
-                    <label style="font-size:10px;color:#888;margin-bottom:4px;display:block;">X 좌표</label>
+                    <label style="font-size:10px;color:var(--text-sub);margin-bottom:4px;display:block;">X 좌표</label>
                     <input type="number" id="tp-x" class="chat-input" style="width:100%;" placeholder="0">
                 </div>
                 <div style="margin-bottom:12px;">
-                    <label style="font-size:10px;color:#888;margin-bottom:4px;display:block;">Y 좌표</label>
+                    <label style="font-size:10px;color:var(--text-sub);margin-bottom:4px;display:block;">Y 좌표</label>
                     <input type="number" id="tp-y" class="chat-input" style="width:100%;" placeholder="0">
                 </div>
-                <div style="font-size:10px;color:#666;line-height:1.5;margin-bottom:12px;">원하는 좌표로 즉시 이동합니다.</div>
+                <div style="font-size:10px;color:var(--text-sub);line-height:1.5;margin-bottom:12px;">원하는 좌표로 즉시 이동합니다.</div>
             </div>
             <div class="modal-foot">
                 <button class="shop-btn" onclick="doTeleport()" style="padding:8px 16px;font-size:11px;">이동</button>

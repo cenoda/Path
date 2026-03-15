@@ -10,6 +10,7 @@ const { findUniversity }  = require('../data/universities');
 const calc = require('../utils/admissionCalc');
 
 const router = express.Router();
+const SCORE_IMAGE_MAX_SIZE = 15 * 1024 * 1024;
 
 function normalizeTrack(rawTrack) {
     if (!rawTrack) return null;
@@ -40,9 +41,29 @@ const scoreStorage = multer.diskStorage({
     },
 });
 const imageFilter = (_req, file, cb) => {
-    cb(null, /image\//.test(file.mimetype));
+    if (/^image\//.test(String(file.mimetype || '').toLowerCase())) return cb(null, true);
+    return cb(new Error('ONLY_IMAGE_ALLOWED'));
 };
-const uploadScore = multer({ storage: scoreStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFilter });
+const uploadScore = multer({ storage: scoreStorage, limits: { fileSize: SCORE_IMAGE_MAX_SIZE }, fileFilter: imageFilter });
+
+function sendScoreUploadError(res, err) {
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(413).json({ error: `이미지 용량은 최대 ${Math.floor(SCORE_IMAGE_MAX_SIZE / (1024 * 1024))}MB까지 가능합니다.` });
+        }
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            return res.status(400).json({ error: '업로드 필드가 올바르지 않습니다.' });
+        }
+        return res.status(400).json({ error: '이미지 업로드 요청이 올바르지 않습니다.' });
+    }
+
+    if (err?.message === 'ONLY_IMAGE_ALLOWED') {
+        return res.status(400).json({ error: '이미지 파일만 업로드할 수 있습니다.' });
+    }
+
+    console.error('apply/scores/image multer 오류:', err);
+    return res.status(400).json({ error: '이미지 업로드에 실패했습니다.' });
+}
 
 // ── 점수 제출/수정 ────────────────────────────────────────────────────────
 router.post('/scores', requireAuth, async (req, res) => {
@@ -110,21 +131,25 @@ router.post('/scores', requireAuth, async (req, res) => {
 });
 
 // ── 성적표 이미지 업로드 ──────────────────────────────────────────────────
-router.post('/scores/image', requireAuth, uploadScore.single('scoreImage'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: '이미지를 선택해주세요.' });
-    const imageUrl = `/uploads/scores/${req.file.filename}`;
-    try {
-        await pool.query(`
-            INSERT INTO exam_scores (user_id, score_image_url, verified_status, updated_at)
-            VALUES ($1, $2, 'pending', NOW())
-            ON CONFLICT (user_id) DO UPDATE SET
-                score_image_url=$2, verified_status='pending', updated_at=NOW()
-        `, [req.session.userId, imageUrl]);
-        res.json({ ok: true, imageUrl });
-    } catch (err) {
-        console.error('apply/scores/image 오류:', err.message);
-        res.status(500).json({ error: '서버 오류' });
-    }
+router.post('/scores/image', requireAuth, (req, res) => {
+    uploadScore.single('scoreImage')(req, res, async (err) => {
+        if (err) return sendScoreUploadError(res, err);
+        if (!req.file) return res.status(400).json({ error: '이미지를 선택해주세요.' });
+
+        const imageUrl = `/uploads/scores/${req.file.filename}`;
+        try {
+            await pool.query(`
+                INSERT INTO exam_scores (user_id, score_image_url, verified_status, updated_at)
+                VALUES ($1, $2, 'pending', NOW())
+                ON CONFLICT (user_id) DO UPDATE SET
+                    score_image_url=$2, verified_status='pending', updated_at=NOW()
+            `, [req.session.userId, imageUrl]);
+            res.json({ ok: true, imageUrl });
+        } catch (dbErr) {
+            console.error('apply/scores/image 오류:', dbErr.message);
+            res.status(500).json({ error: '서버 오류' });
+        }
+    });
 });
 
 // ── 내 점수 조회 ──────────────────────────────────────────────────────────

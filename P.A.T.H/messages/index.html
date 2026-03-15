@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0D0D11">
+  <meta name="theme-color" content="#0C1222" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#EEF4FF" media="(prefers-color-scheme: light)">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,74 +12,132 @@
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
   <title>메시지 - P.A.T.H</title>
+
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=MaruBuri:wght@400;700&display=swap" rel="stylesheet">
   <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/suitcss@1.0.0/SUIT-Variable.css" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://cdn.jsdelivr.net/npm/suitcss@1.0.0/SUIT-Variable.css" rel="stylesheet"></noscript>
   <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/shared/redesign.css?v=2">
+  <link rel="stylesheet" href="style.css?v=20260315">
+  <script src="/shared/theme.js?v=1"></script>
 </head>
-<body>
+<body class="messages-page" data-view="list">
+<script>
+(function () {
+  var prefersLight = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+  var fallback = prefersLight ? 'light' : 'dark';
 
-<!-- ── 헤더 ──────────────────────────────── -->
-<header class="msg-header" id="msg-header">
-  <button class="msg-header__back" onclick="handleBack()" aria-label="뒤로가기" id="btn-header-back">
+  if (window.PathTheme && typeof window.PathTheme.applyStoredTheme === 'function') {
+    window.PathTheme.applyStoredTheme({ fallback: fallback });
+    return;
+  }
+
+  var mode = localStorage.getItem('path_theme') || fallback;
+  document.body.classList.toggle('light', mode === 'light');
+})();
+</script>
+
+<header class="msg-topbar">
+  <button class="msg-topbar__back" onclick="handleBack()" aria-label="뒤로가기" id="btn-header-back">
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="M12 5L7 10L12 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M12.5 4.5L6.8 10L12.5 15.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
     </svg>
   </button>
 
-  <div class="msg-header__center" id="header-center" onclick="onHeaderCenterClick()">
-    <div class="msg-header__avatar" id="header-avatar">
-      <span id="header-avatar-text">💬</span>
-      <img id="header-avatar-img" class="hidden" alt="">
-      <span id="header-online" class="header-online hidden"></span>
-    </div>
-    <div class="msg-header__meta">
-      <div class="msg-header__title" id="header-title">메시지</div>
-      <div class="msg-header__sub" id="header-sub">대화 목록</div>
-    </div>
+  <div class="msg-topbar__brand">
+    <span class="msg-topbar__eyebrow">P.A.T.H CONNECT</span>
+    <strong class="msg-topbar__title">메신저</strong>
   </div>
 
-  <div class="msg-header__right">
-    <span class="msg-header__badge hidden" id="msg-badge"></span>
+  <div class="msg-topbar__meta">
+    <span id="list-count-label" class="msg-chip">0 대화</span>
+    <span id="list-unread-total" class="msg-chip msg-chip--accent">미확인 0</span>
   </div>
 </header>
 
-<!-- ── 본문 ──────────────────────────────── -->
-<main class="msg-main" id="msg-main">
+<main class="msg-main">
+  <section id="view-list" class="msg-pane msg-pane-list">
+    <div class="msg-list-head">
+      <p class="msg-list-title">대화 목록</p>
+      <p class="msg-list-sub">동맹 및 그룹 채팅을 한곳에서 관리</p>
+    </div>
 
-  <!-- 대화 목록 뷰 -->
-  <div id="view-list" class="msg-view">
     <div class="conv-search-wrap">
-      <span class="conv-search-icon">🔍</span>
-      <input id="conv-search" class="conv-search-input" type="text" placeholder="대화 검색" maxlength="60">
+      <span class="conv-search-icon" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </span>
+      <input id="conv-search" class="conv-search-input" type="text" placeholder="닉네임, 메시지, 그룹명 검색" maxlength="60" autocomplete="off">
     </div>
-    <div id="conv-search-history" class="conv-search-history hidden"></div>
-    <div id="conv-items" class="conv-items">
-      <div class="conv-empty">로딩 중...</div>
-    </div>
-  </div>
 
-  <!-- 채팅 뷰 -->
-  <div id="view-chat" class="msg-view hidden">
-    <div id="chat-messages" class="chat-messages"></div>
+    <div id="conv-search-history" class="conv-search-history hidden"></div>
+
+    <div id="conv-items" class="conv-items" aria-live="polite">
+      <div class="conv-empty">대화 목록을 불러오는 중...</div>
+    </div>
+  </section>
+
+  <section id="view-chat" class="msg-pane msg-pane-chat hidden" aria-live="polite">
+    <header class="msg-header" id="msg-header">
+      <div class="msg-header__center" id="header-center" onclick="onHeaderCenterClick()">
+        <div class="msg-header__avatar" id="header-avatar">
+          <span id="header-avatar-text">💬</span>
+          <img id="header-avatar-img" class="hidden" alt="">
+          <span id="header-online" class="header-online hidden"></span>
+        </div>
+        <div class="msg-header__meta">
+          <div class="msg-header__title" id="header-title">메시지</div>
+          <div class="msg-header__sub" id="header-sub">대화를 선택해 주세요</div>
+        </div>
+      </div>
+
+      <div class="msg-header__right">
+        <span class="msg-header__badge hidden" id="msg-badge"></span>
+      </div>
+    </header>
+
+    <div id="chat-messages" class="chat-messages">
+      <div class="chat-placeholder">
+        <div class="chat-placeholder__badge">PATH CHAT</div>
+        <h2>대화를 선택해 주세요</h2>
+        <p>왼쪽 목록에서 상대를 선택하면 새 채팅 화면이 열립니다.</p>
+      </div>
+    </div>
+
     <div id="chat-delivery-status" class="chat-delivery-status" style="display:none;"></div>
+
     <div id="file-preview" class="file-preview hidden">
       <span id="file-preview-name"></span>
-      <button onclick="cancelFileUpload()" class="file-preview-cancel">취소</button>
+      <button onclick="cancelFileUpload()" class="file-preview-cancel" type="button">취소</button>
     </div>
-    <div class="chat-input-row">
-      <input type="file" id="chat-file-input" style="display:none;" accept="image/*,.pdf,.txt" onchange="handleFileSelect(event)">
-      <button class="chat-file-btn" id="btn-file-attach" onclick="document.getElementById('chat-file-input').click()" title="파일 첨부">📎</button>
-      <input type="text" id="chat-input" class="chat-input" placeholder="메시지 입력..." maxlength="500"
-             onkeydown="if(event.key==='Enter')sendMessage()">
-      <button class="chat-send-btn" onclick="sendMessage()" aria-label="전송"></button>
-    </div>
-  </div>
 
+    <div class="chat-input-row">
+      <input type="file" id="chat-file-input" class="hidden" accept="image/*,.pdf,.txt" onchange="handleFileSelect(event)">
+      <button class="chat-file-btn" id="btn-file-attach" onclick="document.getElementById('chat-file-input').click()" title="파일 첨부" type="button" aria-label="파일 첨부">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21.44 11.05l-8.49 8.49a6 6 0 01-8.49-8.49l9.2-9.19a4 4 0 115.66 5.66l-9.2 9.2a2 2 0 11-2.83-2.83l8.49-8.48"></path>
+        </svg>
+      </button>
+
+      <textarea id="chat-input" class="chat-input" rows="1" placeholder="메시지를 입력하세요" maxlength="500"></textarea>
+
+      <button class="chat-send-btn" onclick="sendMessage()" aria-label="전송" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </section>
 </main>
 
-<script src="messages.js"></script>
+<script src="/shared/nav.js?v=5"></script>
+<script src="messages.js?v=20260315"></script>
 </body>
 </html>

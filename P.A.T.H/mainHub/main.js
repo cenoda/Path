@@ -996,13 +996,24 @@ function previewScore(input) {
 async function uploadScore() {
     const fileInput = document.getElementById('score-file');
     if (!fileInput.files[0]) { alert('사진을 선택해주세요.'); return; }
+    const MAX_UPLOAD_MB = 15;
+    if (fileInput.files[0].size > MAX_UPLOAD_MB * 1024 * 1024) {
+        alert(`이미지 용량은 ${MAX_UPLOAD_MB}MB 이하만 업로드할 수 있습니다.`);
+        return;
+    }
     const formData = new FormData();
     formData.append('scoreImage', fileInput.files[0]);
     try {
         const r = await fetch('/api/auth/upload-score', {
             method: 'POST', credentials: 'include', body: formData
         });
-        const data = await r.json();
+        const raw = await r.text();
+        let data = {};
+        try {
+            data = raw ? JSON.parse(raw) : {};
+        } catch (_) {
+            data = {};
+        }
         if (!r.ok) { alert(data.error || '업로드 실패'); return; }
         alert('성적 사진이 업로드되었습니다.\n관리자 승인 후 점수가 반영됩니다.');
         currentUser.score_status = 'pending';

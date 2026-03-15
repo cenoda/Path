@@ -38,7 +38,7 @@
     <button class="header-back" onclick="history.back()">←</button>
     <div class="header-title-wrap">
         <h1>입시 지원</h1>
-        <p class="header-subtitle">토스형 UI · 진학사형 분석</p>
+        <p class="header-subtitle">직관형 UI · 진학사형 분석</p>
     </div>
     <div class="header-tickets" id="header-tickets">🎫 0</div>
 </header>
@@ -153,7 +153,26 @@
         <div class="card-title">탐구 영역</div>
         <div class="field">
             <label>탐구1 과목</label>
-            <input type="text" id="explore1_subject" placeholder="예) 생명과학I">
+            <select id="explore1_subject">
+                <option value="">선택</option>
+                <option value="생활과윤리">생활과윤리</option>
+                <option value="윤리와사상">윤리와사상</option>
+                <option value="한국지리">한국지리</option>
+                <option value="세계지리">세계지리</option>
+                <option value="동아시아사">동아시아사</option>
+                <option value="세계사">세계사</option>
+                <option value="정치와법">정치와법</option>
+                <option value="경제">경제</option>
+                <option value="사회문화">사회문화</option>
+                <option value="물리학I">물리학I</option>
+                <option value="화학I">화학I</option>
+                <option value="생명과학I">생명과학I</option>
+                <option value="지구과학I">지구과학I</option>
+                <option value="물리학II">물리학II</option>
+                <option value="화학II">화학II</option>
+                <option value="생명과학II">생명과학II</option>
+                <option value="지구과학II">지구과학II</option>
+            </select>
         </div>
         <div class="field-row">
             <div class="field">
@@ -168,7 +187,26 @@
         <div class="divider"></div>
         <div class="field">
             <label>탐구2 과목 (선택)</label>
-            <input type="text" id="explore2_subject" placeholder="예) 화학I">
+            <select id="explore2_subject">
+                <option value="">선택 안 함</option>
+                <option value="생활과윤리">생활과윤리</option>
+                <option value="윤리와사상">윤리와사상</option>
+                <option value="한국지리">한국지리</option>
+                <option value="세계지리">세계지리</option>
+                <option value="동아시아사">동아시아사</option>
+                <option value="세계사">세계사</option>
+                <option value="정치와법">정치와법</option>
+                <option value="경제">경제</option>
+                <option value="사회문화">사회문화</option>
+                <option value="물리학I">물리학I</option>
+                <option value="화학I">화학I</option>
+                <option value="생명과학I">생명과학I</option>
+                <option value="지구과학I">지구과학I</option>
+                <option value="물리학II">물리학II</option>
+                <option value="화학II">화학II</option>
+                <option value="생명과학II">생명과학II</option>
+                <option value="지구과학II">지구과학II</option>
+            </select>
         </div>
         <div class="field-row">
             <div class="field">
@@ -198,7 +236,18 @@
             </div>
             <div class="field">
                 <label>제2외국어 과목</label>
-                <input type="text" id="second_lang_subject" placeholder="선택 (예: 일본어I)">
+                <select id="second_lang_subject">
+                    <option value="">선택 안 함</option>
+                    <option value="독일어I">독일어I</option>
+                    <option value="프랑스어I">프랑스어I</option>
+                    <option value="스페인어I">스페인어I</option>
+                    <option value="중국어I">중국어I</option>
+                    <option value="일본어I">일본어I</option>
+                    <option value="러시아어I">러시아어I</option>
+                    <option value="아랍어I">아랍어I</option>
+                    <option value="베트남어I">베트남어I</option>
+                    <option value="한문I">한문I</option>
+                </select>
             </div>
         </div>
         <div class="field-row" id="second-lang-scores" style="display:none">
@@ -217,7 +266,15 @@
         <div class="card-title">시험 회차 (선택)</div>
         <div class="field">
             <label>회차명</label>
-            <input type="text" id="source_round_name" placeholder="예) 2026년 6월 평가원">
+            <select id="source_round_name">
+                <option value="">선택 안 함</option>
+                <option value="2026학년도 6월 모의평가">2026학년도 6월 모의평가</option>
+                <option value="2026학년도 9월 모의평가">2026학년도 9월 모의평가</option>
+                <option value="2026학년도 대학수학능력시험">2026학년도 대학수학능력시험</option>
+                <option value="2027학년도 6월 모의평가">2027학년도 6월 모의평가</option>
+                <option value="2027학년도 9월 모의평가">2027학년도 9월 모의평가</option>
+                <option value="2027학년도 대학수학능력시험">2027학년도 대학수학능력시험</option>
+            </select>
         </div>
     </div>
 
@@ -328,6 +385,6 @@
 <div class="toast" id="toast"></div>
 
 <script src="/shared/nav.js?v=5"></script>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

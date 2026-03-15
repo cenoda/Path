@@ -96,6 +96,33 @@ function validateNickname(nickname) {
     return { ok: true, value };
 }
 
+function isBlankAdminInput(value) {
+    return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
+}
+
+function parseAdminIntegerField(rawValue, fallbackValue, { min = 0, max = Number.MAX_SAFE_INTEGER, error }) {
+    if (isBlankAdminInput(rawValue)) {
+        return { ok: true, value: fallbackValue };
+    }
+
+    const parsed = Number.parseInt(String(rawValue), 10);
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+        return { ok: false, error };
+    }
+
+    return { ok: true, value: parsed };
+}
+
+function normalizeAdminTier(rawValue, fallbackValue) {
+    const nextValue = String(rawValue || '').trim();
+    const resolved = nextValue || String(fallbackValue || 'BRONZE').trim() || 'BRONZE';
+    if (!resolved || resolved.length > 20) {
+        return { ok: false, error: '티어는 1~20자 사이여야 합니다.' };
+    }
+
+    return { ok: true, value: resolved };
+}
+
 async function getAdminRole(userId) {
     const result = await pool.query(
         'SELECT nickname, is_admin, admin_role FROM users WHERE id = $1',
@@ -545,6 +572,7 @@ router.post('/update-user', requireAdmin, async (req, res) => {
             [userId]
         );
         if (!target.rows.length) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
         }
         const targetUser = target.rows[0];
@@ -553,6 +581,7 @@ router.post('/update-user', requireAdmin, async (req, res) => {
             ? targetUser.admin_role
             : (targetUser.is_admin ? 'sub' : 'none');
         if (!isMainAdmin && targetRole !== 'none') {
+            await client.query('ROLLBACK');
             return res.status(403).json({ error: '부관리자는 관리자 계정을 수정할 수 없습니다.' });
         }
 
@@ -569,61 +598,108 @@ router.post('/update-user', requireAdmin, async (req, res) => {
         let worldZ = targetUser.world_z;
 
         if (isMainAdmin) {
-            gold = parseInt(goldRaw, 10);
-            if (!Number.isInteger(gold) || gold < 0) {
-                return res.status(400).json({ error: '골드는 0 이상의 정수여야 합니다.' });
+            const goldResult = parseAdminIntegerField(goldRaw, targetUser.gold, {
+                min: 0,
+                error: '골드는 0 이상의 정수여야 합니다.'
+            });
+            if (!goldResult.ok) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: goldResult.error });
             }
+            gold = goldResult.value;
 
-            diamond = parseInt(diamondRaw, 10);
-            if (!Number.isInteger(diamond) || diamond < 0) {
-                return res.status(400).json({ error: '다이아는 0 이상의 정수여야 합니다.' });
+            const diamondResult = parseAdminIntegerField(diamondRaw, targetUser.diamond, {
+                min: 0,
+                error: '다이아는 0 이상의 정수여야 합니다.'
+            });
+            if (!diamondResult.ok) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: diamondResult.error });
             }
+            diamond = diamondResult.value;
 
-            exp = parseInt(expRaw, 10);
-            if (!Number.isInteger(exp) || exp < 0) {
-                return res.status(400).json({ error: 'EXP는 0 이상의 정수여야 합니다.' });
+            const expResult = parseAdminIntegerField(expRaw, targetUser.exp, {
+                min: 0,
+                error: 'EXP는 0 이상의 정수여야 합니다.'
+            });
+            if (!expResult.ok) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: expResult.error });
             }
+            exp = expResult.value;
 
-            tier = tierRaw.trim();
-            if (!tier || tier.length > 20) {
-                return res.status(400).json({ error: '티어는 1~20자 사이여야 합니다.' });
+            const tierResult = normalizeAdminTier(tierRaw, targetUser.tier);
+            if (!tierResult.ok) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: tierResult.error });
             }
+            tier = tierResult.value;
 
-            tickets = parseInt(ticketsRaw, 10);
-            if (!Number.isInteger(tickets) || tickets < 0) {
-                return res.status(400).json({ error: '티켓은 0 이상의 정수여야 합니다.' });
+            const ticketsResult = parseAdminIntegerField(ticketsRaw, targetUser.tickets, {
+                min: 0,
+                error: '티켓은 0 이상의 정수여야 합니다.'
+            });
+            if (!ticketsResult.ok) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: ticketsResult.error });
             }
+            tickets = ticketsResult.value;
 
-            mockExamScore = parseInt(mockExamScoreRaw, 10);
-            if (!Number.isInteger(mockExamScore) || mockExamScore < 0 || mockExamScore > 600) {
-                return res.status(400).json({ error: '평가원 점수는 0~600 사이의 정수여야 합니다.' });
+            const mockExamResult = parseAdminIntegerField(mockExamScoreRaw, targetUser.mock_exam_score, {
+                min: 0,
+                max: 600,
+                error: '평가원 점수는 0~600 사이의 정수여야 합니다.'
+            });
+            if (!mockExamResult.ok) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: mockExamResult.error });
             }
+            mockExamScore = mockExamResult.value;
 
             const gpaScoreText = gpaScoreRaw === null || gpaScoreRaw === undefined ? '' : String(gpaScoreRaw).trim();
             gpaScore = null;
             if (gpaScoreText) {
                 gpaScore = parseFloat(gpaScoreText);
                 if (!Number.isFinite(gpaScore) || gpaScore < 1.0 || gpaScore > 9.0) {
+                    await client.query('ROLLBACK');
                     return res.status(400).json({ error: '내신은 1.0~9.0 범위로 입력해주세요.' });
                 }
             }
 
             nextGpaPublic = gpaPublic;
 
-            worldX = parseInt(worldXRaw, 10);
-            if (!Number.isInteger(worldX) || worldX < -ADMIN_WORLD_XY_LIMIT || worldX > ADMIN_WORLD_XY_LIMIT) {
-                return res.status(400).json({ error: `X 좌표는 ${-ADMIN_WORLD_XY_LIMIT}~${ADMIN_WORLD_XY_LIMIT} 범위의 정수여야 합니다.` });
+            const worldXResult = parseAdminIntegerField(worldXRaw, targetUser.world_x, {
+                min: -ADMIN_WORLD_XY_LIMIT,
+                max: ADMIN_WORLD_XY_LIMIT,
+                error: `X 좌표는 ${-ADMIN_WORLD_XY_LIMIT}~${ADMIN_WORLD_XY_LIMIT} 범위의 정수여야 합니다.`
+            });
+            if (!worldXResult.ok) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: worldXResult.error });
             }
+            worldX = worldXResult.value;
 
-            worldY = parseInt(worldYRaw, 10);
-            if (!Number.isInteger(worldY) || worldY < -ADMIN_WORLD_XY_LIMIT || worldY > ADMIN_WORLD_XY_LIMIT) {
-                return res.status(400).json({ error: `Y 좌표는 ${-ADMIN_WORLD_XY_LIMIT}~${ADMIN_WORLD_XY_LIMIT} 범위의 정수여야 합니다.` });
+            const worldYResult = parseAdminIntegerField(worldYRaw, targetUser.world_y, {
+                min: -ADMIN_WORLD_XY_LIMIT,
+                max: ADMIN_WORLD_XY_LIMIT,
+                error: `Y 좌표는 ${-ADMIN_WORLD_XY_LIMIT}~${ADMIN_WORLD_XY_LIMIT} 범위의 정수여야 합니다.`
+            });
+            if (!worldYResult.ok) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: worldYResult.error });
             }
+            worldY = worldYResult.value;
 
-            worldZ = parseInt(worldZRaw, 10);
-            if (!Number.isInteger(worldZ) || worldZ < ADMIN_WORLD_Z_MIN || worldZ > ADMIN_WORLD_Z_MAX) {
-                return res.status(400).json({ error: `Z 좌표는 ${ADMIN_WORLD_Z_MIN}~${ADMIN_WORLD_Z_MAX} 범위의 정수여야 합니다.` });
+            const worldZResult = parseAdminIntegerField(worldZRaw, targetUser.world_z, {
+                min: ADMIN_WORLD_Z_MIN,
+                max: ADMIN_WORLD_Z_MAX,
+                error: `Z 좌표는 ${ADMIN_WORLD_Z_MIN}~${ADMIN_WORLD_Z_MAX} 범위의 정수여야 합니다.`
+            });
+            if (!worldZResult.ok) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: worldZResult.error });
             }
+            worldZ = worldZResult.value;
         }
 
         const duplicate = await client.query(

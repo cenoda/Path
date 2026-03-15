@@ -617,6 +617,10 @@
             return state.adminRole === 'main';
         }
 
+        function isBlankSensitiveInput(value) {
+            return value === null || value === undefined || String(value).trim() === '';
+        }
+
         function validateUserEditInput(payload) {
             const nickname = String(payload.nickname || '').trim();
             if (nickname.length < 2 || nickname.length > 20) {
@@ -642,24 +646,34 @@
 
             if (!canEditSensitiveFields()) return '';
 
-            const gold = Number.parseInt(payload.gold, 10);
-            if (!Number.isInteger(gold) || gold < 0) return '골드는 0 이상의 정수여야 합니다.';
+            if (!isBlankSensitiveInput(payload.gold)) {
+                const gold = Number.parseInt(payload.gold, 10);
+                if (!Number.isInteger(gold) || gold < 0) return '골드는 0 이상의 정수여야 합니다.';
+            }
 
-            const diamond = Number.parseInt(payload.diamond, 10);
-            if (!Number.isInteger(diamond) || diamond < 0) return '다이아는 0 이상의 정수여야 합니다.';
+            if (!isBlankSensitiveInput(payload.diamond)) {
+                const diamond = Number.parseInt(payload.diamond, 10);
+                if (!Number.isInteger(diamond) || diamond < 0) return '다이아는 0 이상의 정수여야 합니다.';
+            }
 
-            const exp = Number.parseInt(payload.exp, 10);
-            if (!Number.isInteger(exp) || exp < 0) return 'EXP는 0 이상의 정수여야 합니다.';
+            if (!isBlankSensitiveInput(payload.exp)) {
+                const exp = Number.parseInt(payload.exp, 10);
+                if (!Number.isInteger(exp) || exp < 0) return 'EXP는 0 이상의 정수여야 합니다.';
+            }
 
             const tier = String(payload.tier || '').trim();
-            if (!tier || tier.length > 20) return '티어는 1~20자 사이여야 합니다.';
+            if (tier && tier.length > 20) return '티어는 1~20자 사이여야 합니다.';
 
-            const tickets = Number.parseInt(payload.tickets, 10);
-            if (!Number.isInteger(tickets) || tickets < 0) return '티켓은 0 이상의 정수여야 합니다.';
+            if (!isBlankSensitiveInput(payload.tickets)) {
+                const tickets = Number.parseInt(payload.tickets, 10);
+                if (!Number.isInteger(tickets) || tickets < 0) return '티켓은 0 이상의 정수여야 합니다.';
+            }
 
-            const mockExam = Number.parseInt(payload.mock_exam_score, 10);
-            if (!Number.isInteger(mockExam) || mockExam < 0 || mockExam > 600) {
-                return '평가원 점수는 0~600 범위여야 합니다.';
+            if (!isBlankSensitiveInput(payload.mock_exam_score)) {
+                const mockExam = Number.parseInt(payload.mock_exam_score, 10);
+                if (!Number.isInteger(mockExam) || mockExam < 0 || mockExam > 600) {
+                    return '평가원 점수는 0~600 범위여야 합니다.';
+                }
             }
 
             const gpaText = String(payload.gpa_score || '').trim();
@@ -670,19 +684,25 @@
                 }
             }
 
-            const worldX = Number.parseInt(payload.world_x, 10);
-            if (!Number.isInteger(worldX) || worldX < -100000 || worldX > 100000) {
-                return 'X 좌표는 -100000~100000 범위의 정수여야 합니다.';
+            if (!isBlankSensitiveInput(payload.world_x)) {
+                const worldX = Number.parseInt(payload.world_x, 10);
+                if (!Number.isInteger(worldX) || worldX < -100000 || worldX > 100000) {
+                    return 'X 좌표는 -100000~100000 범위의 정수여야 합니다.';
+                }
             }
 
-            const worldY = Number.parseInt(payload.world_y, 10);
-            if (!Number.isInteger(worldY) || worldY < -100000 || worldY > 100000) {
-                return 'Y 좌표는 -100000~100000 범위의 정수여야 합니다.';
+            if (!isBlankSensitiveInput(payload.world_y)) {
+                const worldY = Number.parseInt(payload.world_y, 10);
+                if (!Number.isInteger(worldY) || worldY < -100000 || worldY > 100000) {
+                    return 'Y 좌표는 -100000~100000 범위의 정수여야 합니다.';
+                }
             }
 
-            const worldZ = Number.parseInt(payload.world_z, 10);
-            if (!Number.isInteger(worldZ) || worldZ < -40 || worldZ > 500) {
-                return 'Z 좌표는 -40~500 범위의 정수여야 합니다.';
+            if (!isBlankSensitiveInput(payload.world_z)) {
+                const worldZ = Number.parseInt(payload.world_z, 10);
+                if (!Number.isInteger(worldZ) || worldZ < -40 || worldZ > 500) {
+                    return 'Z 좌표는 -40~500 범위의 정수여야 합니다.';
+                }
             }
             return '';
         }

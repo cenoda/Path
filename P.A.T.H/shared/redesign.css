@@ -745,6 +745,13 @@ body.path-interface:not(.light) .mode-group {
   background: rgba(12, 22, 38, 0.82);
 }
 
+body.path-interface:not(.light) .page-tab-btn.active,
+body.path-interface:not(.light) .mode-btn.active {
+  background: rgba(38, 74, 130, 0.88);
+  color: #8fb8ff;
+  box-shadow: 0 8px 18px rgba(7, 20, 42, 0.46), inset 0 0 0 1px rgba(118, 162, 240, 0.34);
+}
+
 /* World hub light mode should not inherit dark-only redesign surface. */
 body.world-hub-page.light,
 body.light:has(#ui-overlay) {

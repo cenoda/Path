@@ -100,6 +100,22 @@ function switchTab(tab) {
     if (tab === 'result') loadResults();
 }
 
+function setFieldValue(el, rawValue) {
+    if (!el || rawValue == null) return;
+    const value = String(rawValue);
+    if (el.tagName === 'SELECT') {
+        const hasOption = Array.from(el.options).some(opt => opt.value === value);
+        if (!hasOption && value) {
+            const legacyOption = document.createElement('option');
+            legacyOption.value = value;
+            legacyOption.textContent = `${value} (기존 입력값)`;
+            legacyOption.dataset.legacy = 'true';
+            el.appendChild(legacyOption);
+        }
+    }
+    el.value = value;
+}
+
 // ── 점수 폼 렌더링 ────────────────────────────────────────────────────────
 function renderScoreForm() {
     if (!myScores) return;
@@ -115,7 +131,7 @@ function renderScoreForm() {
     ];
     fields.forEach(id => {
         const el = document.getElementById(id);
-        if (el && myScores[id] != null) el.value = myScores[id];
+        setFieldValue(el, myScores[id]);
     });
     updateSecondLangVisibility();
 
@@ -144,12 +160,24 @@ function renderScoreStatus() {
 }
 
 function updateSecondLangVisibility() {
-    const subj = document.getElementById('second_lang_subject')?.value;
+    const subj = String(document.getElementById('second_lang_subject')?.value || '').trim();
     const wrap = document.getElementById('second-lang-scores');
-    if (wrap) wrap.style.display = subj ? 'grid' : 'none';
+    const hasSubject = !!subj;
+    if (wrap) wrap.style.display = hasSubject ? 'grid' : 'none';
+
+    if (!hasSubject) {
+        ['second_lang_std', 'second_lang_percentile'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    }
 }
 
 document.addEventListener('input', e => {
+    if (e.target.id === 'second_lang_subject') updateSecondLangVisibility();
+});
+
+document.addEventListener('change', e => {
     if (e.target.id === 'second_lang_subject') updateSecondLangVisibility();
 });
 
@@ -176,6 +204,11 @@ async function saveScores() {
         second_lang_percentile: parseFloatOrNull('second_lang_percentile'),
         source_round_name: val('source_round_name'),
     };
+
+    if (body.explore1_subject && body.explore1_subject === body.explore2_subject) {
+        showToast('탐구1과 탐구2는 서로 다른 과목을 선택해주세요.');
+        return;
+    }
 
     if (!body.korean_std || !body.math_std || !body.english_grade || !body.history_grade) {
         showToast('국어, 수학, 영어, 한국사는 필수입니다.');
@@ -211,6 +244,12 @@ async function saveScores() {
 async function handleImageUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
+    const MAX_UPLOAD_MB = 15;
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+        showToast(`이미지 용량은 ${MAX_UPLOAD_MB}MB 이하만 업로드할 수 있어요.`);
+        event.target.value = '';
+        return;
+    }
 
     const preview = document.getElementById('score-image-preview');
     preview.src = URL.createObjectURL(file);
@@ -223,13 +262,19 @@ async function handleImageUpload(event) {
         const r = await fetch('/api/apply/scores/image', {
             method: 'POST', credentials: 'include', body: fd,
         });
-        const data = await r.json();
+        const raw = await r.text();
+        let data = {};
+        try {
+            data = raw ? JSON.parse(raw) : {};
+        } catch (_) {
+            data = {};
+        }
         if (r.ok) {
             showToast('성적표 업로드 완료. 인증 심사 중...');
             if (myScores) myScores.verified_status = 'pending';
             renderScoreStatus();
         } else {
-            showToast(data.error || '업로드 실패');
+            showToast(data.error || `업로드 실패 (${r.status})`);
         }
     } catch {
         showToast('업로드 중 오류가 발생했습니다.');

@@ -334,7 +334,7 @@
 
     <div class="glass-panel hidden" id="panel-messenger" style="width: 360px;">
         <div class="panel-head">
-            <div class="messenger-header-center">
+            <div class="messenger-header-center" onclick="openMessengerHeaderProfile()" role="button" tabindex="0" aria-label="대화 상대 프로필 열기" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMessengerHeaderProfile();}">
                 <div id="messenger-header-avatar" class="messenger-header-avatar">
                     <span id="messenger-header-avatar-text">💬</span>
                     <img id="messenger-header-avatar-img" class="hidden" alt="프로필">

@@ -252,6 +252,7 @@
             </div>
             <div class="strategy-summary" id="strategy-summary"></div>
             <div class="strategy-actions" id="strategy-actions"></div>
+                <div class="replacement-board" id="replacement-board"></div>
             <div class="strategy-matrix" id="strategy-matrix"></div>
         </section>
 
@@ -270,12 +271,12 @@
 </div>
 
 <!-- ── 대학 검색 모달 ────────────────────────────────────────────── -->
-<div class="modal-overlay" id="search-modal" style="display:none" onclick="closeSearchModal(event)">
+<div class="modal-overlay" id="search-modal" style="display:none">
     <div class="modal-sheet">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <span id="search-modal-title">대학 선택</span>
-            <button class="modal-close" onclick="closeSearchModal()">✕</button>
+            <button class="modal-close" type="button" data-modal-close="search">✕</button>
         </div>
         <div class="modal-search-wrap">
             <div class="modal-search-pos">
@@ -288,12 +289,12 @@
 </div>
 
 <!-- ── 등록 확인 모달 ────────────────────────────────────────────── -->
-<div class="modal-overlay" id="enroll-modal" style="display:none" onclick="closeEnrollModal(event)">
+<div class="modal-overlay" id="enroll-modal" style="display:none">
     <div class="modal-sheet">
         <div class="modal-handle"></div>
         <div class="modal-header">
             <span>최종 등록</span>
-            <button class="modal-close" onclick="closeEnrollModal()">✕</button>
+            <button class="modal-close" type="button" data-modal-close="enroll">✕</button>
         </div>
         <div style="padding:0 20px 20px">
             <div id="enroll-modal-content"></div>
@@ -306,6 +307,6 @@
 <div class="toast" id="toast"></div>
 
 <script src="/shared/nav.js?v=5"></script>
-<script src="app.js?v=1"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

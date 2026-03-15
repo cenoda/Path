@@ -2096,6 +2096,28 @@ function getMessengerContactMeta(userId) {
     return fromFriends || null;
 }
 
+function getMessengerHeaderUser() {
+    if (currentChatMode !== 'dm' || !currentChatUserId) return null;
+    const meta = getMessengerContactMeta(currentChatUserId) || {};
+    const fromWorld = (allUsers || []).find(u => Number(u.id) === Number(currentChatUserId)) || {};
+    return {
+        ...meta,
+        ...fromWorld,
+        id: Number(currentChatUserId),
+        nickname: currentChatUserName || fromWorld.nickname || meta.nickname || '사용자',
+        university: fromWorld.university || meta.university || '대학 미정',
+        is_studying: typeof fromWorld.is_studying === 'boolean' ? fromWorld.is_studying : !!meta.is_studying,
+        total_sec: fromWorld.total_sec || 0,
+        profile_image_url: fromWorld.profile_image_url || meta.profile_image_url || ''
+    };
+}
+
+function openMessengerHeaderProfile() {
+    const user = getMessengerHeaderUser();
+    if (!user) return;
+    openUserModal(user);
+}
+
 function setMessengerHeaderAvatar({ nickname, profileImageUrl, isOnline, isGroup }) {
     const avatarWrap = document.getElementById('messenger-header-avatar');
     const avatarText = document.getElementById('messenger-header-avatar-text');
@@ -2245,26 +2267,45 @@ function onConvTouchEnd(event, shell) {
     _messengerSwipePointerId = null;
 }
 
-function markConversationRead(kind, id) {
+async function markConversationRead(kind, id) {
     if (kind !== 'dm') return;
     const targetId = Number(id);
-    messengerConversationCache.convs = (messengerConversationCache.convs || []).map(c => {
-        if (Number(c.other_user) !== targetId) return c;
-        return { ...c, unread_count: 0 };
-    });
-    renderConversationsFromCache();
+    try {
+        const r = await fetch(`/api/messages/conversation/${targetId}/mark-read`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        if (!r.ok) throw new Error('mark-read failed');
+
+        messengerConversationCache.convs = (messengerConversationCache.convs || []).map(c => {
+            if (Number(c.other_user) !== targetId) return c;
+            return { ...c, unread_count: 0 };
+        });
+        renderConversationsFromCache();
+        refreshFriendBadge();
+    } catch (e) {}
 }
 
-function hideConversation(kind, id) {
-    if (kind === 'dm') {
-        const targetId = Number(id);
-        messengerConversationCache.convs = (messengerConversationCache.convs || []).filter(c => Number(c.other_user) !== targetId);
-    }
-    if (kind === 'group') {
-        const roomId = Number(id);
-        messengerConversationCache.groupConvs = (messengerConversationCache.groupConvs || []).filter(g => Number(g.room_id) !== roomId);
-    }
-    renderConversationsFromCache();
+async function hideConversation(kind, id) {
+    try {
+        const numericId = Number(id);
+        const endpoint = kind === 'group'
+            ? `/api/messages/group-conversation/${numericId}/hide`
+            : `/api/messages/conversation/${numericId}/hide`;
+        const r = await fetch(endpoint, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        if (!r.ok) throw new Error('hide failed');
+
+        if (kind === 'dm') {
+            messengerConversationCache.convs = (messengerConversationCache.convs || []).filter(c => Number(c.other_user) !== numericId);
+        }
+        if (kind === 'group') {
+            messengerConversationCache.groupConvs = (messengerConversationCache.groupConvs || []).filter(g => Number(g.room_id) !== numericId);
+        }
+        renderConversationsFromCache();
+    } catch (e) {}
 }
 
 function renderMessengerSearchHistory() {
@@ -2877,9 +2918,17 @@ async function loadChatMessages() {
         const msgs = r.ok ? await r.json() : [];
         const container = document.getElementById('chat-messages');
 
-        container.innerHTML = msgs.map(m => {
+        container.innerHTML = msgs.map((m, index) => {
             const isMine = m.is_mine === true || m.is_mine === 1;
             const time = new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            const prev = msgs[index - 1];
+            const next = msgs[index + 1];
+            const prevIsMine = prev ? (prev.is_mine === true || prev.is_mine === 1) : null;
+            const nextIsMine = next ? (next.is_mine === true || next.is_mine === 1) : null;
+            const groupClass = [
+                prev && prevIsMine === isMine ? 'is-grouped-top' : 'is-group-start',
+                next && nextIsMine === isMine ? 'is-grouped-bottom' : 'is-group-end'
+            ].join(' ');
             
             let contentHtml = '';
             if (m.file_path) {
@@ -2920,7 +2969,7 @@ async function loadChatMessages() {
             }
             
             return `
-                <div class="msg-row ${isMine ? 'mine' : 'theirs'}">
+                <div class="msg-row ${isMine ? 'mine' : 'theirs'} ${groupClass}">
                     <div class="msg-bubble">${contentHtml}</div>
                     <div class="msg-time">${time}</div>
                 </div>

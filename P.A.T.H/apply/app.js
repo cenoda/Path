@@ -7,10 +7,13 @@ let currentRound  = null;
 let myApplications = {};  // group_type → application 객체
 let pendingGroup  = null; // 검색 모달에서 선택 중인 군
 let pendingEnrollId = null;
+let replacementSuggestionRequestId = 0;
 
 // ── 초기화 ────────────────────────────────────────────────────────────────
 async function init() {
     try {
+        bindModalEvents();
+
         const [meRes, scoreRes, roundRes] = await Promise.all([
             fetch('/api/auth/me', { credentials: 'include' }),
             fetch('/api/apply/scores/me', { credentials: 'include' }),
@@ -41,6 +44,48 @@ async function init() {
 
     } catch (err) {
         console.error('init 오류:', err);
+    }
+}
+
+function bindModalEvents() {
+    const searchModal = document.getElementById('search-modal');
+    const searchSheet = searchModal?.querySelector('.modal-sheet');
+    const searchCloseBtn = searchModal?.querySelector('[data-modal-close="search"]');
+    if (searchModal && !searchModal.dataset.bound) {
+        searchModal.addEventListener('click', event => {
+            if (event.target === event.currentTarget) closeSearchModal();
+        });
+        searchModal.dataset.bound = 'true';
+    }
+    if (searchSheet && !searchSheet.dataset.bound) {
+        ['click', 'pointerdown', 'touchstart'].forEach(type => {
+            searchSheet.addEventListener(type, event => event.stopPropagation());
+        });
+        searchSheet.dataset.bound = 'true';
+    }
+    if (searchCloseBtn && !searchCloseBtn.dataset.bound) {
+        searchCloseBtn.addEventListener('click', () => closeSearchModal());
+        searchCloseBtn.dataset.bound = 'true';
+    }
+
+    const enrollModal = document.getElementById('enroll-modal');
+    const enrollSheet = enrollModal?.querySelector('.modal-sheet');
+    const enrollCloseBtn = enrollModal?.querySelector('[data-modal-close="enroll"]');
+    if (enrollModal && !enrollModal.dataset.bound) {
+        enrollModal.addEventListener('click', event => {
+            if (event.target === event.currentTarget) closeEnrollModal();
+        });
+        enrollModal.dataset.bound = 'true';
+    }
+    if (enrollSheet && !enrollSheet.dataset.bound) {
+        ['click', 'pointerdown', 'touchstart'].forEach(type => {
+            enrollSheet.addEventListener(type, event => event.stopPropagation());
+        });
+        enrollSheet.dataset.bound = 'true';
+    }
+    if (enrollCloseBtn && !enrollCloseBtn.dataset.bound) {
+        enrollCloseBtn.addEventListener('click', () => closeEnrollModal());
+        enrollCloseBtn.dataset.bound = 'true';
     }
 }
 
@@ -340,7 +385,7 @@ function openApplyModal(group) {
 }
 
 function closeSearchModal(event) {
-    if (event && event.target !== document.getElementById('search-modal')) return;
+    if (event && event.target !== event.currentTarget) return;
     document.getElementById('search-modal').style.display = 'none';
 }
 
@@ -372,9 +417,12 @@ function renderSearchResults(results) {
         return bProb - aProb;
     });
 
-    wrap.innerHTML = ranked.map(u => {
+    const currentApp = pendingGroup ? myApplications[pendingGroup] || null : null;
+
+    wrap.innerHTML = ranked.map((u, index) => {
         const kan = u.kanInfo;
         const risk = getRiskMeta(kan?.kan);
+        const recommendation = getSearchRecommendationMeta(currentApp, u, index);
         const kanHtml = kan
             ? `<div style="display:flex;align-items:center;gap:6px;flex-direction:column;align-items:flex-end">
                    <div class="kan-container" style="height:24px;width:56px">${renderKanBars(kan.kan)}</div>
@@ -385,11 +433,17 @@ function renderSearchResults(results) {
                    <span style="font-size:11px;color:var(--gray-400)">합격확률 ${kan.prob}%</span>
                </div>`
             : '<span style="font-size:12px;color:var(--gray-400)">-</span>';
+
+        const badgeHtml = recommendation.badges.length
+            ? `<div class="modal-item-badges">${recommendation.badges.map(b => `<span class="mini-badge ${b.className}">${b.label}</span>`).join('')}</div>`
+            : '';
         return `
-            <div class="modal-item" onclick="selectUniversity('${esc(u.name)}')">
+            <div class="modal-item" onclick="selectUniversity(${jsQuote(u.name)})">
                 <div>
                     <div class="modal-item-name">${esc(u.name)}</div>
                     <div class="modal-item-sub">${esc(u.region || '')} · ${esc(u.type || '')}</div>
+                    ${badgeHtml}
+                    <div class="modal-item-reason">${recommendation.reason}</div>
                 </div>
                 ${kanHtml}
             </div>`;
@@ -398,15 +452,25 @@ function renderSearchResults(results) {
 
 async function selectUniversity(universityName) {
     document.getElementById('search-modal').style.display = 'none';
+    return applyUniversityToGroup(pendingGroup, universityName);
+}
+
+async function applyUniversityToGroup(group, universityName) {
     if (!currentRound || currentRound.status !== 'open') {
         showToast('현재 지원 기간이 아닙니다.');
         return;
     }
+
+    if (!group || !['가', '나', '다'].includes(group)) {
+        showToast('지원 군 정보를 확인할 수 없습니다.');
+        return;
+    }
+
     try {
         const r = await fetch('/api/apply/applications', {
             method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ round_id: currentRound.id, university: universityName, group_type: pendingGroup }),
+            body: JSON.stringify({ round_id: currentRound.id, university: universityName, group_type: group }),
         });
         const data = await r.json();
         if (r.ok) {
@@ -417,7 +481,7 @@ async function selectUniversity(universityName) {
             renderApplyAnalytics();
             renderAppliedDetail();
             renderScoreDashboard();
-            showToast(`${pendingGroup}군: ${universityName} 지원 완료 ✓`);
+            showToast(`${group}군: ${universityName} 지원 완료 ✓`);
         } else {
             showToast(data.error || '지원 실패');
         }
@@ -532,7 +596,7 @@ function openEnrollModal(appId, university, department) {
 }
 
 function closeEnrollModal(event) {
-    if (event && event.target !== document.getElementById('enroll-modal')) return;
+    if (event && event.target !== event.currentTarget) return;
     document.getElementById('enroll-modal').style.display = 'none';
     pendingEnrollId = null;
 }
@@ -663,7 +727,8 @@ function renderApplyAnalytics() {
     const matrixEl = document.getElementById('strategy-matrix');
     const summaryEl = document.getElementById('strategy-summary');
     const actionsEl = document.getElementById('strategy-actions');
-    if (!matrixEl || !summaryEl || !actionsEl) return;
+    const replacementEl = document.getElementById('replacement-board');
+    if (!matrixEl || !summaryEl || !actionsEl || !replacementEl) return;
 
     const groups = ['가', '나', '다'];
     const rowsMeta = groups.map(group => {
@@ -678,6 +743,8 @@ function renderApplyAnalytics() {
                     </div>
                     <span class="risk-chip unknown">미배치</span>
                 </div>`,
+                group,
+                app: null,
                 risk: 'unknown',
                 kan: null,
             };
@@ -697,6 +764,8 @@ function renderApplyAnalytics() {
                     <span class="risk-chip ${risk.className}">${risk.label}</span>
                 </div>
             </div>`,
+            group,
+            app,
             risk: risk.className,
             kan: Number.isFinite(Number(app?.kanInfo?.kan)) ? Number(app.kanInfo.kan) : null,
         };
@@ -718,6 +787,126 @@ function renderApplyAnalytics() {
     actionsEl.innerHTML = actions.map((msg, idx) =>
         `<div class="strategy-action-item"><strong>${idx + 1}. </strong>${msg}</div>`
     ).join('');
+
+    replacementEl.innerHTML = '<div class="replacement-empty">교체 후보를 분석하고 있습니다.</div>';
+    loadReplacementSuggestions(rowsMeta);
+}
+
+async function loadReplacementSuggestions(rowsMeta = []) {
+    const replacementEl = document.getElementById('replacement-board');
+    if (!replacementEl) return;
+
+    const requestId = ++replacementSuggestionRequestId;
+    const targets = rowsMeta
+        .filter(row => row && (row.risk === 'risk' || row.risk === 'bold') && row.app)
+        .slice(0, 2);
+
+    if (targets.length === 0) {
+        replacementEl.innerHTML = '<div class="replacement-empty">현재 배치에서는 즉시 교체가 필요한 군이 없습니다.</div>';
+        return;
+    }
+
+    try {
+        const cards = await Promise.all(targets.map(async (target) => {
+            const query = buildReplacementSearchQuery(target.app.university);
+            const response = await fetch(`/api/apply/search?q=${encodeURIComponent(query)}`, { credentials: 'include' });
+            if (!response.ok) return renderReplacementCard(target, []);
+            const data = await response.json();
+            const candidates = pickReplacementCandidates(target.app, data.results || []);
+            return renderReplacementCard(target, candidates);
+        }));
+
+        if (requestId !== replacementSuggestionRequestId) return;
+        replacementEl.innerHTML = cards.join('');
+    } catch {
+        if (requestId !== replacementSuggestionRequestId) return;
+        replacementEl.innerHTML = '<div class="replacement-empty">교체 후보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>';
+    }
+}
+
+function buildReplacementSearchQuery(universityName) {
+    const normalized = String(universityName || '')
+        .replace(/대학교|대학|여자|과학기술원|교육대학교/g, '')
+        .trim();
+    const seed = normalized || String(universityName || '').trim();
+    return seed.slice(0, 2) || '서울';
+}
+
+function getSearchRecommendationMeta(currentApp, item, index) {
+    const currentKan = Number(currentApp?.kanInfo?.kan || 0);
+    const nextKan = Number(item?.kanInfo?.kan || 0);
+    const uplift = Number.isFinite(nextKan) ? nextKan - currentKan : 0;
+    const badges = [];
+
+    if (index === 0 && Number.isFinite(nextKan)) {
+        badges.push({ className: 'recommend', label: '추천' });
+    }
+    if (uplift >= 1) {
+        badges.push({ className: 'better', label: `+${uplift}칸` });
+    }
+
+    let reason = '칸수와 합격확률 기준으로 정렬된 결과입니다.';
+    if (uplift >= 2) reason = `현재 지원보다 ${uplift}칸 높아 교체 후보로 적합합니다.`;
+    else if (uplift === 1) reason = '현재 지원보다 한 단계 안정적인 대안입니다.';
+    else if (nextKan >= 6) reason = '안정권으로 분류되는 후보입니다.';
+    else if (nextKan >= 4) reason = '적정권으로 검토하기 좋은 후보입니다.';
+
+    return { badges, reason };
+}
+
+function pickReplacementCandidates(currentApp, results) {
+    const currentKan = Number(currentApp?.kanInfo?.kan || 0);
+    return (results || [])
+        .filter(item => item && item.name && item.name !== currentApp.university)
+        .filter(item => Number.isFinite(Number(item?.kanInfo?.kan)))
+        .map(item => {
+            const kan = Number(item.kanInfo.kan);
+            const prob = Number(item?.kanInfo?.prob || 0);
+            const distanceToIdeal = Math.abs(5 - kan);
+            const uplift = kan - currentKan;
+            const score = uplift * 20 + prob - distanceToIdeal * 6;
+            return { ...item, _score: score, _uplift: uplift };
+        })
+        .filter(item => item._uplift >= 1 || Number(item?.kanInfo?.kan) >= 4)
+        .sort((a, b) => b._score - a._score)
+        .slice(0, 2);
+}
+
+function renderReplacementCard(target, candidates) {
+    const currentKan = Number(target?.app?.kanInfo?.kan || 0);
+    const currentLabel = Number.isFinite(currentKan) ? `${currentKan}칸` : '칸수없음';
+    const listHtml = candidates.length
+        ? `<div class="replacement-list">${candidates.map(candidate => `
+            <div class="replacement-item">
+                <div class="replacement-item-main">
+                    <div class="replacement-item-name">${esc(candidate.name)}</div>
+                    <div class="replacement-item-meta">예상 ${candidate.kanInfo.kan}칸 · 합격확률 ${candidate.kanInfo.prob}% · 현재 대비 +${candidate._uplift}칸</div>
+                </div>
+                <div class="replacement-item-actions">
+                    <span class="risk-chip ${getRiskMeta(candidate.kanInfo.kan).className}">${getRiskMeta(candidate.kanInfo.kan).label}</span>
+                    <button class="replacement-apply-btn" onclick="applyRecommendedReplacement(${jsQuote(target.group)}, ${jsQuote(candidate.name)})">이 대학으로 교체</button>
+                </div>
+            </div>`).join('')}</div>`
+        : '<div class="replacement-empty">조건에 맞는 교체 후보를 찾지 못했습니다.</div>';
+
+    return `
+        <section class="replacement-card">
+            <div class="replacement-head">
+                <div>
+                    <div class="replacement-title">${target.group}군 교체 후보</div>
+                    <div class="replacement-sub">현재 ${esc(target.app.university)} · ${currentLabel}</div>
+                </div>
+                <span class="risk-chip ${target.risk}">${getRiskMeta(currentKan).label}</span>
+            </div>
+            ${listHtml}
+        </section>`;
+}
+
+function applyRecommendedReplacement(group, universityName) {
+    if (!group || !universityName) return;
+    const ok = confirm(`${group}군 지원을 ${universityName}로 교체할까요?`);
+    if (!ok) return;
+    applyUniversityToGroup(group, universityName);
 }
 
 function computePortfolioMetrics(kans, appCount) {
@@ -910,6 +1099,10 @@ function parseFloatOrNull(id) {
 function esc(str) {
     if (!str) return '';
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function jsQuote(str) {
+    return JSON.stringify(str == null ? '' : String(str));
 }
 
 let toastTimer = null;

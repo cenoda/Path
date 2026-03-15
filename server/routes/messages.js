@@ -57,6 +57,31 @@ async function ensureRoomChatSchema() {
     roomChatSchemaReady = true;
 }
 
+let messageUiSchemaReady = false;
+async function ensureMessageUiSchema() {
+    if (messageUiSchemaReady) return;
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS hidden_dm_conversations (
+            user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            other_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            hidden_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, other_user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_hidden_dm_conversations_user_hidden_at
+            ON hidden_dm_conversations(user_id, hidden_at DESC);
+
+        CREATE TABLE IF NOT EXISTS hidden_group_conversations (
+            user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            room_id   INTEGER NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,
+            hidden_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, room_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_hidden_group_conversations_user_hidden_at
+            ON hidden_group_conversations(user_id, hidden_at DESC);
+    `);
+    messageUiSchemaReady = true;
+}
+
 // 전체 업로드 용량 확인 및 정리 (100MB 제한)
 async function cleanupOldFiles() {
     try {
@@ -160,6 +185,7 @@ router.get('/file/:filename', requireAuth, async (req, res) => {
 // 대화 목록 (가장 최근 메시지 기준)
 router.get('/conversations', requireAuth, async (req, res) => {
     try {
+        await ensureMessageUiSchema();
         const result = await pool.query(`
             SELECT DISTINCT ON (other_user)
                 other_user,
@@ -183,6 +209,10 @@ router.get('/conversations', requireAuth, async (req, res) => {
                 ORDER BY created_at DESC
             ) sub
             JOIN users u ON u.id = sub.other_user
+            LEFT JOIN hidden_dm_conversations h
+                ON h.user_id = $1
+               AND h.other_user_id = sub.other_user
+            WHERE h.hidden_at IS NULL OR sub.last_time > h.hidden_at
             ORDER BY other_user, last_time DESC
         `, [req.session.userId]);
         res.json(result.rows);
@@ -196,6 +226,7 @@ router.get('/conversations', requireAuth, async (req, res) => {
 router.get('/group-conversations', requireAuth, async (req, res) => {
     try {
         await ensureRoomChatSchema();
+        await ensureMessageUiSchema();
 
         const result = await pool.query(
             `SELECT
@@ -215,7 +246,11 @@ router.get('/group-conversations', requireAuth, async (req, res) => {
                 ORDER BY rm.created_at DESC
                 LIMIT 1
              ) last_msg ON TRUE
+                 LEFT JOIN hidden_group_conversations hgc
+                     ON hgc.user_id = $1
+                    AND hgc.room_id = r.id
              WHERE r.is_active = TRUE
+                    AND (hgc.hidden_at IS NULL OR last_msg.created_at IS NULL OR last_msg.created_at > hgc.hidden_at)
              ORDER BY last_time DESC NULLS LAST, r.created_at DESC`,
             [req.session.userId]
         );
@@ -301,6 +336,70 @@ router.get('/conversation/:targetId', requireAuth, async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         console.error('messages/conversation 오류:', err.message);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/conversation/:targetId/mark-read', requireAuth, async (req, res) => {
+    const targetId = parseInt(req.params.targetId, 10);
+    if (!targetId) return res.status(400).json({ error: '잘못된 요청' });
+
+    try {
+        const result = await pool.query(
+            'UPDATE messages SET is_read = TRUE WHERE sender_id = $1 AND receiver_id = $2 AND is_read = FALSE RETURNING id',
+            [targetId, req.session.userId]
+        );
+        res.json({ ok: true, updated: result.rowCount || 0 });
+    } catch (err) {
+        console.error('messages/mark-read 오류:', err.message);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/conversation/:targetId/hide', requireAuth, async (req, res) => {
+    const targetId = parseInt(req.params.targetId, 10);
+    if (!targetId) return res.status(400).json({ error: '잘못된 요청' });
+
+    try {
+        await ensureMessageUiSchema();
+        await pool.query(
+            `INSERT INTO hidden_dm_conversations (user_id, other_user_id, hidden_at)
+             VALUES ($1, $2, NOW())
+             ON CONFLICT (user_id, other_user_id)
+             DO UPDATE SET hidden_at = EXCLUDED.hidden_at`,
+            [req.session.userId, targetId]
+        );
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('messages/hide-dm 오류:', err.message);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+router.post('/group-conversation/:roomId/hide', requireAuth, async (req, res) => {
+    const roomId = parseInt(req.params.roomId, 10);
+    if (!roomId) return res.status(400).json({ error: '잘못된 요청' });
+
+    try {
+        await ensureRoomChatSchema();
+        await ensureMessageUiSchema();
+
+        const memberCheck = await pool.query(
+            'SELECT 1 FROM study_room_members WHERE room_id = $1 AND user_id = $2',
+            [roomId, req.session.userId]
+        );
+        if (!memberCheck.rows.length) return res.status(403).json({ error: '방 멤버가 아닙니다.' });
+
+        await pool.query(
+            `INSERT INTO hidden_group_conversations (user_id, room_id, hidden_at)
+             VALUES ($1, $2, NOW())
+             ON CONFLICT (user_id, room_id)
+             DO UPDATE SET hidden_at = EXCLUDED.hidden_at`,
+            [req.session.userId, roomId]
+        );
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('messages/hide-group 오류:', err.message);
         res.status(500).json({ error: '서버 오류' });
     }
 });

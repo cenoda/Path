@@ -938,6 +938,25 @@ body.light .toggle-slider { background-color: #D1D5DB; }
 .msg-row.theirs .msg-time {
     text-align: left;
 }
+.msg-row.is-grouped-top .msg-time {
+    display: none;
+}
+.msg-row.mine.is-grouped-top .msg-bubble {
+    border-top-right-radius: 12px;
+}
+.msg-row.mine.is-grouped-bottom .msg-bubble {
+    border-bottom-right-radius: 12px;
+}
+.msg-row.theirs.is-grouped-top .msg-bubble {
+    border-top-left-radius: 12px;
+}
+.msg-row.theirs.is-grouped-bottom .msg-bubble {
+    border-bottom-left-radius: 12px;
+}
+.msg-row.mine.is-grouped-top,
+.msg-row.theirs.is-grouped-top {
+    margin-top: -1px;
+}
 
 .chat-input-row {
     display: flex;
@@ -1058,6 +1077,13 @@ body.light .toggle-slider { background-color: #D1D5DB; }
     align-items: center;
     gap: 10px;
     min-width: 0;
+    cursor: pointer;
+    border-radius: 12px;
+    padding: 4px 6px;
+    transition: background 0.15s ease;
+}
+.messenger-header-center:hover {
+    background: var(--surface-hover);
 }
 .messenger-header-meta {
     min-width: 0;

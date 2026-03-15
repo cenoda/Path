@@ -317,6 +317,28 @@ async function initSchema() {
             ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255) DEFAULT NULL;
         `);
 
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS hidden_dm_conversations (
+                user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                other_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                hidden_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (user_id, other_user_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_hidden_dm_conversations_user_hidden_at
+                ON hidden_dm_conversations(user_id, hidden_at DESC);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS hidden_group_conversations (
+                user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                room_id   INTEGER NOT NULL REFERENCES study_rooms(id) ON DELETE CASCADE,
+                hidden_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (user_id, room_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_hidden_group_conversations_user_hidden_at
+                ON hidden_group_conversations(user_id, hidden_at DESC);
+        `);
+
         // ── 커뮤니티 테이블 ─────────────────────────────────────────────
         await client.query(`
             CREATE TABLE IF NOT EXISTS community_posts (

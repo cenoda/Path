@@ -262,7 +262,11 @@ const UI = {
             const willOpen = this.elements.tabMoreMenu?.classList.contains('hidden');
             this.setMoreMenuOpen(Boolean(willOpen));
         });
-        this.elements.tabMoreMenu?.addEventListener('click', () => this.setMoreMenuOpen(false));
+        this.elements.tabMoreMenu?.addEventListener('click', (e) => {
+            if (e.target.closest('.page-more-item')) {
+                this.setMoreMenuOpen(false);
+            }
+        });
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.page-more-wrap')) {
                 this.setMoreMenuOpen(false);
@@ -1128,16 +1132,29 @@ const UI = {
             const actionLabel = equipped ? '장착중' : owned ? '장착' : price > 0 ? `${price.toLocaleString()}G 구매` : '획득';
             const disabled = equipped ? 'disabled' : '';
             const toneVars = this.getSkinToneVars(skinId || 'default');
-            const focusClass = focusSkinId && skinId === focusSkinId ? ' hub-shop-item--focus' : '';
+            const isFocus = focusSkinId && skinId === focusSkinId;
+            const focusClass = isFocus ? ' hub-shop-item--focus' : '';
+            const statusBadge = equipped
+                ? '<span class="hub-shop-state-badge is-equipped">현재 착용</span>'
+                : isFocus
+                    ? '<span class="hub-shop-state-badge is-focus">지금 보고 있는 스킨</span>'
+                    : '';
+            const quickAction = isFocus && !equipped
+                ? `<button type="button" class="hub-shop-quick-btn" data-shop-kind="skin" data-shop-id="${this.escapeHtml(skinId)}" data-shop-mode="${owned ? 'equip' : 'buy'}" data-shop-auto-equip="${owned ? '0' : '1'}">${owned ? '바로 장착' : price > 0 ? '구매 후 장착' : '획득 후 장착'}</button>`
+                : '';
             return `<li class="hub-shop-item${focusClass}" data-skin-id="${this.escapeHtml(skinId)}">
                 <div class="hub-shop-main">
                     <div class="hub-shop-main-top">
                         <span class="hub-shop-skin-preview" style="${toneVars}" aria-hidden="true">🎈</span>
                         <strong>${this.escapeHtml(skin?.name || skinId)}</strong>
                     </div>
+                    ${statusBadge}
                     <span>${this.escapeHtml(skin?.desc || '')}</span>
                 </div>
-                <button type="button" class="hub-shop-action-btn" data-shop-kind="skin" data-shop-id="${this.escapeHtml(skinId)}" data-shop-mode="${owned ? 'equip' : 'buy'}" ${disabled}>${actionLabel}</button>
+                <div class="hub-shop-item-actions">
+                    <button type="button" class="hub-shop-action-btn" data-shop-kind="skin" data-shop-id="${this.escapeHtml(skinId)}" data-shop-mode="${owned ? 'equip' : 'buy'}" ${disabled}>${actionLabel}</button>
+                    ${quickAction}
+                </div>
             </li>`;
         }).join('');
 
@@ -1221,12 +1238,13 @@ const UI = {
             }
         });
 
-        this.elements.hubOverlayBody.querySelectorAll('.hub-shop-action-btn').forEach((btn) => {
+        this.elements.hubOverlayBody.querySelectorAll('.hub-shop-action-btn, .hub-shop-quick-btn').forEach((btn) => {
             btn.addEventListener('click', async () => {
                 const kind = String(btn.dataset.shopKind || '');
                 const id = String(btn.dataset.shopId || '');
                 const mode = String(btn.dataset.shopMode || '');
-                await this.handleHubShopAction({ kind, id, mode, button: btn });
+                const autoEquip = btn.dataset.shopAutoEquip === '1';
+                await this.handleHubShopAction({ kind, id, mode, button: btn, autoEquip });
             });
         });
 
@@ -1237,7 +1255,7 @@ const UI = {
         }
     },
 
-    async handleHubShopAction({ kind, id, mode, button }) {
+    async handleHubShopAction({ kind, id, mode, button, autoEquip = false }) {
         if (!kind || !id || !mode || !button) return;
 
         const prev = button.textContent;
@@ -1252,7 +1270,17 @@ const UI = {
                     body: JSON.stringify({ skin_id: id })
                 });
                 if (data?.user) this.mergeCurrentUserPatch(data.user);
-                alert('스킨을 구매했습니다.');
+                if (autoEquip) {
+                    await this.requestJson('/api/estate/equip-skin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ skin_id: id })
+                    });
+                    this.mergeCurrentUserPatch({ balloon_skin: id });
+                    alert('스킨을 구매하고 바로 장착했습니다.');
+                } else {
+                    alert('스킨을 구매했습니다.');
+                }
             } else if (kind === 'skin' && mode === 'equip') {
                 await this.requestJson('/api/estate/equip-skin', {
                     method: 'POST',
@@ -2158,26 +2186,34 @@ const UI = {
         const row = document.getElementById('subject-add-row');
         if (!row) return;
         const isHidden = row.classList.contains('hidden');
-        row.classList.toggle('hidden', !isHidden);
-        if (!isHidden) return;
-        this.elements.subjectInput?.focus();
+        if (!isHidden) {
+            this.handleAddSubject();
+            return;
+        }
+        row.classList.remove('hidden');
         this.elements.subjectAddBtn.textContent = '확인';
+        this.elements.subjectInput?.focus();
+    },
+
+    closeSubjectAddRow() {
+        const row = document.getElementById('subject-add-row');
+        if (row) row.classList.add('hidden');
+        if (this.elements.subjectInput) this.elements.subjectInput.value = '';
+        if (this.elements.subjectAddBtn) this.elements.subjectAddBtn.textContent = '+ 과목';
     },
 
     async handleAddSubject() {
         const name = (this.elements.subjectInput.value || '').trim();
         if (!name) {
             alert('과목명을 입력하세요.');
+            this.elements.subjectInput?.focus();
             return;
         }
         try {
             const added = await StorageManager.addSubject(name);
             this.subjects = await StorageManager.fetchSubjects();
             this.renderSubjectOptions(added?.id);
-            this.elements.subjectInput.value = '';
-            const row = document.getElementById('subject-add-row');
-            if (row) row.classList.add('hidden');
-            this.elements.subjectAddBtn.textContent = '+ 과목';
+            this.closeSubjectAddRow();
             if (this.currentTab === 'calendar') await this.loadWeekCalendar(this.weekOffset);
         } catch (e) {
             alert(e.message || '과목 추가 실패');

@@ -5920,9 +5920,11 @@ body::after {
     pointer-events: none;
     opacity: 0;
     visibility: hidden;
-    background: rgba(13, 20, 34, 0.24);
+    background: rgba(13, 20, 34, 0.12);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     transition: opacity 0.14s ease, visibility 0s linear 0.14s;
-    z-index: 35;
+    z-index: 28;
 }
 
 body.tab-more-open::after {
@@ -5938,11 +5940,11 @@ body.tab-more-closing::after {
 }
 
 .page-more-wrap {
-    z-index: 41;
+    z-index: 52;
 }
 
 .page-more-menu {
-    z-index: 42;
+    z-index: 53;
 }
 
 

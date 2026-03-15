@@ -33,6 +33,7 @@ const UI = {
     skinCatalogById: {},
     skinCatalogFetchedAt: 0,
     pendingFocusSkinId: '',
+    moreMenuGuardRaf: 0,
     moreSheetGesture: {
         active: false,
         startY: 0,
@@ -327,6 +328,8 @@ const UI = {
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) this.setMoreMenuOpen(false);
         });
+        window.addEventListener('pagehide', () => this.setMoreMenuOpen(false));
+        window.addEventListener('blur', () => this.setMoreMenuOpen(false));
 
         this.elements.scoreCalcUniversity?.addEventListener('change', () => {
             this.handleScoreCalcUniversityChange().catch(() => {});
@@ -588,6 +591,12 @@ const UI = {
 
     setMoreMenuOpen(open) {
         if (!this.elements.tabMoreMenu || !this.elements.tabMoreBtn) return;
+
+        if (this.moreMenuGuardRaf) {
+            cancelAnimationFrame(this.moreMenuGuardRaf);
+            this.moreMenuGuardRaf = 0;
+        }
+
         this.elements.tabMoreMenu.classList.toggle('hidden', !open);
         this.elements.tabMoreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
         this.elements.tabMoreBtn.textContent = open ? '더보기 ▴' : '더보기 ▾';
@@ -603,6 +612,19 @@ const UI = {
             this.moreSheetGesture.deltaY = 0;
             this.elements.tabMoreMenu.style.removeProperty('--sheet-drag-offset');
         }
+
+        // Safety net: if menu failed to render (mobile WebView edge cases), clear dim state immediately.
+        this.moreMenuGuardRaf = requestAnimationFrame(() => {
+            this.moreMenuGuardRaf = 0;
+            const menuVisible = !this.elements.tabMoreMenu.classList.contains('hidden')
+                && this.elements.tabMoreMenu.getClientRects().length > 0;
+            if (!menuVisible) {
+                this.elements.body?.classList.remove('tab-more-open', 'tab-more-closing');
+                this.elements.tabMoreBtn.setAttribute('aria-expanded', 'false');
+                this.elements.tabMoreBtn.textContent = '더보기 ▾';
+                this.elements.tabMoreMenu.classList.add('hidden');
+            }
+        });
     },
 
     bindMoreSheetGesture() {

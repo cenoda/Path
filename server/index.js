@@ -88,7 +88,8 @@ function safeCommunityImageUrl(value) {
     return safeExternalUrl(trimmed);
 }
 
-app.set('trust proxy', 1);
+// Cloudflare -> Render 같이 프록시가 2단 이상일 수 있어 전체 체인을 신뢰한다.
+app.set('trust proxy', true);
 
 const allowedOrigins = (process.env.CORS_ORIGIN || '')
     .split(',')
@@ -114,13 +115,27 @@ function isSecureRequest(req) {
   // Cloudflare may terminate TLS and forward plain HTTP to origin.
   // In that case, cf-visitor still carries the original client scheme.
   const cfVisitor = req.headers['cf-visitor'];
-  if (typeof cfVisitor === 'string' && cfVisitor.includes('"scheme":"https"')) {
-    return true;
+  if (typeof cfVisitor === 'string') {
+    try {
+      const parsed = JSON.parse(cfVisitor);
+      if (parsed && String(parsed.scheme || '').toLowerCase() === 'https') return true;
+    } catch (_) {
+      if (cfVisitor.toLowerCase().includes('https')) return true;
+    }
   }
+
+  const forwardedSsl = req.headers['x-forwarded-ssl'];
+  if (typeof forwardedSsl === 'string' && forwardedSsl.toLowerCase() === 'on') return true;
+
+  const forwardedPort = req.headers['x-forwarded-port'];
+  if (typeof forwardedPort === 'string' && forwardedPort.split(',').some((p) => p.trim() === '443')) return true;
 
   const forwardedProto = req.headers['x-forwarded-proto'];
   if (!forwardedProto || typeof forwardedProto !== 'string') return false;
-  return forwardedProto.split(',')[0].trim() === 'https';
+  return forwardedProto
+    .split(',')
+    .map((proto) => proto.trim().toLowerCase())
+    .includes('https');
 }
 
 const cspConnectSrc = isProduction

@@ -14,6 +14,40 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <script src="/shared/nav.js?v=5"></script>
+    <script>
+    (function () {
+        function resolveApiOrigin() {
+            var envOrigin = String(window.PATH_API_ORIGIN || '').trim();
+            if (envOrigin) return envOrigin.replace(/\/$/, '');
+
+            var host = String(window.location.hostname || '').toLowerCase();
+            if (host === 'sdij.cloud' || host === 'www.sdij.cloud' || host === 'path.sdij.cloud' || host === 'www.path.sdij.cloud') {
+                return 'https://api.sdij.cloud';
+            }
+            return '';
+        }
+
+        var apiOrigin = resolveApiOrigin();
+        window.PATH_API_ORIGIN = apiOrigin;
+
+        function toApiUrl(input) {
+            if (!apiOrigin) return input;
+            if (typeof input === 'string' && input.indexOf('/api/') === 0) {
+                return apiOrigin + input;
+            }
+            return input;
+        }
+
+        // Split web/api origin 배포에서 /api 요청을 API 도메인으로 전달한다.
+        if (typeof window.fetch === 'function' && !window.__pathApiFetchPatched) {
+            var nativeFetch = window.fetch.bind(window);
+            window.fetch = function (input, init) {
+                return nativeFetch(toApiUrl(input), init);
+            };
+            window.__pathApiFetchPatched = true;
+        }
+    })();
+    </script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -890,7 +924,35 @@ function toggleTheme() {
     <script src="/study-hub/core.js?v=4"></script>
     <script src="/study-hub/cam.js?v=4"></script>
     <script src="/study-hub/ui.js?v=7"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/study-hub/rooms.js?v=2"></script>
+    <script>
+    (function () {
+        var apiOrigin = String(window.PATH_API_ORIGIN || '').trim().replace(/\/$/, '');
+
+        function loadRoomsScript() {
+            if (window.__pathRoomsScriptLoaded) return;
+            window.__pathRoomsScriptLoaded = true;
+            var rooms = document.createElement('script');
+            rooms.src = '/study-hub/rooms.js?v=2';
+            document.body.appendChild(rooms);
+        }
+
+        function appendSocket(src, onError) {
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = loadRoomsScript;
+            s.onerror = onError || loadRoomsScript;
+            document.body.appendChild(s);
+        }
+
+        if (apiOrigin) {
+            appendSocket(apiOrigin + '/socket.io/socket.io.js', function () {
+                appendSocket('/socket.io/socket.io.js');
+            });
+            return;
+        }
+
+        appendSocket('/socket.io/socket.io.js');
+    })();
+    </script>
 </body>
 </html>

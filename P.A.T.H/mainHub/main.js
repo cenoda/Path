@@ -5,7 +5,7 @@ function resolveApiOrigin() {
     if (envOrigin) return envOrigin.replace(/\/$/, '');
 
     const host = String(window.location.hostname || '').toLowerCase();
-    if (host === 'sdij.cloud' || host === 'www.sdij.cloud' || host === 'path.sdij.cloud') {
+    if (host === 'sdij.cloud' || host === 'www.sdij.cloud' || host === 'path.sdij.cloud' || host === 'www.path.sdij.cloud') {
         return 'https://api.sdij.cloud';
     }
     return '';

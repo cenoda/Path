@@ -381,7 +381,10 @@ app.use('/assets', express.static(path.join(projectRoot, 'P.A.T.H', 'assets'), s
 app.use('/shared', express.static(path.join(projectRoot, 'P.A.T.H', 'shared'), staticOptions));
 app.use('/login', express.static(path.join(projectRoot, 'P.A.T.H', 'login'), noCacheStaticOptions));
 app.use('/study-hub/assets', express.static(path.join(projectRoot, 'P.A.T.H', 'mainHub', 'assets'), staticOptions));
-app.get('/study-hub', (req, res) => {
+app.get('/study-hub', (req, res, next) => {
+  // With strict routing disabled (default), this also matches /study-hub/.
+  // Only redirect when trailing slash is missing to avoid a self-redirect loop.
+  if (req.path.endsWith('/')) return next();
   const queryIndex = req.url.indexOf('?');
   const query = queryIndex >= 0 ? req.url.slice(queryIndex) : '';
   return res.redirect(301, `/study-hub/${query}`);
@@ -1123,7 +1126,14 @@ app.get('/P.A.T.H/admin/', (_req, res) => res.redirect(301, '/admin/'));
 app.get('/P.A.T.H/admin/index.html', (_req, res) => res.redirect(301, '/admin/'));
 
 app.get('/', (_req, res) => {
-    res.redirect('/login/');
+    res.sendFile(path.join(projectRoot, 'P.A.T.H', 'login', 'index.html'), {
+        headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'Surrogate-Control': 'no-store',
+        },
+    });
 });
 
 initSchema()

@@ -17,6 +17,7 @@ const { getUploadDir } = require('./utils/uploadRoot');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
+const forceHttps = isProduction && process.env.FORCE_HTTPS === '1';
 
 if (isProduction && !process.env.SESSION_SECRET) {
     console.error('[FATAL] SESSION_SECRET 환경변수가 설정되지 않았습니다. 프로덕션 환경에서는 필수입니다.');
@@ -176,7 +177,7 @@ app.use(cors({
 
 // 프로덕션에서는 HTTPS 전송만 허용한다.
 app.use((req, res, next) => {
-  if (!isProduction) return next();
+  if (!forceHttps) return next();
   if (isSecureRequest(req)) return next();
 
   if (req.method === 'GET' || req.method === 'HEAD') {

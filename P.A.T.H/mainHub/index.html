@@ -28,12 +28,6 @@
     (function () {
         var raw = String(window.PATH_API_ORIGIN || '').trim();
         var apiOrigin = raw ? raw.replace(/\/$/, '') : '';
-        if (!apiOrigin) {
-            var host = String(window.location.hostname || '').toLowerCase();
-            if (host === 'sdij.cloud' || host === 'www.sdij.cloud' || host === 'path.sdij.cloud' || host === 'www.path.sdij.cloud') {
-                apiOrigin = 'https://api.sdij.cloud';
-            }
-        }
         var src = (apiOrigin ? apiOrigin : '') + '/socket.io/socket.io.js';
         var s = document.createElement('script');
         s.src = src;

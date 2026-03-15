@@ -5,7 +5,11 @@ const StorageManager = {
         try {
             const r = await fetch('/api/auth/me', { credentials: 'include' });
             if (!r.ok) {
-                window.location.href = '/login/';
+                if (r.status === 401 || r.status === 403) {
+                    window.location.href = '/login/';
+                    return null;
+                }
+                console.error('StorageManager.load 인증 확인 실패:', r.status);
                 return null;
             }
             const data = await r.json();

@@ -3,11 +3,6 @@ function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.
 function resolveApiOrigin() {
     const envOrigin = String(window.PATH_API_ORIGIN || '').trim();
     if (envOrigin) return envOrigin.replace(/\/$/, '');
-
-    const host = String(window.location.hostname || '').toLowerCase();
-    if (host === 'sdij.cloud' || host === 'www.sdij.cloud' || host === 'path.sdij.cloud' || host === 'www.path.sdij.cloud') {
-        return 'https://api.sdij.cloud';
-    }
     return '';
 }
 
@@ -448,7 +443,13 @@ async function initHub() {
             fetch('/api/ranking/me', { credentials: 'include' })
         ]);
 
-        if (!meRes.ok) { window.location.href = '/login/'; return; }
+        if (!meRes.ok) {
+            if (meRes.status === 401 || meRes.status === 403) {
+                window.location.href = '/login/';
+                return;
+            }
+            throw new Error(`auth bootstrap failed: ${meRes.status}`);
+        }
 
         const meData = await meRes.json();
         currentUser = meData.user;

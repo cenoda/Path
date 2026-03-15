@@ -1033,44 +1033,11 @@ async function collectTax() {
 // ── 유저 모달 (도전/모의지원) ─────────────────────────────────────────
 function openUserModal(user) {
     selectedUser = user;
-    document.getElementById('user-modal-title').textContent = `🎓 ${user.nickname}의 모의진학`;
-    const myScore = currentUser?.mock_exam_score || 0;
-
-    // 합격 확률 계산
-    const bp = getUniBasePercentile(user.university);
-    let probHTML = '';
-    if (myScore > 0 && bp !== null) {
-        const prob = calcAcceptProb(myScore, bp);
-        const probPct = Math.round(prob * 100);
-        const cutline = percentileToCutline(bp);
-        const probColor = probPct >= 70 ? '#4CAF50' : probPct >= 40 ? 'var(--accent-gold)' : '#e55';
-        probHTML = `
-            <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;">
-                <div style="font-size:10px;color:var(--text-sub);letter-spacing:1px;font-weight:700;margin-bottom:8px;">모의지원 합격 확률</div>
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                    <span style="font-size:28px;font-weight:800;color:${probColor};font-family:var(--font-mono);">${probPct}%</span>
-                    <div style="text-align:right;font-size:10px;color:#666;line-height:1.6;">
-                        내 점수: <strong style="color:var(--text)">${myScore}점</strong><br>
-                        컷트라인: <strong style="color:var(--text)">${cutline}점</strong>
-                    </div>
-                </div>
-                <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;">
-                    <div style="width:${probPct}%;height:100%;background:${probColor};border-radius:3px;transition:width 0.4s ease;"></div>
-                </div>
-                <div style="font-size:10px;color:#666;margin-top:6px;line-height:1.5;">
-                    📄 원서비 1장 소모 · 합격 시 <strong style="color:var(--accent-gold)">${esc(user.university)}</strong> 취득
-                </div>
-            </div>
-        `;
-    } else if (myScore < 1) {
-        probHTML = `<div style="margin-top:10px;padding:8px 12px;border:1px solid rgba(255,100,100,0.2);border-radius:6px;font-size:11px;color:#e88;">내 성채에서 점수를 먼저 등록하세요.</div>`;
-    } else {
-        probHTML = `<div style="margin-top:10px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:#666;">해당 대학 정보가 없습니다.</div>`;
-    }
+    document.getElementById('user-modal-title').textContent = `🎓 ${user.nickname} 프로필`;
 
     document.getElementById('user-modal-body').innerHTML = `
         <div class="estate-section">
-            <div class="estate-label">🏫 모의진학 대학</div>
+            <div class="estate-label">🏫 소속 대학</div>
             <div class="estate-val">${esc(user.university) || '-'}</div>
         </div>
         <div class="estate-section">
@@ -1081,14 +1048,16 @@ function openUserModal(user) {
             <div class="estate-label">상태</div>
             <div class="estate-val">${user.is_studying ? '📖 공부 중' : '휴식 중'}</div>
         </div>
-        ${probHTML}
+        <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;font-size:11px;color:#666;line-height:1.6;">
+            유저 간 모의지원은 종료되었습니다.<br>
+            대학 원서 지원은 입시 지원 페이지에서 진행해 주세요.
+        </div>
     `;
-    const tickets = currentUser?.tickets || 0;
-    const hasScore = myScore > 0;
+
     const btn = document.getElementById('btn-invade');
-    const disabled = tickets < 1 || !hasScore;
-    btn.disabled = disabled;
-    btn.style.opacity = disabled ? '0.4' : '1';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.textContent = '입시 지원 열기';
 
     // 친구 상태 및 메시지 버튼 처리
     const btnFriend = document.getElementById('btn-friend-action');
@@ -1180,34 +1149,8 @@ function openChatFromModal() {
 }
 
 async function doInvade() {
-    if (!selectedUser) return;
-    if ((currentUser?.tickets || 0) < 1) { alert('원서비가 없습니다.\nSHOP에서 골드로 구매하세요!'); return; }
-    if (!currentUser?.mock_exam_score) { alert('평가원 점수를 먼저 등록해주세요.\n(내 성채 클릭 → 점수 등록)'); return; }
-
-    if (!confirm(`${selectedUser.nickname}의 모의진학(${selectedUser.university || '?'})에 지원하시겠습니까?\n원서비 1장 소모`)) return;
-
-    try {
-        const r = await fetch('/api/invasion/attack', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ defender_id: selectedUser.id })
-        });
-        const data = await r.json();
-        if (!r.ok) { alert(data.error || '오류 발생'); return; }
-
-        const won = data.result === 'WIN';
-        const probLine = data.accept_prob != null ? `\n합격 확률: ${data.accept_prob}%` : '';
-        const msg = won
-            ? `🎉 모의지원 합격!\n\n내 점수: ${data.attacker_score}점${probLine}\n🏫 대학: ${data.defender_university}(으)로 변경!`
-            : `📝 모의지원 불합격\n\n내 점수: ${data.attacker_score}점${probLine}\n\n더 열심히 공부해서 다시 도전하세요!`;
-        alert(msg);
-        currentUser = mergeCurrentUser(data.user);
-        updateHUD(data.user);
-        updateMyBuilding(data.user);
-        closeModal('modal-user');
-        loadRankingAndMap();
-    } catch (e) { alert('서버 오류 발생'); }
+    closeModal('modal-user');
+    window.location.href = '/apply/';
 }
 
 // ── 모의지원 패널 ──────────────────────────────────────────────────────
@@ -1224,77 +1167,124 @@ async function toggleApplyPanel() {
 async function renderApplyPanel() {
     const content = document.getElementById('apply-content');
     content.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:var(--text-sub)">로딩 중...</div>';
+
     try {
-        const r = await fetch('/api/invasion/my-applications', { credentials: 'include' });
-        const data = await r.json();
-        if (!r.ok) { content.innerHTML = `<div style="color:var(--accent);padding:16px;font-size:12px">${data.error}</div>`; return; }
+        const [roundRes, scoreRes] = await Promise.all([
+            fetch('/api/apply/current-round', { credentials: 'include' }),
+            fetch('/api/apply/scores/me', { credentials: 'include' })
+        ]);
 
-        const { max_slots, used_slots, my_score, score_status, tickets, applications } = data;
-        const remaining = Math.max(0, max_slots - used_slots);
+        const roundData = await roundRes.json().catch(() => ({}));
+        const scoreData = await scoreRes.json().catch(() => ({}));
+        if (!roundRes.ok) {
+            content.innerHTML = `<div style="color:var(--accent);padding:16px;font-size:12px">${roundData.error || '회차 정보를 불러오지 못했습니다.'}</div>`;
+            return;
+        }
 
-        const slotCircles = Array.from({ length: max_slots }, (_, i) => {
-            const used = i < used_slots;
+        const round = roundData?.round || null;
+        const score = scoreData?.scores || null;
+        const tickets = Number(currentUser?.tickets || 0);
+
+        if (!round) {
+            content.innerHTML = `
+                <div style="padding:16px;line-height:1.7;">
+                    <div style="font-size:12px;font-weight:700;margin-bottom:6px;">현재 진행 중인 입시 회차가 없습니다.</div>
+                    <div style="font-size:11px;color:#666;margin-bottom:12px;">다음 회차가 열리면 이곳에서 바로 확인할 수 있습니다.</div>
+                    <div style="font-size:11px;color:#666;">보유 원서비: <strong style="color:var(--accent-gold)">${tickets}장</strong></div>
+                    <button class="shop-btn" style="width:100%;padding:8px;font-size:11px;margin-top:12px;" onclick="window.location.href='/apply/'">입시 지원 페이지 열기 →</button>
+                </div>
+            `;
+            return;
+        }
+
+        const appsRes = await fetch(`/api/apply/applications/me?round_id=${encodeURIComponent(round.id)}`, { credentials: 'include' });
+        const appsData = await appsRes.json().catch(() => ({}));
+        const applications = appsRes.ok && Array.isArray(appsData?.applications) ? appsData.applications : [];
+
+        const grouped = { '가': null, '나': null, '다': null };
+        applications.forEach((app) => {
+            const g = String(app?.group_type || '').trim();
+            if (['가', '나', '다'].includes(g) && !grouped[g] && String(app?.status || '') !== 'cancelled') {
+                grouped[g] = app;
+            }
+        });
+
+        const maxSlots = 3;
+        const usedSlots = ['가', '나', '다'].filter((groupType) => !!grouped[groupType]).length;
+        const remaining = Math.max(0, maxSlots - usedSlots);
+        const slotCircles = Array.from({ length: maxSlots }, (_, i) => {
+            const used = i < usedSlots;
             return `<div style="width:22px;height:22px;border-radius:50%;border:2px solid ${used ? 'var(--accent-gold)' : 'var(--border)'};background:${used ? 'var(--accent-gold)' : 'transparent'};"></div>`;
         }).join('');
 
-        const noScore = !my_score || my_score < 1 || score_status !== 'approved';
-        const scoreLabel = noScore
-            ? `<span style="color:#888">미인증 (점수 인증 시 슬롯 확대)</span>`
-            : `<span style="color:var(--accent-gold)">${my_score}점</span>`;
+        const scoreStatus = String(score?.verified_status || 'none');
+        const scoreLabel = !score?.korean_std
+            ? '<span style="color:#888">점수 미입력</span>'
+            : scoreStatus === 'approved'
+                ? '<span style="color:var(--accent-gold)">점수 인증 완료</span>'
+                : scoreStatus === 'pending'
+                    ? '<span style="color:var(--accent-gold)">점수 심사 대기 중</span>'
+                    : scoreStatus === 'rejected'
+                        ? '<span style="color:#e55">점수 반려됨 (재업로드 필요)</span>'
+                        : '<span style="color:#888">점수 입력 완료 (인증 전)</span>';
 
-        // 이력 항목별 합격 확률 계산 (프론트엔드)
-        const histHTML = applications.length === 0
-            ? '<div style="color:#555;font-size:11px;text-align:center;padding:16px;">지원 이력이 없습니다.</div>'
-            : applications.map(app => {
-                const won = app.result === 'WIN';
-                const date = new Date(app.created_at).toLocaleDateString('ko-KR', { month:'numeric', day:'numeric' });
-                const bp = getUniBasePercentile(app.target_university);
-                let probStr = '';
-                if (bp !== null && app.my_score > 0) {
-                    const prob = Math.round(calcAcceptProb(app.my_score, bp) * 100);
-                    probStr = ` · 확률 ${prob}%`;
-                } else if (app.accept_prob) {
-                    probStr = ` · 확률 ${app.accept_prob}%`;
-                }
+        const groupRows = ['가', '나', '다'].map((groupType) => {
+            const app = grouped[groupType];
+            if (!app) {
                 return `
-                    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid ${won ? 'rgba(212,175,55,0.3)' : 'var(--border)'};border-radius:4px;background:${won ? 'rgba(212,175,55,0.05)' : 'transparent'};">
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--border);border-radius:4px;">
                         <div>
-                            <div style="font-size:12px;font-weight:600;color:var(--text);">${esc(app.target_university || '?')}</div>
-                            <div style="font-size:10px;color:#666;margin-top:1px;">${esc(app.target_nickname)} · ${date}${probStr}</div>
+                            <div style="font-size:12px;font-weight:600;color:var(--text);">${groupType}군</div>
+                            <div style="font-size:10px;color:#666;margin-top:1px;">미지원</div>
                         </div>
-                        <div style="text-align:right;flex-shrink:0;margin-left:8px;">
-                            <div style="font-size:12px;font-weight:700;color:${won ? 'var(--accent-gold)' : '#e55'};">${won ? '합격' : '불합격'}</div>
-                            <div style="font-size:10px;color:#666;">${app.my_score}점</div>
-                        </div>
+                        <div style="font-size:11px;color:#666;">대기</div>
                     </div>
                 `;
-            }).join('');
+            }
+
+            const status = String(app?.status || 'applied');
+            const statusLabel = status === 'passed'
+                ? '합격'
+                : status === 'failed'
+                    ? '불합격'
+                    : status === 'waitlisted'
+                        ? '추합대기'
+                        : status === 'enrolled'
+                            ? '등록완료'
+                            : '지원완료';
+            const statusColor = (status === 'passed' || status === 'enrolled') ? 'var(--accent-gold)' : '#666';
+
+            return `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--border);border-radius:4px;">
+                    <div>
+                        <div style="font-size:12px;font-weight:600;color:var(--text);">${groupType}군 · ${esc(app.university || '?')}</div>
+                        <div style="font-size:10px;color:#666;margin-top:1px;">${esc(app.department || '학과 미설정')}</div>
+                    </div>
+                    <div style="font-size:11px;color:${statusColor};font-weight:700;">${statusLabel}</div>
+                </div>
+            `;
+        }).join('');
 
         content.innerHTML = `
             <div style="padding:14px 14px 8px;">
-                <div style="font-size:10px;color:var(--text-sub);letter-spacing:1px;font-weight:700;margin-bottom:8px;">진학사 슬롯</div>
+                <div style="font-size:10px;color:var(--text-sub);letter-spacing:1px;font-weight:700;margin-bottom:8px;">입시 회차</div>
+                <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;">${esc(round.name || '회차 정보 없음')}</div>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                     <div style="display:flex;gap:6px;">${slotCircles}</div>
-                    <span style="font-size:11px;color:var(--text-sub);">${used_slots}/${max_slots} 사용</span>
+                    <span style="font-size:11px;color:var(--text-sub);">${usedSlots}/${maxSlots} 사용</span>
                 </div>
                 <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">
-                    내 점수: ${scoreLabel}
+                    내 점수 상태: ${scoreLabel}
                 </div>
                 <div style="font-size:10px;color:#555;line-height:1.5;">
-                    원서비: <strong style="color:var(--accent-gold)">${tickets}장</strong> 보유 · 오늘 <strong style="color:${remaining > 0 ? 'var(--accent-gold)' : '#e55'}">${remaining}회</strong> 지원 가능
+                    원서비: <strong style="color:var(--accent-gold)">${tickets}장</strong> 보유 · <strong style="color:${remaining > 0 ? 'var(--accent-gold)' : '#e55'}">${remaining}회</strong> 추가 지원 가능
                 </div>
-                ${noScore ? `<div style="margin-top:8px;padding:7px 10px;background:rgba(255,100,100,0.06);border:1px solid rgba(255,100,100,0.2);border-radius:4px;font-size:10px;color:#e88;line-height:1.5;">점수 인증 후 슬롯이 확장됩니다.<br>내 성채 → 점수 등록에서 인증하세요.</div>` : ''}
             </div>
 
             <div style="border-top:1px solid var(--border);padding:10px 14px 4px;">
-                <div style="font-size:10px;color:var(--text-sub);letter-spacing:1px;font-weight:700;margin-bottom:8px;">지원하기</div>
-                <div style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.5;">맵에서 다른 유저의 열기구를 클릭하거나, 랭킹에서 유저를 선택하여 도전하세요.<br>원서비 1장 소모 · 점수 비교로 합격 여부 결정</div>
-                <button class="shop-btn" style="width:100%;padding:8px;font-size:11px;" onclick="togglePanel('panel-apply');togglePanel('panel-rank')">랭킹에서 도전 상대 찾기 →</button>
-            </div>
-
-            <div style="border-top:1px solid var(--border);padding:10px 14px;">
-                <div style="font-size:10px;color:var(--text-sub);letter-spacing:1px;font-weight:700;margin-bottom:8px;">지원 이력</div>
-                <div style="display:flex;flex-direction:column;gap:5px;">${histHTML}</div>
+                <div style="font-size:10px;color:var(--text-sub);letter-spacing:1px;font-weight:700;margin-bottom:8px;">군별 지원 현황</div>
+                <div style="display:flex;flex-direction:column;gap:5px;">${groupRows}</div>
+                <button class="shop-btn" style="width:100%;padding:8px;font-size:11px;margin-top:10px;" onclick="window.location.href='/apply/'">입시 지원 페이지 열기 →</button>
             </div>
         `;
     } catch (e) {

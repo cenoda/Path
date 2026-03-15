@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0D0D11">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <title>메시지 - P.A.T.H</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/suitcss@1.0.0/SUIT-Variable.css" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://cdn.jsdelivr.net/npm/suitcss@1.0.0/SUIT-Variable.css" rel="stylesheet"></noscript>
+  <link rel="preload" as="style" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── 헤더 ──────────────────────────────── -->
+<header class="msg-header" id="msg-header">
+  <button class="msg-header__back" onclick="handleBack()" aria-label="뒤로가기" id="btn-header-back">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M12 5L7 10L12 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <div class="msg-header__center" id="header-center" onclick="onHeaderCenterClick()">
+    <div class="msg-header__avatar" id="header-avatar">
+      <span id="header-avatar-text">💬</span>
+      <img id="header-avatar-img" class="hidden" alt="">
+      <span id="header-online" class="header-online hidden"></span>
+    </div>
+    <div class="msg-header__meta">
+      <div class="msg-header__title" id="header-title">메시지</div>
+      <div class="msg-header__sub" id="header-sub">대화 목록</div>
+    </div>
+  </div>
+
+  <div class="msg-header__right">
+    <span class="msg-header__badge hidden" id="msg-badge"></span>
+  </div>
+</header>
+
+<!-- ── 본문 ──────────────────────────────── -->
+<main class="msg-main" id="msg-main">
+
+  <!-- 대화 목록 뷰 -->
+  <div id="view-list" class="msg-view">
+    <div class="conv-search-wrap">
+      <span class="conv-search-icon">🔍</span>
+      <input id="conv-search" class="conv-search-input" type="text" placeholder="대화 검색" maxlength="60">
+    </div>
+    <div id="conv-search-history" class="conv-search-history hidden"></div>
+    <div id="conv-items" class="conv-items">
+      <div class="conv-empty">로딩 중...</div>
+    </div>
+  </div>
+
+  <!-- 채팅 뷰 -->
+  <div id="view-chat" class="msg-view hidden">
+    <div id="chat-messages" class="chat-messages"></div>
+    <div id="chat-delivery-status" class="chat-delivery-status" style="display:none;"></div>
+    <div id="file-preview" class="file-preview hidden">
+      <span id="file-preview-name"></span>
+      <button onclick="cancelFileUpload()" class="file-preview-cancel">취소</button>
+    </div>
+    <div class="chat-input-row">
+      <input type="file" id="chat-file-input" style="display:none;" accept="image/*,.pdf,.txt" onchange="handleFileSelect(event)">
+      <button class="chat-file-btn" id="btn-file-attach" onclick="document.getElementById('chat-file-input').click()" title="파일 첨부">📎</button>
+      <input type="text" id="chat-input" class="chat-input" placeholder="메시지 입력..." maxlength="500"
+             onkeydown="if(event.key==='Enter')sendMessage()">
+      <button class="chat-send-btn" onclick="sendMessage()" aria-label="전송"></button>
+    </div>
+  </div>
+
+</main>
+
+<script src="messages.js"></script>
+</body>
+</html>

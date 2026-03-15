@@ -958,79 +958,136 @@ const UI = {
         this.elements.hubOverlayConfirmBtn.textContent = '닫기';
         this.elements.hubOverlayBody.innerHTML = '<div class="hub-apply-loading">불러오는 중...</div>';
 
-        const [applyData, rankingData] = await Promise.all([
-            this.requestJson('/api/invasion/my-applications'),
-            this.requestJson('/api/ranking/today')
+        const [roundData, scoreData] = await Promise.all([
+            this.requestJson('/api/apply/current-round'),
+            this.requestJson('/api/apply/scores/me')
         ]);
 
-        const maxSlots = Number(applyData?.max_slots || 0);
-        const usedSlots = Number(applyData?.used_slots || 0);
-        const remainSlots = Math.max(0, maxSlots - usedSlots);
-        const myScore = Number(applyData?.my_score || 0);
-        const myScoreStatus = String(applyData?.score_status || 'none');
-        const myTickets = Number(applyData?.tickets || 0);
-        const applications = Array.isArray(applyData?.applications) ? applyData.applications : [];
-        const rankingRows = Array.isArray(rankingData?.ranking) ? rankingData.ranking : [];
+        const round = roundData?.round || null;
+        const score = scoreData?.scores || null;
+        const myTickets = Number(this.currentUser?.tickets || 0);
 
-        const currentUserId = Number(this.currentUser?.id || 0);
-        const targets = rankingRows
-            .filter((row) => Number(row?.id || 0) > 0 && Number(row.id) !== currentUserId)
-            .slice(0, 12);
+        if (!round) {
+            this.elements.hubOverlayBody.innerHTML = `
+                <section class="hub-apply-wrap">
+                    <div class="hub-apply-summary">
+                        <div class="hub-apply-meta-row">
+                            <span>현재 회차</span>
+                            <strong>진행 중인 입시 회차 없음</strong>
+                        </div>
+                        <div class="hub-apply-meta-row">
+                            <span>보유 원서비</span>
+                            <strong>${myTickets}장</strong>
+                        </div>
+                        <div class="hub-apply-actions-row">
+                            <button type="button" id="hub-apply-open-btn" class="btn-primary home-start-btn">입시 지원 열기</button>
+                        </div>
+                    </div>
+                </section>
+            `;
+            this.elements.hubOverlayBody.querySelector('#hub-apply-open-btn')?.addEventListener('click', () => {
+                window.location.href = '/apply/';
+            });
+            return;
+        }
 
-        this.hubApplyTargets = new Map();
-        targets.forEach((row) => {
-            this.hubApplyTargets.set(Number(row.id), row);
+        const appsData = await this.requestJson(`/api/apply/applications/me?round_id=${encodeURIComponent(round.id)}`);
+        const applications = Array.isArray(appsData?.applications) ? appsData.applications : [];
+        const activeApplications = applications.filter((item) => String(item?.status || '') !== 'cancelled');
+
+        const grouped = { '가': null, '나': null, '다': null };
+        activeApplications.forEach((item) => {
+            const g = String(item?.group_type || '').trim();
+            if (['가', '나', '다'].includes(g) && !grouped[g]) grouped[g] = item;
         });
 
-        const scoreStateText = myScoreStatus === 'approved'
-            ? `${myScore}점 인증 완료`
-            : myScoreStatus === 'pending'
-                ? '점수 심사 대기 중'
-                : myScoreStatus === 'rejected'
-                    ? '점수 반려됨 (재업로드 필요)'
-                    : '점수 미인증';
-
+        const maxSlots = 3;
+        const usedSlots = ['가', '나', '다'].filter((g) => !!grouped[g]).length;
+        const remainSlots = Math.max(0, maxSlots - usedSlots);
         const slotProgress = maxSlots > 0 ? Math.round((usedSlots / maxSlots) * 100) : 0;
 
-        const historyHtml = applications.length
-            ? applications.slice(0, 8).map((item) => {
-                const won = String(item?.result || '').toUpperCase() === 'WIN';
-                const date = item?.created_at ? new Date(item.created_at).toLocaleDateString('ko-KR', {
-                    month: 'numeric',
-                    day: 'numeric'
-                }) : '-';
-                const targetUniversity = this.escapeHtml(item?.target_university || '대학 미상');
-                const targetNickname = this.escapeHtml(item?.target_nickname || '상대 미상');
-                const scoreText = Number(item?.my_score || 0);
+        const scoreStateText = !score?.korean_std
+            ? '점수 미입력'
+            : score?.verified_status === 'approved'
+                ? '점수 인증 완료'
+                : score?.verified_status === 'pending'
+                    ? '점수 심사 대기 중'
+                    : score?.verified_status === 'rejected'
+                        ? '점수 반려됨 (재업로드 필요)'
+                        : '점수 입력 완료 (인증 전)';
+
+        const groupStatusHtml = ['가', '나', '다'].map((groupName) => {
+            const app = grouped[groupName];
+            if (!app) {
                 return `<li class="hub-apply-history-item">
                     <div class="hub-apply-history-main">
-                        <strong>${targetUniversity}</strong>
-                        <span>${targetNickname} · ${date} · ${scoreText}점</span>
+                        <strong>${groupName}군</strong>
+                        <span>미지원</span>
                     </div>
-                    <span class="hub-apply-history-result ${won ? 'win' : 'loss'}">${won ? '합격' : '불합격'}</span>
+                    <span class="hub-apply-history-result loss">대기</span>
                 </li>`;
-            }).join('')
-            : '<li class="hub-apply-empty">지원 이력이 없습니다.</li>';
+            }
 
-        const targetHtml = targets.length
-            ? targets.map((row) => {
-                const userId = Number(row?.id || 0);
-                const nick = this.escapeHtml(row?.display_nickname || row?.nickname || '익명');
-                const univ = this.escapeHtml(row?.university || '대학 미설정');
-                const sec = Number(row?.today_sec || 0);
-                return `<li class="hub-apply-target-item">
-                    <div class="hub-apply-target-main">
-                        <strong>${nick}</strong>
-                        <span>${univ} · 오늘 ${this.formatDuration(sec)}</span>
+            const uni = this.escapeHtml(app?.university || '대학 미상');
+            const dept = this.escapeHtml(app?.department || '학과 미설정');
+            const status = String(app?.status || 'applied');
+            const statusLabel = status === 'passed'
+                ? '합격'
+                : status === 'failed'
+                    ? '불합격'
+                    : status === 'waitlisted'
+                        ? '추합대기'
+                        : status === 'enrolled'
+                            ? '등록완료'
+                            : '지원완료';
+            const statusClass = status === 'passed' || status === 'enrolled' ? 'win' : 'loss';
+
+            return `<li class="hub-apply-history-item">
+                <div class="hub-apply-history-main">
+                    <strong>${groupName}군 · ${uni}</strong>
+                    <span>${dept}</span>
+                </div>
+                <span class="hub-apply-history-result ${statusClass}">${statusLabel}</span>
+            </li>`;
+        }).join('');
+
+        const historyHtml = activeApplications.length
+            ? activeApplications.slice(0, 8).map((item) => {
+                const date = item?.created_at
+                    ? new Date(item.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
+                    : '-';
+                const uni = this.escapeHtml(item?.university || '대학 미상');
+                const dept = this.escapeHtml(item?.department || '학과 미설정');
+                const groupName = this.escapeHtml(item?.group_type || '-');
+                const status = String(item?.status || 'applied');
+                const statusLabel = status === 'passed'
+                    ? '합격'
+                    : status === 'failed'
+                        ? '불합격'
+                        : status === 'waitlisted'
+                            ? '추합대기'
+                            : status === 'enrolled'
+                                ? '등록완료'
+                                : '지원완료';
+                const statusClass = status === 'passed' || status === 'enrolled' ? 'win' : 'loss';
+
+                return `<li class="hub-apply-history-item">
+                    <div class="hub-apply-history-main">
+                        <strong>${uni}</strong>
+                        <span>${groupName}군 · ${dept} · ${date}</span>
                     </div>
-                    <button type="button" class="hub-apply-attack-btn" data-defender-id="${userId}">지원</button>
+                    <span class="hub-apply-history-result ${statusClass}">${statusLabel}</span>
                 </li>`;
             }).join('')
-            : '<li class="hub-apply-empty">현재 도전 가능한 대상이 없습니다.</li>';
+            : '<li class="hub-apply-empty">이번 회차 지원 이력이 없습니다.</li>';
 
         this.elements.hubOverlayBody.innerHTML = `
             <section class="hub-apply-wrap">
                 <div class="hub-apply-summary">
+                    <div class="hub-apply-meta-row">
+                        <span>현재 회차</span>
+                        <strong>${this.escapeHtml(round?.name || '회차 정보 없음')}</strong>
+                    </div>
                     <div class="hub-apply-meta-row">
                         <span>슬롯</span>
                         <strong>${usedSlots}/${maxSlots} 사용 · ${remainSlots}회 남음</strong>
@@ -1046,17 +1103,17 @@ const UI = {
                     </div>
                     <div class="hub-apply-actions-row">
                         <button type="button" id="hub-apply-refresh-btn" class="home-refresh-btn">새로고침</button>
-                        <button type="button" id="hub-apply-study-btn" class="btn-primary home-start-btn">학습하러 가기</button>
+                        <button type="button" id="hub-apply-open-btn" class="btn-primary home-start-btn">입시 지원 열기</button>
                     </div>
                 </div>
 
                 <div class="hub-apply-grid">
                     <section class="hub-apply-panel">
-                        <h4>도전 대상</h4>
-                        <ul class="hub-apply-list">${targetHtml}</ul>
+                        <h4>군별 지원 현황</h4>
+                        <ul class="hub-apply-list">${groupStatusHtml}</ul>
                     </section>
                     <section class="hub-apply-panel">
-                        <h4>최근 지원 이력</h4>
+                        <h4>최근 원서 이력</h4>
                         <ul class="hub-apply-list">${historyHtml}</ul>
                     </section>
                 </div>
@@ -1069,56 +1126,9 @@ const UI = {
             });
         });
 
-        this.elements.hubOverlayBody.querySelector('#hub-apply-study-btn')?.addEventListener('click', () => {
-            this.closeHomeHubOverlay();
-            this.switchTab('study');
+        this.elements.hubOverlayBody.querySelector('#hub-apply-open-btn')?.addEventListener('click', () => {
+            window.location.href = '/apply/';
         });
-
-        this.elements.hubOverlayBody.querySelectorAll('.hub-apply-attack-btn').forEach((btn) => {
-            btn.addEventListener('click', async () => {
-                const defenderId = Number(btn.dataset.defenderId || 0);
-                if (!defenderId) return;
-                await this.handleHubApplyAttack(defenderId, btn);
-            });
-        });
-    },
-
-    async handleHubApplyAttack(defenderId, triggerBtn) {
-        const target = this.hubApplyTargets.get(defenderId);
-        const targetName = this.escapeHtml(target?.display_nickname || target?.nickname || '상대');
-        if (!confirm(`${targetName}에게 지원하시겠습니까?\n원서비 1장이 소모됩니다.`)) return;
-
-        const btn = triggerBtn;
-        const prevText = btn?.textContent;
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = '진행중...';
-        }
-
-        try {
-            const data = await this.requestJson('/api/invasion/attack', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ defender_id: defenderId })
-            });
-
-            if (data?.user) this.mergeCurrentUserPatch(data.user);
-
-            const won = String(data?.result || '').toUpperCase() === 'WIN';
-            const resultText = won ? '합격' : '불합격';
-            const probText = Number.isFinite(Number(data?.accept_prob)) ? `합격 확률 ${data.accept_prob}%` : '확률 집계 없음';
-            alert(`모의지원 결과: ${resultText}\n${probText}`);
-
-            if (this.activeHubOverlay === 'apply') {
-                await this.renderHubApplyPanel();
-            }
-        } catch (err) {
-            alert(err?.message || '지원 처리 중 오류가 발생했습니다.');
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = prevText || '지원';
-            }
-        }
     },
 
     async renderHubShopPanel() {

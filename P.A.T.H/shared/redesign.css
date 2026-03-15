@@ -477,6 +477,117 @@ body.setup-profile-page .btn-submit:hover:not(:disabled) {
 }
 
 @media (max-width: 640px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    padding-bottom: max(68px, env(safe-area-inset-bottom));
+  }
+
+  /* Keep readable inputs while avoiding overly large controls on mobile. */
+  input,
+  select,
+  textarea {
+    font-size: 15px;
+  }
+
+  body.community-page .c-header__inner,
+  body:has(.c-header) .c-header__inner {
+    height: 52px;
+    padding: 0 12px;
+  }
+
+  body.community-page .c-header__left,
+  body:has(.c-header) .c-header__left {
+    gap: 8px;
+  }
+
+  body.community-page .c-header__title,
+  body:has(.c-header) .c-header__title {
+    font-size: 14px;
+  }
+
+  body.community-page .c-header__badge,
+  body:has(.c-header) .c-header__badge {
+    height: 16px;
+    font-size: 9px;
+    padding: 0 6px;
+  }
+
+  body.community-page .c-header__back,
+  body.community-page .c-header__icon-btn,
+  body:has(.c-header) .c-header__back,
+  body:has(.c-header) .c-header__icon-btn,
+  body.apply-page .header-back,
+  body.apply-page .tab-btn,
+  body:has(.app-header) .header-back,
+  body:has(.app-header) .tab-btn,
+  body.path-interface .exit-timer-btn,
+  body.path-interface .page-tab-btn,
+  body.path-interface .home-hub-btn {
+    min-height: 40px;
+    min-width: 40px;
+  }
+
+  body.apply-page .app-header,
+  body:has(.app-header) .app-header {
+    height: 56px;
+    padding: 0 14px;
+  }
+
+  body.apply-page .tab-nav,
+  body:has(.app-header) .tab-nav {
+    top: 56px;
+  }
+
+  body.apply-page .tab-btn,
+  body:has(.app-header) .tab-btn {
+    font-size: 13px;
+    padding: 11px 0;
+  }
+
+  body.apply-page .tab-content,
+  body:has(.app-header) .tab-content {
+    padding: 12px;
+  }
+
+  body.apply-page .card,
+  body:has(.app-header) .card {
+    padding: 14px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+  }
+
+  body.apply-page .field,
+  body:has(.app-header) .field {
+    margin-bottom: 12px;
+  }
+
+  body.path-interface .page-tab-btn,
+  body.path-interface .mode-btn,
+  body.path-interface .home-hub-btn {
+    font-size: 13px;
+    padding: 10px 14px;
+  }
+
+  body.path-interface .page-tabs,
+  body.path-interface .mode-group {
+    margin-bottom: 14px;
+  }
+
+  body.path-interface .tab-panel {
+    gap: 14px;
+    padding: 14px 12px;
+  }
+
+  body.path-interface .resource {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
   body.world-hub-page #keyboard-guide,
   body.world-hub-page #coordinates-display,
   body:has(#ui-overlay) #keyboard-guide,
@@ -488,6 +599,30 @@ body.setup-profile-page .btn-submit:hover:not(:disabled) {
   body:has(.c-header) .c-hot-section {
     border-radius: 12px;
     padding: 8px;
+  }
+}
+
+@media (max-width: 420px) {
+  body.path-interface .resource {
+    gap: 4px;
+    padding: 0 8px;
+  }
+
+  body.path-interface .exit-timer-btn,
+  body.path-interface .page-tab-btn,
+  body.path-interface .mode-btn,
+  body.path-interface .home-hub-btn {
+    min-height: 38px;
+    min-width: 38px;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  body.community-page .post-row:hover,
+  body:has(.c-header) .post-row:hover {
+    transform: none;
+    border-left-color: transparent;
+    box-shadow: 0 8px 20px rgba(64, 41, 24, 0.08);
   }
 }
 

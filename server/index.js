@@ -1109,9 +1109,9 @@ app.get('/P.A.T.H/mainHub', (_req, res) => res.redirect(301, '/study-hub/'));
 app.get('/P.A.T.H/mainHub/', (_req, res) => res.redirect(301, '/study-hub/'));
 app.get('/P.A.T.H/mainHub/index.html', (_req, res) => res.redirect(301, '/study-hub/'));
 
-app.get('/P.A.T.H/mainPageDev', (_req, res) => res.redirect(301, '/timer/'));
-app.get('/P.A.T.H/mainPageDev/', (_req, res) => res.redirect(301, '/timer/'));
-app.get('/P.A.T.H/mainPageDev/index.html', (_req, res) => res.redirect(301, '/timer/'));
+app.get('/P.A.T.H/mainPageDev', (_req, res) => res.redirect(301, '/study-hub/'));
+app.get('/P.A.T.H/mainPageDev/', (_req, res) => res.redirect(301, '/study-hub/'));
+app.get('/P.A.T.H/mainPageDev/index.html', (_req, res) => res.redirect(301, '/study-hub/'));
 
 app.get('/P.A.T.H/community', (_req, res) => res.redirect(301, '/community/'));
 app.get('/P.A.T.H/community/', (_req, res) => res.redirect(301, '/community/'));

@@ -41,6 +41,9 @@ const upload = multer({
     }
 });
 
+const MESSAGE_CATEGORY_DM = 'dm';
+const MESSAGE_CATEGORY_ADMIN_CONTACT = 'admin_contact';
+
 let roomChatSchemaReady = false;
 async function ensureRoomChatSchema() {
     if (roomChatSchemaReady) return;
@@ -61,6 +64,26 @@ let messageUiSchemaReady = false;
 async function ensureMessageUiSchema() {
     if (messageUiSchemaReady) return;
     await pool.query(`
+                ALTER TABLE messages
+                        ADD COLUMN IF NOT EXISTS message_category VARCHAR(30) NOT NULL DEFAULT 'dm';
+
+                UPDATE messages m
+                     SET message_category = 'admin_contact'
+                 WHERE m.message_category = 'dm'
+                     AND EXISTS (
+                                SELECT 1
+                                    FROM users admin_user
+                                 WHERE admin_user.id = m.receiver_id
+                                     AND admin_user.is_admin = TRUE
+                     )
+                     AND NOT EXISTS (
+                                SELECT 1
+                                    FROM friendships f
+                                 WHERE ((f.sender_id = m.sender_id AND f.receiver_id = m.receiver_id)
+                                         OR (f.sender_id = m.receiver_id AND f.receiver_id = m.sender_id))
+                                     AND f.status = 'accepted'
+                     );
+
         CREATE TABLE IF NOT EXISTS hidden_dm_conversations (
             user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             other_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -205,7 +228,8 @@ router.get('/conversations', requireAuth, async (req, res) => {
                     SUM(CASE WHEN receiver_id = $1 AND is_read = FALSE THEN 1 ELSE 0 END)
                         OVER (PARTITION BY CASE WHEN sender_id = $1 THEN receiver_id ELSE sender_id END) AS unread_count
                 FROM messages
-                WHERE sender_id = $1 OR receiver_id = $1
+                WHERE (sender_id = $1 OR receiver_id = $1)
+                  AND message_category = $2
                 ORDER BY created_at DESC
             ) sub
             JOIN users u ON u.id = sub.other_user
@@ -214,7 +238,7 @@ router.get('/conversations', requireAuth, async (req, res) => {
                AND h.other_user_id = sub.other_user
             WHERE h.hidden_at IS NULL OR sub.last_time > h.hidden_at
             ORDER BY other_user, last_time DESC
-        `, [req.session.userId]);
+        `, [req.session.userId, MESSAGE_CATEGORY_DM]);
         res.json(result.rows);
     } catch (err) {
         console.error('messages/conversations 오류:', err.message);
@@ -314,6 +338,7 @@ router.get('/conversation/:targetId', requireAuth, async (req, res) => {
     if (!targetId) return res.status(400).json({ error: '잘못된 요청' });
 
     try {
+        await ensureMessageUiSchema();
         const result = await pool.query(`
             SELECT m.id, m.sender_id, m.receiver_id, m.content, m.is_read, m.created_at,
                    m.file_path, m.file_type, m.file_size, m.file_name,
@@ -321,16 +346,24 @@ router.get('/conversation/:targetId', requireAuth, async (req, res) => {
                    (m.sender_id = $1) as is_mine
             FROM messages m
             JOIN users u ON u.id = m.sender_id
-            WHERE (m.sender_id = $1 AND m.receiver_id = $2)
-               OR (m.sender_id = $2 AND m.receiver_id = $1)
+            WHERE m.message_category = $3
+              AND (
+                    (m.sender_id = $1 AND m.receiver_id = $2)
+                 OR (m.sender_id = $2 AND m.receiver_id = $1)
+              )
             ORDER BY m.created_at ASC
             LIMIT 200
-        `, [req.session.userId, targetId]);
+        `, [req.session.userId, targetId, MESSAGE_CATEGORY_DM]);
 
         // 읽음 처리
         await pool.query(
-            'UPDATE messages SET is_read = TRUE WHERE sender_id = $1 AND receiver_id = $2 AND is_read = FALSE',
-            [targetId, req.session.userId]
+            `UPDATE messages
+                SET is_read = TRUE
+              WHERE sender_id = $1
+                AND receiver_id = $2
+                AND is_read = FALSE
+                AND message_category = $3`,
+            [targetId, req.session.userId, MESSAGE_CATEGORY_DM]
         );
 
         res.json(result.rows);
@@ -345,9 +378,16 @@ router.post('/conversation/:targetId/mark-read', requireAuth, async (req, res) =
     if (!targetId) return res.status(400).json({ error: '잘못된 요청' });
 
     try {
+        await ensureMessageUiSchema();
         const result = await pool.query(
-            'UPDATE messages SET is_read = TRUE WHERE sender_id = $1 AND receiver_id = $2 AND is_read = FALSE RETURNING id',
-            [targetId, req.session.userId]
+            `UPDATE messages
+                SET is_read = TRUE
+              WHERE sender_id = $1
+                AND receiver_id = $2
+                AND is_read = FALSE
+                AND message_category = $3
+            RETURNING id`,
+            [targetId, req.session.userId, MESSAGE_CATEGORY_DM]
         );
         res.json({ ok: true, updated: result.rowCount || 0 });
     } catch (err) {
@@ -418,6 +458,7 @@ router.post('/send', requireAuth, async (req, res) => {
     }
 
     try {
+        await ensureMessageUiSchema();
         // 친구 관계 확인
         const friendCheck = await pool.query(
             `SELECT id FROM friendships
@@ -430,8 +471,10 @@ router.post('/send', requireAuth, async (req, res) => {
         }
 
         const result = await pool.query(
-            'INSERT INTO messages (sender_id, receiver_id, content) VALUES ($1, $2, $3) RETURNING *',
-            [req.session.userId, receiver_id, content.trim()]
+            `INSERT INTO messages (sender_id, receiver_id, content, message_category)
+             VALUES ($1, $2, $3, $4)
+             RETURNING *`,
+            [req.session.userId, receiver_id, content.trim(), MESSAGE_CATEGORY_DM]
         );
 
         const senderRes = await pool.query('SELECT nickname FROM users WHERE id = $1', [req.session.userId]);
@@ -460,6 +503,7 @@ router.post('/contact-admin', requireAuth, async (req, res) => {
     }
 
     try {
+        await ensureMessageUiSchema();
         const adminsRes = await pool.query(
             'SELECT id FROM users WHERE is_admin = TRUE AND id <> $1 ORDER BY id ASC',
             [req.session.userId]
@@ -474,8 +518,9 @@ router.post('/contact-admin', requireAuth, async (req, res) => {
 
         for (const admin of adminsRes.rows) {
             await pool.query(
-                'INSERT INTO messages (sender_id, receiver_id, content) VALUES ($1, $2, $3)',
-                [req.session.userId, admin.id, content]
+                `INSERT INTO messages (sender_id, receiver_id, content, message_category)
+                 VALUES ($1, $2, $3, $4)`,
+                [req.session.userId, admin.id, content, MESSAGE_CATEGORY_ADMIN_CONTACT]
             );
 
             await pool.query(
@@ -510,6 +555,7 @@ router.post('/send-file', requireAuth, upload.single('file'), async (req, res) =
     }
 
     try {
+        await ensureMessageUiSchema();
         // 친구 관계 확인
         const friendCheck = await pool.query(
             `SELECT id FROM friendships
@@ -530,16 +576,25 @@ router.post('/send-file', requireAuth, upload.single('file'), async (req, res) =
         const messageContent = content?.trim() || req.file.originalname;
         
         const result = await pool.query(
-            `INSERT INTO messages (sender_id, receiver_id, content, file_path, file_type, file_size, file_name) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            `INSERT INTO messages (
+                sender_id,
+                receiver_id,
+                content,
+                file_path,
+                file_type,
+                file_size,
+                file_name,
+                message_category
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
             [
-                req.session.userId, 
-                receiver_id, 
+                req.session.userId,
+                receiver_id,
                 messageContent,
                 filePath,
                 req.file.mimetype,
                 req.file.size,
-                req.file.originalname
+                req.file.originalname,
+                MESSAGE_CATEGORY_DM
             ]
         );
 
@@ -562,9 +617,14 @@ router.post('/send-file', requireAuth, upload.single('file'), async (req, res) =
 // 읽지 않은 메시지 수
 router.get('/unread-count', requireAuth, async (req, res) => {
     try {
+        await ensureMessageUiSchema();
         const result = await pool.query(
-            'SELECT COUNT(*) FROM messages WHERE receiver_id = $1 AND is_read = FALSE',
-            [req.session.userId]
+            `SELECT COUNT(*)
+               FROM messages
+              WHERE receiver_id = $1
+                AND is_read = FALSE
+                AND message_category = $2`,
+            [req.session.userId, MESSAGE_CATEGORY_DM]
         );
         res.json({ count: parseInt(result.rows[0].count) });
     } catch (err) {

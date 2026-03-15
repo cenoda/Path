@@ -41,7 +41,7 @@ const UI = {
         lastTime: 0
     },
     timetableConfig: {
-        dayStartMinute: 6 * 60,
+        dayStartMinute: 0,
         dayEndMinute: 24 * 60,
         hourHeight: 56,
         snapMinute: 5
@@ -895,12 +895,33 @@ const UI = {
         return `--skin-h:${hue};--skin-h2:${hue2};`;
     },
 
+    getSkinRarityMeta(skin) {
+        const price = Number(skin?.price || 0);
+        if (price <= 0) {
+            return { label: '기본', className: 'is-basic' };
+        }
+        if (price >= 12000) {
+            return { label: '시그니처', className: 'is-signature' };
+        }
+        if (price >= 9000) {
+            return { label: '레전드', className: 'is-legend' };
+        }
+        if (price >= 6000) {
+            return { label: '프리미엄', className: 'is-premium' };
+        }
+        if (price >= 3500) {
+            return { label: '레어', className: 'is-rare' };
+        }
+        return { label: '셀렉트', className: 'is-select' };
+    },
+
     renderHomeSkinSpot() {
         const spot = this.elements.homeSkinSpot;
         if (!spot) return;
 
         const skinId = String(this.currentUser?.balloon_skin || 'default');
         const skinName = this.escapeHtml(this.getSkinNameById(skinId));
+        const rarity = this.getSkinRarityMeta(this.skinCatalogById?.[skinId]);
         const ownedRaw = String(this.currentUser?.owned_skins || 'default');
         const ownedCount = ownedRaw
             .split(',')
@@ -913,7 +934,7 @@ const UI = {
                 <div class="home-skin-preview" style="${toneVars}" aria-hidden="true">🎈</div>
                 <div class="home-skin-info">
                     <span class="home-skin-label">CURRENT SKIN</span>
-                    <strong class="home-skin-name">${skinName}</strong>
+                    <strong class="home-skin-name">${skinName} <span class="home-badge-skin">${this.escapeHtml(rarity.label)}</span></strong>
                     <span class="home-skin-meta">보유 ${ownedCount}개 · 장착 ID ${this.escapeHtml(skinId)}</span>
                 </div>
                 <button type="button" class="home-skin-manage-btn" id="home-skin-manage-btn">관리</button>
@@ -1129,18 +1150,37 @@ const UI = {
             const owned = ownedSkins.includes(skinId);
             const equipped = String(skinData?.equipped || 'default') === skinId;
             const price = Number(skin?.price || 0);
-            const actionLabel = equipped ? '장착중' : owned ? '장착' : price > 0 ? `${price.toLocaleString()}G 구매` : '획득';
-            const disabled = equipped ? 'disabled' : '';
+            const canAfford = owned || price <= 0 || gold >= price;
+            const needsCollect = !owned && price > gold && price <= gold + collectible;
+            const rarity = this.getSkinRarityMeta(skin);
+            const actionLabel = equipped
+                ? '장착중'
+                : owned
+                    ? '장착'
+                    : !canAfford
+                        ? needsCollect ? '수입 수령 필요' : '골드 부족'
+                        : price > 0
+                            ? `${price.toLocaleString()}G 구매`
+                            : '획득';
+            const disabled = (equipped || (!owned && !canAfford)) ? 'disabled' : '';
             const toneVars = this.getSkinToneVars(skinId || 'default');
             const isFocus = focusSkinId && skinId === focusSkinId;
             const focusClass = isFocus ? ' hub-shop-item--focus' : '';
-            const statusBadge = equipped
-                ? '<span class="hub-shop-state-badge is-equipped">현재 착용</span>'
-                : isFocus
-                    ? '<span class="hub-shop-state-badge is-focus">지금 보고 있는 스킨</span>'
-                    : '';
+            const statusBadges = [
+                `<span class="hub-shop-rarity-badge ${rarity.className}">${this.escapeHtml(rarity.label)}</span>`
+            ];
+            if (equipped) {
+                statusBadges.push('<span class="hub-shop-state-badge is-equipped">현재 착용</span>');
+            } else if (isFocus) {
+                statusBadges.push('<span class="hub-shop-state-badge is-focus">지금 보고 있는 스킨</span>');
+            }
+            if (!owned && !canAfford) {
+                statusBadges.push(`<span class="hub-shop-state-badge is-locked">${needsCollect ? '수입 수령 후 구매 가능' : '골드가 부족합니다'}</span>`);
+            }
             const quickAction = isFocus && !equipped
-                ? `<button type="button" class="hub-shop-quick-btn" data-shop-kind="skin" data-shop-id="${this.escapeHtml(skinId)}" data-shop-mode="${owned ? 'equip' : 'buy'}" data-shop-auto-equip="${owned ? '0' : '1'}">${owned ? '바로 장착' : price > 0 ? '구매 후 장착' : '획득 후 장착'}</button>`
+                ? needsCollect
+                    ? `<button type="button" class="hub-shop-quick-btn" data-shop-kind="collect" data-shop-id="collect-tax" data-shop-mode="collect">수입 먼저 받기</button>`
+                    : `<button type="button" class="hub-shop-quick-btn" data-shop-kind="skin" data-shop-id="${this.escapeHtml(skinId)}" data-shop-mode="${owned ? 'equip' : 'buy'}" data-shop-auto-equip="${owned ? '0' : '1'}" ${(owned || canAfford) ? '' : 'disabled'}>${owned ? '바로 장착' : !canAfford ? '골드 부족' : price > 0 ? '구매 후 장착' : '획득 후 장착'}</button>`
                 : '';
             return `<li class="hub-shop-item${focusClass}" data-skin-id="${this.escapeHtml(skinId)}">
                 <div class="hub-shop-main">
@@ -1148,7 +1188,7 @@ const UI = {
                         <span class="hub-shop-skin-preview" style="${toneVars}" aria-hidden="true">🎈</span>
                         <strong>${this.escapeHtml(skin?.name || skinId)}</strong>
                     </div>
-                    ${statusBadge}
+                    <div class="hub-shop-badge-row">${statusBadges.join('')}</div>
                     <span>${this.escapeHtml(skin?.desc || '')}</span>
                 </div>
                 <div class="hub-shop-item-actions">
@@ -1260,10 +1300,20 @@ const UI = {
 
         const prev = button.textContent;
         button.disabled = true;
-        button.textContent = mode === 'equip' ? '장착중...' : '구매중...';
+        button.textContent = kind === 'collect' ? '수령중...' : mode === 'equip' ? '장착중...' : '구매중...';
 
         try {
-            if (kind === 'skin' && mode === 'buy') {
+            if (kind === 'collect') {
+                const data = await this.requestJson('/api/estate/collect-tax', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                if (data?.user) this.mergeCurrentUserPatch(data.user);
+                alert(data?.collected > 0
+                    ? `${Number(data.collected || 0).toLocaleString()}G를 수령했습니다.`
+                    : (data?.message || '아직 수령할 수입이 없습니다.'));
+            } else if (kind === 'skin' && mode === 'buy') {
                 const data = await this.requestJson('/api/estate/buy-skin', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

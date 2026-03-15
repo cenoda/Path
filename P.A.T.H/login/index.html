@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>P.A.T.H - 로그인</title>
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
@@ -21,8 +21,14 @@
     <meta name="msapplication-TileColor" content="#000000">
     <script src="/shared/nav.js?v=5"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=MaruBuri:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/suitcss@1.0.0/SUIT-Variable.css" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://cdn.jsdelivr.net/npm/suitcss@1.0.0/SUIT-Variable.css" rel="stylesheet"></noscript>
     <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.css" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.css" rel="stylesheet"></noscript>
+    <link rel="stylesheet" href="/shared/redesign.css?v=1">
     <style>
         :root {
             --bg-top: #f6f9ff;
@@ -595,7 +601,7 @@
         }
     </style>
 </head>
-<body>
+<body class="login-page">
 <script>
 (function(){
     const th = localStorage.getItem('path_theme') || 'light';

@@ -970,6 +970,13 @@ body:not(.light) .home-badge-skin {
     flex-shrink: 0;
 }
 
+.hub-shop-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
 @keyframes hubShopFocusPulse {
     0% { transform: translateY(0); }
     40% { transform: translateY(-1px); }
@@ -1005,6 +1012,58 @@ body:not(.light) .home-badge-skin {
     background: rgba(49, 130, 246, 0.12);
     color: var(--accent-blue);
     border: 1px solid rgba(49, 130, 246, 0.28);
+}
+
+.hub-shop-state-badge.is-locked {
+    background: rgba(255, 140, 0, 0.12);
+    color: #a85b00;
+    border: 1px solid rgba(255, 140, 0, 0.24);
+}
+
+.hub-shop-rarity-badge {
+    width: fit-content;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    border: 1px solid transparent;
+}
+
+.hub-shop-rarity-badge.is-basic {
+    background: rgba(148, 163, 184, 0.14);
+    color: #64748b;
+    border-color: rgba(148, 163, 184, 0.24);
+}
+
+.hub-shop-rarity-badge.is-select {
+    background: rgba(0, 196, 113, 0.12);
+    color: #087f52;
+    border-color: rgba(0, 196, 113, 0.22);
+}
+
+.hub-shop-rarity-badge.is-rare {
+    background: rgba(49, 130, 246, 0.12);
+    color: var(--accent-blue);
+    border-color: rgba(49, 130, 246, 0.24);
+}
+
+.hub-shop-rarity-badge.is-premium {
+    background: rgba(142, 84, 233, 0.12);
+    color: #7d4fd6;
+    border-color: rgba(142, 84, 233, 0.24);
+}
+
+.hub-shop-rarity-badge.is-legend {
+    background: rgba(255, 179, 0, 0.14);
+    color: #9a5d00;
+    border-color: rgba(255, 179, 0, 0.28);
+}
+
+.hub-shop-rarity-badge.is-signature {
+    background: linear-gradient(135deg, rgba(255, 179, 0, 0.16), rgba(255, 91, 91, 0.14));
+    color: #9f3300;
+    border-color: rgba(255, 125, 0, 0.28);
 }
 
 .hub-shop-main-top {
@@ -1071,6 +1130,13 @@ body:not(.light) .home-badge-skin {
 
 .hub-shop-quick-btn:hover {
     filter: brightness(1.02);
+}
+
+.hub-shop-quick-btn:disabled {
+    cursor: default;
+    filter: none;
+    box-shadow: none;
+    opacity: 0.68;
 }
 
 .hub-shop-item--focus .hub-shop-quick-btn {
@@ -5844,6 +5910,7 @@ body::after {
     content: '';
     position: fixed;
     inset: 0;
+    pointer-events: none;
     opacity: 0;
     visibility: hidden;
     background: rgba(13, 20, 34, 0.34);

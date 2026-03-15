@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>P.A.T.H - 프로필 설정</title>
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
@@ -14,6 +14,12 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <script src="/shared/nav.js?v=5"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=MaruBuri:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/suitcss@1.0.0/SUIT-Variable.css" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://cdn.jsdelivr.net/npm/suitcss@1.0.0/SUIT-Variable.css" rel="stylesheet"></noscript>
+    <link rel="stylesheet" href="/shared/redesign.css?v=1">
     <style>
         :root {
             --bg: #000000;
@@ -94,7 +100,7 @@
         .univ-item:hover { background: #1a1a1a; color: var(--gold); }
     </style>
 </head>
-<body>
+<body class="setup-profile-page">
     <div class="logo-mark" aria-hidden="true">
         <img src="/brand/app-icon-master-1024.png" alt="">
     </div>

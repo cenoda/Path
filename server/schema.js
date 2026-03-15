@@ -315,6 +315,26 @@ async function initSchema() {
             ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_type VARCHAR(100) DEFAULT NULL;
             ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size INTEGER DEFAULT NULL;
             ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255) DEFAULT NULL;
+                        ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_category VARCHAR(30) NOT NULL DEFAULT 'dm';
+                `);
+
+                await client.query(`
+                        UPDATE messages m
+                             SET message_category = 'admin_contact'
+                         WHERE m.message_category = 'dm'
+                             AND EXISTS (
+                                        SELECT 1
+                                            FROM users admin_user
+                                         WHERE admin_user.id = m.receiver_id
+                                             AND admin_user.is_admin = TRUE
+                             )
+                             AND NOT EXISTS (
+                                        SELECT 1
+                                            FROM friendships f
+                                         WHERE ((f.sender_id = m.sender_id AND f.receiver_id = m.receiver_id)
+                                                 OR (f.sender_id = m.receiver_id AND f.receiver_id = m.sender_id))
+                                             AND f.status = 'accepted'
+                             );
         `);
 
         await client.query(`
@@ -657,6 +677,7 @@ async function initSchema() {
                 user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 university      VARCHAR(100) NOT NULL,
                 department      VARCHAR(100),
+                track           VARCHAR(10) DEFAULT '인문',
                 group_type      CHAR(1) NOT NULL,
                 status          VARCHAR(20) NOT NULL DEFAULT 'applied',
                 cancelled_at    TIMESTAMP,
@@ -671,6 +692,22 @@ async function initSchema() {
             CREATE INDEX IF NOT EXISTS idx_applications_round_user ON applications(round_id, user_id);
             CREATE INDEX IF NOT EXISTS idx_applications_round_group ON applications(round_id, group_type);
             CREATE INDEX IF NOT EXISTS idx_applications_user ON applications(user_id);
+        `);
+
+        await client.query(`
+            ALTER TABLE applications
+                ADD COLUMN IF NOT EXISTS track VARCHAR(10) DEFAULT '인문';
+        `);
+
+        await client.query(`
+            UPDATE applications a
+               SET track = CASE
+                   WHEN COALESCE(es.math_subject, '') IN ('미적분', '기하') THEN '자연'
+                   ELSE '인문'
+               END
+              FROM exam_scores es
+             WHERE a.user_id = es.user_id
+               AND (a.track IS NULL OR a.track NOT IN ('인문', '자연'));
         `);
 
         // 회차별 대학 통계 (A 추정에 사용)

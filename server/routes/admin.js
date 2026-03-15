@@ -1146,7 +1146,7 @@ router.post('/rounds/:id/announce', requireMainAdmin, async (req, res) => {
         const totalUsersRes = await client.query('SELECT COUNT(*) as cnt FROM users');
         const siteUserCount = parseInt(totalUsersRes.rows[0].cnt);
 
-        // 대학별 그룹별로 묶어서 처리
+        // 대학+학과+군별로 묶어서 처리
         const appsRes = await client.query(`
             SELECT a.id, a.user_id, a.university, a.department, a.group_type,
                    es.korean_std, es.math_std, es.english_grade,
@@ -1155,13 +1155,13 @@ router.post('/rounds/:id/announce', requireMainAdmin, async (req, res) => {
             FROM applications a
             JOIN exam_scores es ON es.user_id = a.user_id
             WHERE a.round_id = $1 AND a.status = 'applied'
-            ORDER BY a.university, a.group_type
+            ORDER BY a.university, a.department, a.group_type
         `, [roundId]);
 
-        // 그룹핑: university+group_type
+        // 그룹핑: university+department+group_type
         const groups = {};
         for (const app of appsRes.rows) {
-            const key = `${app.university}||${app.group_type}`;
+            const key = `${app.university}||${app.department || ''}||${app.group_type}`;
             if (!groups[key]) groups[key] = [];
             groups[key].push(app);
         }
@@ -1176,7 +1176,7 @@ router.post('/rounds/:id/announce', requireMainAdmin, async (req, res) => {
 
         const historyMap = {};
         for (const h of historyRes.rows) {
-            const key = `${h.university}||${h.group_type}`;
+            const key = `${h.university}||${h.department || ''}||${h.group_type}`;
             if (!historyMap[key]) historyMap[key] = [];
             historyMap[key].push(h);
         }
@@ -1185,9 +1185,9 @@ router.post('/rounds/:id/announce', requireMainAdmin, async (req, res) => {
         let failedCount = 0;
 
         for (const [key, apps] of Object.entries(groups)) {
-            const [university, group_type] = key.split('||');
+            const [university, department, group_type] = key.split('||');
             const uni = require('../data/universities').findUniversity(university);
-            const basePercentile = uni ? uni.basePercentile : 50;
+            const basePercentile = uni ? uni.getPercentileForDept(department || '') : 50;
 
             // A 추정
             const history = historyMap[key] || [];
@@ -1204,6 +1204,8 @@ router.post('/rounds/:id/announce', requireMainAdmin, async (req, res) => {
                 return sb - sa;
             });
 
+            let groupPassedCount = 0;
+
             // 각 지원자 R 계산 및 합불 판정
             for (let i = 0; i < apps.length; i++) {
                 const app = apps[i];
@@ -1218,17 +1220,18 @@ router.post('/rounds/:id/announce', requireMainAdmin, async (req, res) => {
 
                 if (passed) {
                     passedCount++;
+                    groupPassedCount++;
                     await client.query(
                         `INSERT INTO notifications (user_id, type, message)
                          VALUES ($1, 'admission_result', $2)`,
-                        [app.user_id, `🎉 ${university} ${group_type}군 합격! 등록 기간 내 대학을 선택하세요.`]
+                        [app.user_id, `🎉 ${university}${department ? ` ${department}` : ''} ${group_type}군 합격! 등록 기간 내 대학을 선택하세요.`]
                     );
                 } else {
                     failedCount++;
                     await client.query(
                         `INSERT INTO notifications (user_id, type, message)
                          VALUES ($1, 'admission_result', $2)`,
-                        [app.user_id, `📋 ${university} ${group_type}군 결과가 발표되었습니다.`]
+                        [app.user_id, `📋 ${university}${department ? ` ${department}` : ''} ${group_type}군 결과가 발표되었습니다.`]
                     );
                 }
             }
@@ -1239,7 +1242,7 @@ router.post('/rounds/:id/announce', requireMainAdmin, async (req, res) => {
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ON CONFLICT (round_id, university, department, group_type)
                 DO UPDATE SET site_applicants=$5, estimated_A=$6, accepted_count=$7
-            `, [roundId, university, apps[0]?.department || null, group_type, V, A, passedCount]);
+            `, [roundId, university, department || null, group_type, V, A, groupPassedCount]);
         }
 
         // 추합 라운드 1~3차 생성
@@ -1276,13 +1279,13 @@ router.post('/rounds/:id/supplementary/:sub_round', requireMainAdmin, async (req
     try {
         await client.query('BEGIN');
 
-        // declined (등록 포기) 된 자리 → waitlisted 중 상위자 passed로 전환
-        // 각 대학+군별로 빈 자리 수 계산
+        // declined (등록 포기) 된 자리 → failed 중 상위자 passed로 전환
+        // 각 대학+학과+군별로 빈 자리 수 계산
         const declinedRes = await client.query(`
-            SELECT university, group_type, COUNT(*) as declined_cnt
+            SELECT university, department, group_type, COUNT(*) as declined_cnt
             FROM applications
             WHERE round_id = $1 AND status = 'declined'
-            GROUP BY university, group_type
+            GROUP BY university, department, group_type
         `, [roundId]);
 
         let supplementCount = 0;
@@ -1291,23 +1294,24 @@ router.post('/rounds/:id/supplementary/:sub_round', requireMainAdmin, async (req
         const siteUserCount = parseInt(totalUsersRes.rows[0].cnt);
 
         for (const row of declinedRes.rows) {
-            const { university, group_type, declined_cnt } = row;
+                        const { university, department, group_type, declined_cnt } = row;
             const uni = require('../data/universities').findUniversity(university);
-            const basePercentile = uni ? uni.basePercentile : 50;
+                        const basePercentile = uni ? uni.getPercentileForDept(department || '') : 50;
             const capacity = calc.estimateCapacity(basePercentile, siteUserCount);
 
-            // 같은 대학+군에서 failed 상태인 지원자를 점수 순으로 가져옴
+                        // 같은 대학+학과+군에서 failed 상태인 지원자를 점수 순으로 가져옴
             const candidatesRes = await client.query(`
                 SELECT a.id, a.user_id, a.university, a.department, a.group_type,
                        es.korean_std, es.math_std, es.explore1_std, es.explore2_std
                 FROM applications a
                 JOIN exam_scores es ON es.user_id = a.user_id
-                WHERE a.round_id = $1 AND a.university = $2 AND a.group_type = $3
+                                WHERE a.round_id = $1 AND a.university = $2
+                                    AND COALESCE(a.department, '') = COALESCE($3, '') AND a.group_type = $4
                   AND a.status = 'failed'
                 ORDER BY (COALESCE(es.korean_std,0) + COALESCE(es.math_std,0) +
                           COALESCE(es.explore1_std,0) + COALESCE(es.explore2_std,0)) DESC
-                LIMIT $4
-            `, [roundId, university, group_type, parseInt(declined_cnt)]);
+                                LIMIT $5
+                        `, [roundId, university, department || '', group_type, parseInt(declined_cnt)]);
 
             for (const candidate of candidatesRes.rows) {
                 // 추합도 확률 판정 (여유있게 75%)
@@ -1320,7 +1324,7 @@ router.post('/rounds/:id/supplementary/:sub_round', requireMainAdmin, async (req
                 await client.query(
                     `INSERT INTO notifications (user_id, type, message)
                      VALUES ($1, 'supplementary', $2)`,
-                    [candidate.user_id, `🎊 ${university} ${group_type}군 ${subRound}차 추가합격! 오늘 안에 등록 여부를 결정해주세요.`]
+                    [candidate.user_id, `🎊 ${university}${department ? ` ${department}` : ''} ${group_type}군 ${subRound}차 추가합격! 오늘 안에 등록 여부를 결정해주세요.`]
                 );
                 supplementCount++;
             }

@@ -315,7 +315,7 @@ function renderGroupCards() {
             if (app.status === 'passed') card.classList.add('passed');
             if (app.status === 'failed') card.classList.add('failed');
 
-            uniEl.innerHTML = esc(app.university);
+            uniEl.innerHTML = esc(app.university) + (app.department ? `<span style="display:block;font-size:12px;color:var(--gray-500);margin-top:2px">${esc(app.department)}</span>` : '');
 
             // 칸수 게이지
             if (app.kanInfo) {
@@ -376,7 +376,7 @@ function renderAppliedDetail() {
 // ── 대학 검색 모달 ────────────────────────────────────────────────────────
 function openApplyModal(group) {
     pendingGroup = group;
-    document.getElementById('search-modal-title').textContent = `${group}군 대학 선택`;
+    document.getElementById('search-modal-title').textContent = `${group}군 대학/학과 선택`;
     document.getElementById('search-input').value = '';
     document.getElementById('search-results').innerHTML = '';
     document.getElementById('search-modal').style.display = 'flex';
@@ -394,12 +394,22 @@ function searchUniversity(q) {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(async () => {
         try {
-            const r = await fetch(`/api/apply/search?q=${encodeURIComponent(q || '서울')}`, { credentials: 'include' });
+            const preferredTrack = getPreferredTrack();
+            const r = await fetch(
+                `/api/apply/search?q=${encodeURIComponent(q || '서울')}&track=${encodeURIComponent(preferredTrack)}`,
+                { credentials: 'include' }
+            );
             if (!r.ok) return;
             const data = await r.json();
             renderSearchResults(data.results || []);
         } catch {}
     }, 200);
+}
+
+function getPreferredTrack() {
+    const mathSubject = String(myScores?.math_subject || '').trim();
+    if (mathSubject === '미적분' || mathSubject === '기하') return '자연';
+    return '인문';
 }
 
 function renderSearchResults(results) {
@@ -418,11 +428,14 @@ function renderSearchResults(results) {
     });
 
     const currentApp = pendingGroup ? myApplications[pendingGroup] || null : null;
+    const portfolio = computeCurrentPortfolio();
 
     wrap.innerHTML = ranked.map((u, index) => {
         const kan = u.kanInfo;
         const risk = getRiskMeta(kan?.kan);
-        const recommendation = getSearchRecommendationMeta(currentApp, u, index);
+        const recommendation = getSearchRecommendationMeta(currentApp, u, index, portfolio);
+        const trackLabel = u.track ? ` · ${u.track}` : '';
+        const deptLabel = u.department ? ` · ${u.department}` : '';
         const kanHtml = kan
             ? `<div style="display:flex;align-items:center;gap:6px;flex-direction:column;align-items:flex-end">
                    <div class="kan-container" style="height:24px;width:56px">${renderKanBars(kan.kan)}</div>
@@ -438,10 +451,10 @@ function renderSearchResults(results) {
             ? `<div class="modal-item-badges">${recommendation.badges.map(b => `<span class="mini-badge ${b.className}">${b.label}</span>`).join('')}</div>`
             : '';
         return `
-            <div class="modal-item" onclick="selectUniversity(${jsQuote(u.name)})">
+            <div class="modal-item" onclick="selectUniversity(${jsQuote(u.name)}, ${jsQuote(u.department || '')}, ${jsQuote(u.track || getPreferredTrack())})">
                 <div>
                     <div class="modal-item-name">${esc(u.name)}</div>
-                    <div class="modal-item-sub">${esc(u.region || '')} · ${esc(u.type || '')}</div>
+                    <div class="modal-item-sub">${esc(u.region || '')} · ${esc(u.type || '')}${esc(deptLabel)}${esc(trackLabel)}</div>
                     ${badgeHtml}
                     <div class="modal-item-reason">${recommendation.reason}</div>
                 </div>
@@ -450,12 +463,12 @@ function renderSearchResults(results) {
     }).join('');
 }
 
-async function selectUniversity(universityName) {
+async function selectUniversity(universityName, departmentName, track) {
     document.getElementById('search-modal').style.display = 'none';
-    return applyUniversityToGroup(pendingGroup, universityName);
+    return applyUniversityToGroup(pendingGroup, universityName, departmentName || null, track || null);
 }
 
-async function applyUniversityToGroup(group, universityName) {
+async function applyUniversityToGroup(group, universityName, departmentName = null, track = null) {
     if (!currentRound || currentRound.status !== 'open') {
         showToast('현재 지원 기간이 아닙니다.');
         return;
@@ -466,11 +479,22 @@ async function applyUniversityToGroup(group, universityName) {
         return;
     }
 
+    if (!departmentName) {
+        showToast('학과를 선택해주세요.');
+        return;
+    }
+
     try {
         const r = await fetch('/api/apply/applications', {
             method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ round_id: currentRound.id, university: universityName, group_type: group }),
+            body: JSON.stringify({
+                round_id: currentRound.id,
+                university: universityName,
+                department: departmentName,
+                track: track || getPreferredTrack(),
+                group_type: group,
+            }),
         });
         const data = await r.json();
         if (r.ok) {
@@ -481,7 +505,7 @@ async function applyUniversityToGroup(group, universityName) {
             renderApplyAnalytics();
             renderAppliedDetail();
             renderScoreDashboard();
-            showToast(`${group}군: ${universityName} 지원 완료 ✓`);
+            showToast(`${group}군: ${universityName} ${departmentName} 지원 완료 ✓`);
         } else {
             showToast(data.error || '지원 실패');
         }
@@ -809,7 +833,10 @@ async function loadReplacementSuggestions(rowsMeta = []) {
     try {
         const cards = await Promise.all(targets.map(async (target) => {
             const query = buildReplacementSearchQuery(target.app.university);
-            const response = await fetch(`/api/apply/search?q=${encodeURIComponent(query)}`, { credentials: 'include' });
+            const response = await fetch(
+                `/api/apply/search?q=${encodeURIComponent(query)}&track=${encodeURIComponent(getPreferredTrack())}`,
+                { credentials: 'include' }
+            );
             if (!response.ok) return renderReplacementCard(target, []);
             const data = await response.json();
             const candidates = pickReplacementCandidates(target.app, data.results || []);
@@ -832,17 +859,21 @@ function buildReplacementSearchQuery(universityName) {
     return seed.slice(0, 2) || '서울';
 }
 
-function getSearchRecommendationMeta(currentApp, item, index) {
+function getSearchRecommendationMeta(currentApp, item, index, portfolio) {
     const currentKan = Number(currentApp?.kanInfo?.kan || 0);
     const nextKan = Number(item?.kanInfo?.kan || 0);
     const uplift = Number.isFinite(nextKan) ? nextKan - currentKan : 0;
     const badges = [];
+    const targetMeta = getPortfolioTargetMeta(portfolio);
 
     if (index === 0 && Number.isFinite(nextKan)) {
         badges.push({ className: 'recommend', label: '추천' });
     }
     if (uplift >= 1) {
         badges.push({ className: 'better', label: `+${uplift}칸` });
+    }
+    if (Math.abs(nextKan - targetMeta.idealKan) <= 1 && Number.isFinite(nextKan)) {
+        badges.push({ className: 'recommend', label: targetMeta.label });
     }
 
     let reason = '칸수와 합격확률 기준으로 정렬된 결과입니다.';
@@ -851,25 +882,55 @@ function getSearchRecommendationMeta(currentApp, item, index) {
     else if (nextKan >= 6) reason = '안정권으로 분류되는 후보입니다.';
     else if (nextKan >= 4) reason = '적정권으로 검토하기 좋은 후보입니다.';
 
+    if (portfolio?.safe === 0 && nextKan >= 6) {
+        reason = '현재 배치에 안정 카드가 없어, 안정권 보강 후보로 적합합니다.';
+    } else if (portfolio?.risk >= 1 && uplift >= 1) {
+        reason = '위험군을 완충하는 방향으로 교체 효과가 기대됩니다.';
+    }
+
     return { badges, reason };
 }
 
 function pickReplacementCandidates(currentApp, results) {
     const currentKan = Number(currentApp?.kanInfo?.kan || 0);
+    const portfolio = computeCurrentPortfolio();
+    const targetMeta = getPortfolioTargetMeta(portfolio);
+    const currentDept = String(currentApp?.department || '');
     return (results || [])
-        .filter(item => item && item.name && item.name !== currentApp.university)
+        .filter(item => item && item.name)
+        .filter(item => {
+            if (item.name !== currentApp.university) return true;
+            return String(item.department || '') !== currentDept;
+        })
         .filter(item => Number.isFinite(Number(item?.kanInfo?.kan)))
         .map(item => {
             const kan = Number(item.kanInfo.kan);
             const prob = Number(item?.kanInfo?.prob || 0);
-            const distanceToIdeal = Math.abs(5 - kan);
+            const distanceToIdeal = Math.abs(targetMeta.idealKan - kan);
             const uplift = kan - currentKan;
             const score = uplift * 20 + prob - distanceToIdeal * 6;
-            return { ...item, _score: score, _uplift: uplift };
+            const reason = buildReplacementReason(currentKan, kan, portfolio, targetMeta);
+            return { ...item, _score: score, _uplift: uplift, _reason: reason };
         })
         .filter(item => item._uplift >= 1 || Number(item?.kanInfo?.kan) >= 4)
         .sort((a, b) => b._score - a._score)
         .slice(0, 2);
+}
+
+function buildReplacementReason(currentKan, nextKan, portfolio, targetMeta) {
+    if (portfolio?.safe === 0 && nextKan >= 6) {
+        return '안정 카드 보강에 유리';
+    }
+    if (currentKan <= 2 && nextKan >= 4) {
+        return '위험군에서 적정권으로 완충';
+    }
+    if (currentKan <= 3 && nextKan >= 5) {
+        return '소신 지원을 안정적으로 보정';
+    }
+    if (Math.abs(targetMeta.idealKan - nextKan) <= 1) {
+        return `${targetMeta.label}에 적합`;
+    }
+    return '칸수·합격확률 기준 우수';
 }
 
 function renderReplacementCard(target, candidates) {
@@ -879,12 +940,15 @@ function renderReplacementCard(target, candidates) {
         ? `<div class="replacement-list">${candidates.map(candidate => `
             <div class="replacement-item">
                 <div class="replacement-item-main">
-                    <div class="replacement-item-name">${esc(candidate.name)}</div>
-                    <div class="replacement-item-meta">예상 ${candidate.kanInfo.kan}칸 · 합격확률 ${candidate.kanInfo.prob}% · 현재 대비 +${candidate._uplift}칸</div>
+                    <div class="replacement-item-name">${esc(candidate.name)}${candidate.department ? ` · ${esc(candidate.department)}` : ''}</div>
+                    <div class="replacement-item-meta">예상 ${candidate.kanInfo.kan}칸 · 합격확률 ${candidate.kanInfo.prob}% · 현재 대비 +${candidate._uplift}칸${candidate.track ? ` · ${esc(candidate.track)}` : ''}</div>
+                    <div class="modal-item-reason">${esc(candidate._reason)}</div>
                 </div>
                 <div class="replacement-item-actions">
                     <span class="risk-chip ${getRiskMeta(candidate.kanInfo.kan).className}">${getRiskMeta(candidate.kanInfo.kan).label}</span>
-                    <button class="replacement-apply-btn" onclick="applyRecommendedReplacement(${jsQuote(target.group)}, ${jsQuote(candidate.name)})">이 대학으로 교체</button>
+                    ${candidate.department
+                        ? `<button class="replacement-apply-btn" onclick="applyRecommendedReplacement(${jsQuote(target.group)}, ${jsQuote(candidate.name)}, ${jsQuote(candidate.department || '')}, ${jsQuote(candidate.track || getPreferredTrack())})">이 학과로 교체</button>`
+                        : '<span style="font-size:11px;color:var(--gray-400)">학과 정보 없음</span>'}
                 </div>
             </div>`).join('')}</div>`
         : '<div class="replacement-empty">조건에 맞는 교체 후보를 찾지 못했습니다.</div>';
@@ -902,11 +966,11 @@ function renderReplacementCard(target, candidates) {
         </section>`;
 }
 
-function applyRecommendedReplacement(group, universityName) {
-    if (!group || !universityName) return;
-    const ok = confirm(`${group}군 지원을 ${universityName}로 교체할까요?`);
+function applyRecommendedReplacement(group, universityName, departmentName, track) {
+    if (!group || !universityName || !departmentName) return;
+    const ok = confirm(`${group}군 지원을 ${universityName} ${departmentName}로 교체할까요?`);
     if (!ok) return;
-    applyUniversityToGroup(group, universityName);
+    applyUniversityToGroup(group, universityName, departmentName, track || getPreferredTrack());
 }
 
 function computePortfolioMetrics(kans, appCount) {
@@ -935,6 +999,28 @@ function computePortfolioMetrics(kans, appCount) {
     const score = Math.max(0, Math.min(100, coverageScore + balanceScore + safetyScore + competitivenessScore));
 
     return { score, safe, fit, bold, risk, coverageRatio, balanceRisk, avg };
+}
+
+function computeCurrentPortfolio() {
+    const apps = Object.values(myApplications || {});
+    const kans = apps.map(app => Number(app?.kanInfo?.kan)).filter(Number.isFinite);
+    return computePortfolioMetrics(kans, apps.length);
+}
+
+function getPortfolioTargetMeta(portfolio) {
+    if (!portfolio || portfolio.coverageRatio < 1) {
+        return { idealKan: 5, label: '지원군 우선 채우기' };
+    }
+    if (portfolio.safe === 0) {
+        return { idealKan: 6, label: '안정 카드 보강' };
+    }
+    if (portfolio.risk >= 1) {
+        return { idealKan: 5, label: '위험군 완충' };
+    }
+    if (portfolio.safe >= 2) {
+        return { idealKan: 4, label: '적정 카드 확보' };
+    }
+    return { idealKan: 5, label: '균형 유지' };
 }
 
 function buildActionRecommendations(portfolio) {

@@ -11,6 +11,20 @@ const calc = require('../utils/admissionCalc');
 
 const router = express.Router();
 
+function normalizeTrack(rawTrack) {
+    if (!rawTrack) return null;
+    const normalized = String(rawTrack).trim();
+    if (['인문', '문과'].includes(normalized)) return '인문';
+    if (['자연', '이과'].includes(normalized)) return '자연';
+    return null;
+}
+
+function inferTrackFromCategory(category) {
+    const c = String(category || '');
+    const naturalKeywords = ['자연', '공학', '의학', '간호', '약학', '생명', '과학'];
+    return naturalKeywords.some(keyword => c.includes(keyword)) ? '자연' : '인문';
+}
+
 function requireAuth(req, res, next) {
     if (!req.session?.userId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     next();
@@ -229,14 +243,26 @@ router.get('/kan/:userId', requireAuth, async (req, res) => {
 
 // ── 원서 제출 ─────────────────────────────────────────────────────────────
 router.post('/applications', requireAuth, async (req, res) => {
-    const { round_id, university, department, group_type } = req.body;
+    const { round_id, university, department, group_type, track } = req.body;
 
-    if (!round_id || !university || !group_type) {
+    if (!round_id || !university || !department || !group_type) {
         return res.status(400).json({ error: '필수 항목이 누락되었습니다.' });
     }
     if (!['가', '나', '다'].includes(group_type)) {
         return res.status(400).json({ error: '군은 가/나/다 중 하나여야 합니다.' });
     }
+
+    const uni = findUniversity(university);
+    if (!uni) {
+        return res.status(404).json({ error: '대학 정보를 찾을 수 없습니다.' });
+    }
+    const dept = uni.getDepartment(String(department).trim());
+    if (!dept) {
+        return res.status(400).json({ error: '해당 대학의 학과 정보를 찾을 수 없습니다.' });
+    }
+
+    const resolvedDepartment = dept.name;
+    const resolvedTrack = normalizeTrack(track) || inferTrackFromCategory(dept.category);
 
     const client = await pool.connect();
     try {
@@ -273,12 +299,12 @@ router.post('/applications', requireAuth, async (req, res) => {
 
         // 원서 저장
         const appRes = await client.query(`
-            INSERT INTO applications (round_id, user_id, university, department, group_type, status)
-            VALUES ($1, $2, $3, $4, $5, 'applied')
+            INSERT INTO applications (round_id, user_id, university, department, track, group_type, status)
+            VALUES ($1, $2, $3, $4, $5, $6, 'applied')
             ON CONFLICT (round_id, user_id, group_type) DO UPDATE SET
-                university=$3, department=$4, status='applied', cancelled_at=NULL
+                university=$3, department=$4, track=$5, status='applied', cancelled_at=NULL
             RETURNING *
-        `, [round_id, req.session.userId, university, department || null, group_type]);
+        `, [round_id, req.session.userId, university, resolvedDepartment, resolvedTrack, group_type]);
 
         await client.query('COMMIT');
         res.json({ ok: true, application: appRes.rows[0], remaining_tickets: ticketRes.rows[0].tickets });
@@ -363,7 +389,7 @@ router.get('/applications/me', requireAuth, async (req, res) => {
         const applications = result.rows.map(app => {
             let kanInfo = null;
             if (scores?.korean_std) {
-                kanInfo = calc.getKanInfo(scores, app.university, app.department, '인문');
+                kanInfo = calc.getKanInfo(scores, app.university, app.department, app.track || '인문');
             }
             return { ...app, kanInfo };
         });
@@ -383,20 +409,76 @@ router.get('/search', requireAuth, async (req, res) => {
     try {
         const scoreRes = await pool.query('SELECT * FROM exam_scores WHERE user_id = $1', [req.session.userId]);
         const scores = scoreRes.rows[0];
+        const requestedTrack = normalizeTrack(track);
 
         // 대학 목록에서 검색
         const { getAllUniversities } = require('../data/universities');
         const qLower = q.toLowerCase();
-        const unis = getAllUniversities().filter(u =>
-            u.name.includes(q) || (u.aliases || []).some(a => a.includes(q))
-        );
+        const unis = getAllUniversities().filter(u => {
+            const nameHit = String(u.name || '').toLowerCase().includes(qLower);
+            const aliasHit = (u.aliases || []).some(a => String(a || '').toLowerCase().includes(qLower));
+            if (nameHit || aliasHit) return true;
 
-        const results = unis.slice(0, 15).map(uni => {
-            const kanInfo = scores?.korean_std
-                ? calc.getKanInfo(scores, uni.name, '', track || '인문')
-                : null;
-            return { name: uni.name, region: uni.region, type: uni.type, kanInfo };
+            const fullUni = findUniversity(u.name);
+            if (!fullUni || !Array.isArray(fullUni.departments)) return false;
+            return fullUni.departments.some(dept =>
+                String(dept?.name || '').toLowerCase().includes(qLower)
+            );
         });
+
+        const results = [];
+        for (const uniMeta of unis.slice(0, 20)) {
+            const fullUni = findUniversity(uniMeta.name);
+            if (!fullUni) continue;
+
+            const deptList = Array.isArray(fullUni.departments) ? fullUni.departments : [];
+            const matchedDepts = deptList.filter(dept => {
+                const deptNameHit = String(dept?.name || '').toLowerCase().includes(qLower);
+                const uniNameHit = String(fullUni.name || '').toLowerCase().includes(qLower);
+                return deptNameHit || uniNameHit;
+            });
+
+            for (const dept of matchedDepts.slice(0, 12)) {
+                const deptTrack = requestedTrack || inferTrackFromCategory(dept.category);
+                const kanInfo = scores?.korean_std
+                    ? calc.getKanInfo(scores, fullUni.name, dept.name, deptTrack)
+                    : null;
+
+                results.push({
+                    name: fullUni.name,
+                    university: fullUni.name,
+                    department: dept.name,
+                    category: dept.category || null,
+                    region: fullUni.region,
+                    type: fullUni.type,
+                    track: deptTrack,
+                    kanInfo,
+                });
+
+                if (results.length >= 50) break;
+            }
+            if (results.length >= 50) break;
+        }
+
+        if (results.length === 0) {
+            // 학과명이 아닌 대학명만 들어오는 경우를 위한 완만한 fallback
+            for (const uniMeta of unis.slice(0, 15)) {
+                const fallbackTrack = requestedTrack || '인문';
+                const kanInfo = scores?.korean_std
+                    ? calc.getKanInfo(scores, uniMeta.name, '', fallbackTrack)
+                    : null;
+                results.push({
+                    name: uniMeta.name,
+                    university: uniMeta.name,
+                    department: null,
+                    category: null,
+                    region: uniMeta.region,
+                    type: uniMeta.type,
+                    track: fallbackTrack,
+                    kanInfo,
+                });
+            }
+        }
 
         res.json({ results });
     } catch (err) {

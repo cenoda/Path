@@ -29,6 +29,7 @@ const UI = {
     hubSocialCurrentChatNickname: '',
     hubNotifRankTab: 'today',
     moreMenuGuardRaf: 0,
+    homeLastUpdatedAt: 0,
     moreSheetGesture: {
         active: false,
         startY: 0,
@@ -66,16 +67,36 @@ const UI = {
         tabScoreCalc: document.getElementById('tab-scorecalc'),
         tabBalloon:  document.getElementById('tab-balloon'),
         homeStartBtn: document.getElementById('home-start-btn'),
+        homePlanBtn: document.getElementById('home-plan-btn'),
         homeRefreshBtn: document.getElementById('home-refresh-btn'),
+        homeHeroTier: document.getElementById('home-hero-tier'),
+        homeHeroRank: document.getElementById('home-hero-rank'),
+        homeHeroTitle: document.getElementById('home-hero-title'),
+        homeHeroCopy: document.getElementById('home-hero-copy'),
+        homeNextFocus: document.getElementById('home-next-focus'),
+        homeNextFocusMeta: document.getElementById('home-next-focus-meta'),
+        homeActiveSummary: document.getElementById('home-active-summary'),
+        homeActiveSummaryMeta: document.getElementById('home-active-summary-meta'),
+        homeBriefTitle: document.getElementById('home-brief-title'),
+        homeBriefCopy: document.getElementById('home-brief-copy'),
+        homeBriefUpdated: document.getElementById('home-brief-updated'),
+        homeBriefUniv: document.getElementById('home-brief-univ'),
+        homeBriefRoomsBtn: document.getElementById('home-brief-rooms-btn'),
+        homeBriefSocialBtn: document.getElementById('home-brief-social-btn'),
         homeQuickApplyBtn: document.getElementById('home-quick-apply'),
         homeQuickShopBtn: document.getElementById('home-quick-shop'),
         homeQuickSocialBtn: document.getElementById('home-quick-social'),
         homeQuickNotifBtn: document.getElementById('home-quick-notif'),
         homeStatToday: document.getElementById('home-stat-today'),
+        homeStatTodayMeta: document.getElementById('home-stat-today-meta'),
         homeStatTotal: document.getElementById('home-stat-total'),
+        homeStatTotalMeta: document.getElementById('home-stat-total-meta'),
         homeStatActive: document.getElementById('home-stat-active'),
+        homeStatActiveMeta: document.getElementById('home-stat-active-meta'),
         homeTopList: document.getElementById('home-top-list'),
+        homeTopOpenBtn: document.getElementById('home-top-open-btn'),
         homeRoomList: document.getElementById('home-room-list'),
+        homeRoomOpenBtn: document.getElementById('home-room-open-btn'),
         hubOverlay: document.getElementById('hub-overlay'),
         hubOverlayTitle: document.getElementById('hub-overlay-title'),
         hubOverlayBody: document.getElementById('hub-overlay-body'),
@@ -279,9 +300,12 @@ const UI = {
             };
         }
         this.elements.homeStartBtn?.addEventListener('click', () => this.switchTab('study'));
+        this.elements.homePlanBtn?.addEventListener('click', () => this.switchTab('planner'));
         this.elements.homeRefreshBtn?.addEventListener('click', () => {
             this.loadHomeHubData(true).catch(() => {});
         });
+        this.elements.homeBriefRoomsBtn?.addEventListener('click', () => this.switchTab('rooms'));
+        this.elements.homeBriefSocialBtn?.addEventListener('click', () => this.navigateToMessages());
         this.elements.homeQuickApplyBtn?.addEventListener('click', () => this.openHomeHubOverlay('apply'));
         this.elements.homeQuickShopBtn?.addEventListener('click', () => this.openHomeHubOverlay('shop'));
         if (this.elements.homeQuickSocialBtn) {
@@ -308,6 +332,10 @@ const UI = {
             });
         }
         this.elements.homeQuickNotifBtn?.addEventListener('click', () => this.openHomeHubOverlay('notif'));
+        this.elements.homeTopOpenBtn?.addEventListener('click', () => this.openHomeHubOverlay('notif'));
+        this.elements.homeRoomOpenBtn?.addEventListener('click', () => this.switchTab('rooms'));
+        this.elements.homeTopList?.addEventListener('click', (e) => this.handleHomeListAction(e));
+        this.elements.homeRoomList?.addEventListener('click', (e) => this.handleHomeListAction(e));
         this.elements.hubOverlayCloseBtn?.addEventListener('click', () => this.closeHomeHubOverlay());
         this.elements.hubOverlayConfirmBtn?.addEventListener('click', () => this.closeHomeHubOverlay());
         this.elements.hubOverlay?.addEventListener('click', (e) => {
@@ -358,36 +386,180 @@ const UI = {
         [this.elements.inputHr, this.elements.inputMin].forEach(el => {
             el?.addEventListener('input', () => {
                 document.querySelectorAll('.time-preset-btn').forEach(b => b.classList.remove('active'));
+
+            handleHomeListAction(event) {
+                const button = event.target.closest('[data-home-action]');
+                if (!button) return;
+
+                const action = button.getAttribute('data-home-action');
+                if (action === 'retry-home') {
+                    this.loadHomeHubData(true).catch(() => {});
+                    return;
+                }
+                if (action === 'start-study') {
+                    this.switchTab('study');
+                    return;
+                }
+                if (action === 'browse-rooms') {
+                    this.switchTab('rooms');
+                    return;
+                }
+                if (action === 'open-rank') {
+                    this.openHomeHubOverlay('notif');
+                    return;
+                }
+                if (action === 'open-room') {
+                    const roomId = parseInt(button.getAttribute('data-room-id'), 10) || 0;
+                    this.openHomeRoom(roomId);
+                }
+            },
+
+            openHomeRoom(roomId) {
+                this.switchTab('rooms');
+                if (!roomId) return;
+                if (typeof window.GroupRooms !== 'undefined' && typeof window.GroupRooms.openRoom === 'function') {
+                    window.GroupRooms.openRoom(roomId).catch(() => {});
+                }
+            },
             });
         });
 
         document.getElementById('plan-toggle-btn')?.addEventListener('click', () => {
-            const section = document.getElementById('plan-section');
-            const btn = document.getElementById('plan-toggle-btn');
+                    this.renderHomeLoadingState();
             const arrow = document.getElementById('plan-toggle-arrow');
-            const isOpen = !section.classList.contains('hidden');
-            section.classList.toggle('hidden', isOpen);
-            btn.classList.toggle('open', !isOpen);
-            if (arrow) arrow.textContent = isOpen ? '▾' : '▴';
-        });
-        this.elements.subjectSelect?.addEventListener('change', () => this.renderQuickSubjects());
-        this.elements.quickSubjects?.addEventListener('click', (e) => this.handleQuickSubjectClick(e));
-        this.elements.studyPlanForm?.addEventListener('submit', (e) => this.handleStudyPlanSubmit(e));
-        this.elements.studyPlanList?.addEventListener('click', (e) => this.handleStudyPlanDraftDelete(e));
-        this.elements.studyPlanSyncBtn?.addEventListener('click', () => this.handleStudyPlanSyncClick());
 
-        this.elements.weekPrevBtn.onclick = () => this.loadWeekCalendar(this.weekOffset - 1, {
+                try {
+                    const [stats, ranking, rooms] = await Promise.all([
+                        StorageManager.fetchStudyStats(),
+                        StorageManager.fetchTodayRanking(50),
+                        StorageManager.fetchPublicRooms(5)
+                    ]);
+
+                    const todaySec = parseInt(stats?.today_sec, 10) || 0;
+                    const totalSec = parseInt(stats?.total_sec, 10) || 0;
+                    const activeCount = ranking.reduce((acc, row) => acc + (row?.is_studying ? 1 : 0), 0);
+
+                    if (this.elements.homeStatToday) this.elements.homeStatToday.textContent = this.formatDuration(todaySec);
+                    if (this.elements.homeStatTodayMeta) this.elements.homeStatTodayMeta.textContent = todaySec > 0 ? `지금까지 ${this.formatDuration(todaySec)} 진행했습니다` : '지금 25분만 시작해도 흐름이 붙습니다';
+                    if (this.elements.homeStatTotal) this.elements.homeStatTotal.textContent = this.formatDuration(totalSec);
+                    if (this.elements.homeStatTotalMeta) this.elements.homeStatTotalMeta.textContent = totalSec > 0 ? '누적 집중이 계속 쌓이고 있습니다' : '첫 기록을 만들 준비가 됐습니다';
+                    if (this.elements.homeStatActive) this.elements.homeStatActive.textContent = `${activeCount}명`;
+                    if (this.elements.homeStatActiveMeta) this.elements.homeStatActiveMeta.textContent = activeCount > 0 ? '지금 바로 자극을 받을 수 있습니다' : '조용한 시간대지만 먼저 시작할 수 있습니다';
+
+                    this.homeLastUpdatedAt = Date.now();
+                    this.updateHomeHeroSummary({ todaySec, totalSec, activeCount, ranking, rooms });
+                    this.renderHomeTopRanking(ranking.slice(0, 5));
+                    this.renderHomePublicRooms(rooms);
+                } catch (err) {
+                    this.renderHomeErrorState(err);
+                }
             anchorDate: this.calendarAnchorDate || this.calendarSelectedDate || this.plannerDate,
-            selectedDate: this.shiftDateByDays(this.calendarSelectedDate || this.plannerDate || this.toLocalYmd(new Date()), -7),
-            syncPlanner: false
-        });
-        this.elements.weekNextBtn.onclick = () => this.loadWeekCalendar(this.weekOffset + 1, {
-            anchorDate: this.calendarAnchorDate || this.calendarSelectedDate || this.plannerDate,
+
+            renderHomeLoadingState() {
+                const skeleton = `
+                    <div class="home-row-item home-row-item-loading">
+                        <div class="home-row-rank home-skeleton-block"></div>
+                        <div class="home-row-main">
+                            <div class="home-skeleton-line"></div>
+                            <div class="home-skeleton-line short"></div>
+                        </div>
+                    </div>
+                    <div class="home-row-item home-row-item-loading">
+                        <div class="home-row-rank home-skeleton-block"></div>
+                        <div class="home-row-main">
+                            <div class="home-skeleton-line"></div>
+                            <div class="home-skeleton-line short"></div>
+                        </div>
+                    </div>`;
+                this.elements.homeTopList.innerHTML = skeleton;
+                this.elements.homeRoomList.innerHTML = skeleton;
+                if (this.elements.homeBriefUpdated) this.elements.homeBriefUpdated.textContent = '갱신 중';
+            },
+
+            renderHomeErrorState(err) {
+                const message = this.escapeHtml(err?.message || '홈 데이터를 불러오지 못했습니다.');
+                const retry = '<button type="button" class="home-row-cta home-row-cta-wide" data-home-action="retry-home">다시 불러오기</button>';
+                this.elements.homeTopList.innerHTML = `<div class="home-empty home-empty-stack"><strong>랭킹을 불러오지 못했습니다</strong><span>${message}</span>${retry}</div>`;
+                this.elements.homeRoomList.innerHTML = `<div class="home-empty home-empty-stack"><strong>공개 그룹을 불러오지 못했습니다</strong><span>잠시 후 다시 시도하거나 그룹 탭에서 직접 확인하세요.</span><button type="button" class="home-row-cta home-row-cta-wide" data-home-action="browse-rooms">그룹 탭 열기</button></div>`;
+                if (this.elements.homeHeroTitle) this.elements.homeHeroTitle.textContent = '홈 요약을 다시 불러오는 중입니다';
+                if (this.elements.homeHeroCopy) this.elements.homeHeroCopy.textContent = '네트워크 상태를 확인한 뒤 새로고침하면 최신 홈 데이터를 다시 받아옵니다.';
+                if (this.elements.homeBriefUpdated) this.elements.homeBriefUpdated.textContent = '갱신 실패';
+            },
+
+            updateHomeHeroSummary({ todaySec, totalSec, activeCount, ranking, rooms }) {
+                const nickname = this.currentUser?.nickname || this.currentUser?.display_nickname || '학습자';
+                const tier = this.rankingInfo?.tier || this.currentUser?.tier || '학습자';
+                const rankPctRaw = this.rankingInfo?.pct;
+                const rankPct = Number.isFinite(Number(rankPctRaw)) ? `${Number(rankPctRaw).toFixed(2)}%` : null;
+                const roomCount = Array.isArray(rooms) ? rooms.length : 0;
+                const studyingUsers = Array.isArray(ranking) ? ranking.filter((row) => row?.is_studying).length : 0;
+                const activeRoom = Array.isArray(rooms) ? rooms.find((room) => (parseInt(room?.member_count, 10) || 0) > 0) : null;
+
+                if (this.elements.homeHeroTier) this.elements.homeHeroTier.textContent = tier;
+                if (this.elements.homeHeroRank) this.elements.homeHeroRank.textContent = rankPct ? `상위 ${rankPct}` : '오늘 순위 집계 중';
+                if (this.elements.homeHeroTitle) {
+                    this.elements.homeHeroTitle.textContent = todaySec > 0
+                        ? `${nickname}님, 오늘 ${this.formatDuration(todaySec)} 집중했어요`
+                        : `${nickname}님, 오늘 첫 세션을 시작할 시간입니다`;
+                }
+                if (this.elements.homeHeroCopy) {
+                    this.elements.homeHeroCopy.textContent = todaySec > 0
+                        ? `지금 ${activeCount}명이 공부 중이고 공개 그룹 ${roomCount}개가 열려 있습니다. 현재 흐름을 이어가면 오늘 랭킹 자극을 그대로 가져갈 수 있습니다.`
+                        : `지금 ${activeCount}명이 공부 중입니다. 공개 그룹과 실시간 랭킹을 보고 바로 학습 탭으로 들어가면 진입 속도가 빨라집니다.`;
+                }
+
+                if (this.elements.homeNextFocus) {
+                    this.elements.homeNextFocus.textContent = todaySec >= 5400 ? '계획을 추가하고 다음 블록으로 이어가기' : '학습 탭으로 이동해 바로 시작하기';
+                }
+                if (this.elements.homeNextFocusMeta) {
+                    this.elements.homeNextFocusMeta.textContent = todaySec >= 5400
+                        ? '오늘 공부가 충분히 쌓였습니다. 다음 과목이나 시간을 플래너에 추가해 흐름을 유지하세요.'
+                        : '과목을 고르고 타이머를 켜면 홈에서 보던 흐름을 바로 이어갈 수 있습니다.';
+                }
+
+                if (this.elements.homeActiveSummary) {
+                    this.elements.homeActiveSummary.textContent = studyingUsers > 0
+                        ? `지금 ${studyingUsers}명이 공부 중입니다`
+                        : '지금은 조용한 구간입니다';
+                }
+                if (this.elements.homeActiveSummaryMeta) {
+                    this.elements.homeActiveSummaryMeta.textContent = activeRoom
+                        ? `${activeRoom.name || '공개 그룹'}에 ${parseInt(activeRoom?.member_count, 10) || 0}명이 모여 있습니다.`
+                        : roomCount > 0
+                            ? `공개 그룹 ${roomCount}개에서 바로 합류할 수 있습니다.`
+                            : '공개 그룹이 비어 있어도 개인 세션부터 바로 시작할 수 있습니다.';
+                }
+
+                if (this.elements.homeBriefTitle) {
+                    this.elements.homeBriefTitle.textContent = todaySec > 0
+                        ? `오늘 누적 ${this.formatDuration(todaySec)} 진행 중`
+                        : '25분만 먼저 시작해도 진입이 쉬워집니다';
+                }
+                if (this.elements.homeBriefCopy) {
+                    this.elements.homeBriefCopy.textContent = totalSec > 0
+                        ? `누적 ${this.formatDuration(totalSec)}가 쌓여 있습니다. ${rankPct ? `현재 백분위는 상위 ${rankPct}입니다.` : '오늘 백분위는 계속 갱신 중입니다.'}`
+                        : '아직 누적 기록이 적더라도 첫 세션을 시작하면 홈 랭킹과 성장 지표가 바로 살아납니다.';
+                }
+                if (this.elements.homeBriefUniv) {
+                    this.elements.homeBriefUniv.textContent = this.currentUser?.university || '소속 미설정';
+                }
+                if (this.elements.homeBriefUpdated) {
+                    this.elements.homeBriefUpdated.textContent = `${this.formatHomeUpdatedTime(this.homeLastUpdatedAt)} 갱신`;
+                }
+            },
+
+            formatHomeUpdatedTime(timestamp) {
+                if (!timestamp) return '방금';
+                const date = new Date(timestamp);
+                const hh = String(date.getHours()).padStart(2, '0');
+                const mm = String(date.getMinutes()).padStart(2, '0');
+                return `${hh}:${mm}`;
+            },
             selectedDate: this.shiftDateByDays(this.calendarSelectedDate || this.plannerDate || this.toLocalYmd(new Date()), 7),
             syncPlanner: false
         });
         this.elements.planForm.onsubmit = (e) => this.handlePlanSubmit(e);
-        this.elements.planCancelBtn?.addEventListener('click', () => this.clearPlanFormEditingState());
+                    this.elements.homeTopList.innerHTML = '<div class="home-empty home-empty-stack"><strong>아직 오늘 랭킹 데이터가 없습니다</strong><span>첫 세션을 시작하면 홈 랭킹 흐름도 함께 살아납니다.</span><button type="button" class="home-row-cta home-row-cta-wide" data-home-action="start-study">지금 학습 시작</button></div>';
         this.elements.calendarTimeline.addEventListener('click', (e) => this.handleCalendarTimelineClick(e));
         this.elements.calendarDayPanel?.addEventListener('click', (e) => this.handleCalendarDayPanelClick(e));
         this.elements.calendarTimeline.addEventListener('pointerdown', (e) => this.handlePlanPointerDown(e));
@@ -402,7 +574,10 @@ const UI = {
         });
 
         this.elements.enterBtn.onclick = async () => {
-            let { hr, min } = this.getSanitizedTimerInput();
+                        <div class="home-row-side">
+                            <div class="home-row-val">${this.formatDuration(sec)}</div>
+                            <button type="button" class="home-row-cta" data-home-action="start-study">학습하기</button>
+                        </div>
             if (this.currentMode === 'timer' && hr === 0 && min === 0) {
                 hr = 1; min = 20;
                 this.elements.inputHr.value = '01';
@@ -410,7 +585,7 @@ const UI = {
                 this.syncInputToDisplay();
             }
             const subjectId = parseInt(this.elements.subjectSelect.value, 10) || 0;
-
+                    this.elements.homeRoomList.innerHTML = '<div class="home-empty home-empty-stack"><strong>현재 공개 그룹이 없습니다</strong><span>먼저 개인 학습을 시작하거나 그룹 탭에서 새 방을 만들 수 있습니다.</span><button type="button" class="home-row-cta home-row-cta-wide" data-home-action="browse-rooms">그룹 탭 열기</button></div>';
             if (!subjectId) {
                 alert('공부 시작 전 과목을 선택하거나 추가하세요.');
                 return;
@@ -425,7 +600,10 @@ const UI = {
             this.elements.breakBtn.textContent = this.currentMode === 'stopwatch' ? '학습 완료하기' : '중단하기';
 
             // 플래너 저장은 백그라운드 (타이머 시작 블로킹 안 함)
-            this.persistStudyPlanDrafts(this.toLocalYmd(new Date()), { reloadViews: false }).catch(e => {
+                        <div class="home-row-side">
+                            <div class="home-row-val">${members}/${maxMembers || '-'}명 · ${this.formatDuration(todaySec)}</div>
+                            <button type="button" class="home-row-cta" data-home-action="open-room" data-room-id="${parseInt(room?.id, 10) || 0}">바로 입장</button>
+                        </div>
                 console.warn('플래너 저장 실패 (무시):', e);
             });
 

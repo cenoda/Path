@@ -189,67 +189,119 @@
         </div>
 
         <section id="tab-home" class="tab-panel active">
-            <div class="home-hero-card">
-                <p class="home-hero-kicker">STUDY HUB</p>
-                <h2 class="home-hero-title">지금 공부 중인 사람들을 보며 바로 시작하세요</h2>
-                <p class="home-hero-copy">실시간 순위와 공개 그룹 현황을 한눈에 보고 바로 학습 탭으로 이동할 수 있습니다.</p>
-                <div class="home-hero-actions">
-                    <button type="button" class="btn-primary home-start-btn" id="home-start-btn">바로 학습 시작</button>
-                    <button type="button" class="home-refresh-btn" id="home-refresh-btn">새로고침</button>
+            <div class="home-hero-shell">
+                <div class="home-hero-card">
+                    <div class="home-hero-topline">
+                        <p class="home-hero-kicker">TODAY'S FOCUS</p>
+                        <div class="home-hero-chip-row">
+                            <span class="home-hero-chip" id="home-hero-tier">학습자</span>
+                            <span class="home-hero-chip" id="home-hero-rank">상위 집계 중</span>
+                        </div>
+                    </div>
+                    <h2 class="home-hero-title" id="home-hero-title">오늘 흐름을 바로 이어가세요</h2>
+                    <p class="home-hero-copy" id="home-hero-copy">실시간 랭킹과 공개 그룹 현황을 보고 바로 학습을 시작할 수 있습니다.</p>
+                    <div class="home-hero-highlight-row">
+                        <article class="home-hero-highlight">
+                            <span class="home-hero-highlight-label">다음 행동</span>
+                            <strong id="home-next-focus">학습 탭 열기</strong>
+                            <span id="home-next-focus-meta">과목을 선택하고 첫 세션을 시작하세요.</span>
+                        </article>
+                        <article class="home-hero-highlight">
+                            <span class="home-hero-highlight-label">현재 분위기</span>
+                            <strong id="home-active-summary">지금 공부 중인 사람 확인</strong>
+                            <span id="home-active-summary-meta">랭킹과 공개 그룹에서 바로 합류할 수 있습니다.</span>
+                        </article>
+                    </div>
+                    <div class="home-hero-actions">
+                        <button type="button" class="btn-primary home-start-btn" id="home-start-btn">바로 학습 시작</button>
+                        <button type="button" class="home-refresh-btn" id="home-plan-btn">오늘 계획 보기</button>
+                        <button type="button" class="home-refresh-btn" id="home-refresh-btn">새로고침</button>
+                    </div>
                 </div>
+
+                <aside class="home-brief-card">
+                    <p class="home-brief-kicker">QUICK BRIEF</p>
+                    <strong class="home-brief-title" id="home-brief-title">바로 시작할 준비를 끝내세요</strong>
+                    <p class="home-brief-copy" id="home-brief-copy">오늘 계획과 공개 그룹 흐름을 확인한 뒤 공부를 시작하면 진입이 더 빨라집니다.</p>
+                    <div class="home-brief-meta">
+                        <span class="home-brief-badge" id="home-brief-updated">아직 갱신 전</span>
+                        <span class="home-brief-badge" id="home-brief-univ">소속 미설정</span>
+                    </div>
+                    <div class="home-brief-actions">
+                        <button type="button" class="home-brief-btn" id="home-brief-rooms-btn">그룹 둘러보기</button>
+                        <button type="button" class="home-brief-btn" id="home-brief-social-btn">메시지 열기</button>
+                    </div>
+                </aside>
             </div>
 
             <div class="home-stat-row">
                 <article class="home-stat-card">
                     <span class="home-stat-label">오늘 공부</span>
                     <strong class="home-stat-value" id="home-stat-today">-</strong>
+                    <span class="home-stat-meta" id="home-stat-today-meta">첫 세션을 시작해 보세요</span>
                 </article>
                 <article class="home-stat-card">
                     <span class="home-stat-label">누적 공부</span>
                     <strong class="home-stat-value" id="home-stat-total">-</strong>
+                    <span class="home-stat-meta" id="home-stat-total-meta">지금까지 쌓인 집중 시간</span>
                 </article>
                 <article class="home-stat-card">
                     <span class="home-stat-label">지금 공부 중</span>
                     <strong class="home-stat-value" id="home-stat-active">-</strong>
+                    <span class="home-stat-meta" id="home-stat-active-meta">실시간 자극 인원</span>
                 </article>
             </div>
 
-            <section class="home-hub-actions" aria-label="빠른 기능 실행">
-                <button type="button" id="home-quick-apply" class="home-hub-btn">
-                    <span class="home-hub-kicker">입시</span>
-                    <strong>모의지원</strong>
-                    <span class="home-hub-sub">원서비, 슬롯, 지원 이력 보기</span>
-                </button>
-                <button type="button" id="home-quick-shop" class="home-hub-btn">
-                    <span class="home-hub-kicker">경제</span>
-                    <strong>상점 · 성장</strong>
-                    <span class="home-hub-sub">세금 수령, 티켓/스킨 관리</span>
-                </button>
-                <button type="button" id="home-quick-social" class="home-hub-btn">
-                    <span class="home-hub-kicker">소셜</span>
-                    <strong>친구 · 메시지</strong>
-                    <span class="home-hub-sub">동맹 요청, DM, 그룹 대화</span>
-                </button>
-                <button type="button" id="home-quick-notif" class="home-hub-btn">
-                    <span class="home-hub-kicker">피드</span>
-                    <strong>알림 · 랭킹</strong>
-                    <span class="home-hub-sub">전체 랭킹, 최근 알림 확인</span>
-                </button>
+            <section class="home-action-layout" aria-label="빠른 기능 실행">
+                <div class="home-action-primary">
+                    <button type="button" id="home-quick-apply" class="home-hub-btn home-hub-btn-primary">
+                        <span class="home-hub-kicker">입시</span>
+                        <strong>모의지원</strong>
+                        <span class="home-hub-sub">원서비, 슬롯, 지원 이력까지 한 번에 확인</span>
+                        <span class="home-hub-meta">입시 준비 흐름 열기</span>
+                    </button>
+                    <button type="button" id="home-quick-shop" class="home-hub-btn home-hub-btn-primary">
+                        <span class="home-hub-kicker">경제</span>
+                        <strong>상점 · 성장</strong>
+                        <span class="home-hub-sub">수입 수령과 티켓 관리, 성장 점검</span>
+                        <span class="home-hub-meta">보유 자산 정리하기</span>
+                    </button>
+                </div>
+                <div class="home-action-secondary">
+                    <button type="button" id="home-quick-social" class="home-hub-btn home-hub-btn-secondary">
+                        <span class="home-hub-kicker">소셜</span>
+                        <strong>친구 · 메시지</strong>
+                        <span class="home-hub-sub">동맹 요청, DM, 그룹 대화 확인</span>
+                        <span class="home-hub-meta">바로 대화 열기</span>
+                    </button>
+                    <button type="button" id="home-quick-notif" class="home-hub-btn home-hub-btn-secondary">
+                        <span class="home-hub-kicker">피드</span>
+                        <strong>알림 · 랭킹</strong>
+                        <span class="home-hub-sub">최근 알림과 전체 랭킹 흐름 확인</span>
+                        <span class="home-hub-meta">실시간 피드 보기</span>
+                    </button>
+                </div>
             </section>
 
             <div class="home-grid">
                 <section class="home-panel">
                     <div class="home-panel-head">
-                        <h3>오늘 집중 TOP 5</h3>
-                        <span class="home-panel-sub">실시간 자극 랭킹</span>
+                        <div>
+                            <h3>오늘 집중 TOP 5</h3>
+                            <span class="home-panel-sub">실시간 자극 랭킹</span>
+                        </div>
+                        <button type="button" class="home-panel-link" id="home-top-open-btn">전체 랭킹</button>
                     </div>
                     <div id="home-top-list" class="home-list">불러오는 중...</div>
                 </section>
 
                 <section class="home-panel">
                     <div class="home-panel-head">
-                        <h3>공개 그룹 HOT</h3>
-                        <span class="home-panel-sub">바로 합류 가능</span>
+                        <div>
+                            <h3>공개 그룹 HOT</h3>
+                            <span class="home-panel-sub">바로 합류 가능</span>
+                        </div>
+                        <button type="button" class="home-panel-link" id="home-room-open-btn">그룹 전체 보기</button>
                     </div>
                     <div id="home-room-list" class="home-list">불러오는 중...</div>
                 </section>

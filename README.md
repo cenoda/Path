@@ -12,7 +12,7 @@
 - 닉네임/비밀번호 회원가입, 로그인
 - Google OAuth 로그인
 - Apple OAuth 로그인
-- 휴대폰 인증 및 비밀번호 복구(코드 발송/재설정)
+- 소셜 계정 기반 복구 안내(Google/Apple)
 - 프로필 수정, 상태 메시지/이모지, 칭호 활성화
 
 ### 2) 메인 허브(3D 월드)
@@ -108,7 +108,6 @@ npm install
 - `SITE_URL`: 사이트 절대 URL(robots/sitemap/canonical)
 - `SESSION_SAME_SITE`, `SESSION_COOKIE_DOMAIN`
 - `USE_CLOUD_STORAGE`: 업로드 외부 스토리지 사용 여부
-- `ALIGO_API_KEY` 등 알리고 인증 관련 키
 
 OAuth 변수(선택):
 
@@ -213,9 +212,7 @@ Content-Type: application/json
   "nickname": "path_user",
   "password": "strong passphrase 123",
   "real_name": "홍길동",
-  "university": "서울대학교",
-  "phone": "01012345678",
-  "verification_code": "123456"
+  "university": "서울대학교"
 }
 ```
 
@@ -271,11 +268,10 @@ GET /api/auth/me
 }
 ```
 
-비밀번호 복구 코드 발송 / 재설정
+비밀번호 복구 옵션 조회
 
 ```http
-POST /api/auth/password-recovery/send-code
-POST /api/auth/password-recovery/reset
+GET /api/auth/password-recovery/options?nickname=<닉네임>
 ```
 
 ### 2) 공부 (`/api/study`)

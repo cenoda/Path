@@ -680,7 +680,11 @@ function markPostViewed(postId) {
 
 function renderDetailBody(container, { post, postId, comments, commentSort = 'latest' }) {
     const cat     = CATEGORY_META[post.category] ?? CATEGORY_META['전체'];
-    const canModerate = currentUserIsAdmin();
+  const canModerateComments = currentUserIsAdmin();
+  const currentUserId = Number(currentUser?.id || 0);
+  const postAuthorId = Number(post.user_id || 0);
+  const isPostAuthor = currentUserId > 0 && postAuthorId > 0 && currentUserId === postAuthorId;
+  const canDeletePost = canModerateComments || isPostAuthor;
     const safeImageUrl = safeHttpUrl(post.image_url);
     const safeLinkUrl = safeHttpUrl(post.link_url);
   const authorUserId = Number(post.user_id || 0);
@@ -702,7 +706,7 @@ function renderDetailBody(container, { post, postId, comments, commentSort = 'la
           ${c.is_post_author ? '<span class="cmt-badge cmt-badge--author">작성자</span>' : ''}
           <span class="cmt-ip">(${escHtml(c.ip_prefix ?? '?.?')})</span>
           <span class="cmt-date">${fmtRelative(c.created_at)}</span>
-          ${canModerate ? '<button class="cmt-admin-del" type="button">삭제</button>' : ''}
+          ${canModerateComments ? '<button class="cmt-admin-del" type="button">삭제</button>' : ''}
         </div>
         <p class="cmt-body">${escHtml(c.body)}</p>
         <div class="cmt-actions">
@@ -749,7 +753,7 @@ function renderDetailBody(container, { post, postId, comments, commentSort = 'la
         ${currentUser ? '<button class="detail-report-btn" id="detail-report-btn">게시물 신고</button>' : ''}
         ${currentUser ? `<button class="detail-bookmark-btn" id="detail-bookmark-btn">${isBookmarked ? '북마크 해제' : '북마크'}</button>` : ''}
         ${canBlockAuthor ? `<button class="detail-block-btn" id="detail-block-btn">${alreadyBlocked ? '차단 해제' : '작성자 차단'}</button>` : ''}
-        ${canModerate ? '<button class="detail-admin-del-btn" id="detail-admin-del-btn">게시글 삭제</button>' : ''}
+        ${canDeletePost ? '<button class="detail-admin-del-btn" id="detail-admin-del-btn">게시글 삭제</button>' : ''}
       </div>
       <div class="detail-comments">
         <div class="detail-cmt-head-wrap">
@@ -1133,7 +1137,7 @@ function renderDetailBody(container, { post, postId, comments, commentSort = 'la
       });
     });
 
-      if (canModerate) {
+      if (canDeletePost) {
         const postDeleteBtn = container.querySelector('#detail-admin-del-btn');
         if (postDeleteBtn) {
           postDeleteBtn.addEventListener('click', async () => {
@@ -1158,7 +1162,9 @@ function renderDetailBody(container, { post, postId, comments, commentSort = 'la
             }
           });
         }
+      }
 
+      if (canModerateComments) {
         container.querySelectorAll('.cmt-admin-del').forEach((btn) => {
           btn.addEventListener('click', async (e) => {
             e.stopPropagation();

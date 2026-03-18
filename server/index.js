@@ -33,10 +33,6 @@ if (isProduction && !process.env.USE_CLOUD_STORAGE) {
     console.warn('[WARNING] 프로덕션에서는 S3, Cloudinary 등 외부 오브젝트 스토리지 사용을 강력히 권장합니다.');
 }
 
-if (isProduction && !process.env.ALIGO_API_KEY) {
-    console.warn('[WARNING] ALIGO_API_KEY가 설정되지 않았습니다. 전화번호 인증을 사용할 수 없습니다.');
-}
-
 const projectRoot = path.join(__dirname, '..');
 const brandAssetMap = Object.freeze({
     'app-icon-master-1024.png': path.join(projectRoot, 'icons', 'IMG_0219.png'),

@@ -1515,19 +1515,40 @@ router.delete('/me/comments/:id', requireAuth, async (req, res) => {
 });
 
 /* ════════════════════════════════════════════════════════════ */
-/* DELETE /posts/:id — 관리자 글 삭제                           */
+/* DELETE /posts/:id — 관리자/작성자 글 삭제                    */
 /* ════════════════════════════════════════════════════════════ */
-router.delete('/posts/:id', requireAdmin, async (req, res) => {
+router.delete('/posts/:id', requireAuth, async (req, res) => {
     const postId = parseInt(req.params.id, 10);
+    const userId = Number(req.session.userId || 0);
     if (!postId) return res.status(400).json({ error: '잘못된 요청입니다.' });
 
     try {
-        const result = await pool.query(
+        const postRes = await pool.query(
+            'SELECT id, user_id FROM community_posts WHERE id = $1',
+            [postId]
+        );
+        if (!postRes.rows.length) {
+            return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+        }
+
+        const postOwnerId = Number(postRes.rows[0].user_id || 0);
+        const isOwner = postOwnerId > 0 && postOwnerId === userId;
+
+        let canDelete = isOwner;
+        if (!canDelete) {
+            const adminRole = await getAdminRole(userId);
+            canDelete = !!adminRole;
+        }
+
+        if (!canDelete) {
+            return res.status(403).json({ error: '삭제 권한이 없습니다.' });
+        }
+
+        const deleted = await pool.query(
             'DELETE FROM community_posts WHERE id = $1 RETURNING id',
             [postId]
         );
-
-        if (!result.rows.length) {
+        if (!deleted.rows.length) {
             return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
         }
 

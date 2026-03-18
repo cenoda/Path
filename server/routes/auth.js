@@ -1243,10 +1243,10 @@ router.post('/update-profile', requireAuth, async (req, res) => {
     }
 });
 
-// ===== 휴대폰 인증 API =====
+// ===== 휴대폰 인증 API (종료) =====
 
 /**
- * 인증번호 발송
+ * 인증번호 발송 (종료)
  * POST /api/auth/send-verification
  * body: { phone: "01012345678" }
  */
@@ -1257,7 +1257,7 @@ router.post('/send-verification', verificationLimiter, async (req, res) => {
 });
 
 /**
- * 인증번호 검증
+ * 인증번호 검증 (종료)
  * POST /api/auth/verify-phone
  * body: { phone: "01012345678", code: "123456" }
  */
@@ -1268,7 +1268,7 @@ router.post('/verify-phone', async (req, res) => {
 });
 
 /**
- * 인증 상태 확인
+ * 인증 상태 확인 (종료)
  * GET /api/auth/verification-status
  */
 router.get('/verification-status', (req, res) => {
@@ -1280,7 +1280,7 @@ router.get('/verification-status', (req, res) => {
     });
 });
 
-// ===== 비밀번호 분실 복구 API =====
+// ===== 비밀번호 복구 옵션 API =====
 
 router.get('/password-recovery/options', async (req, res) => {
     const nickname = String(req.query.nickname || '').trim();
@@ -1296,7 +1296,7 @@ router.get('/password-recovery/options', async (req, res) => {
 
     try {
         const result = await pool.query(
-            'SELECT phone_verified, google_email, apple_email FROM users WHERE nickname = $1 LIMIT 1',
+            'SELECT google_email, apple_email FROM users WHERE nickname = $1 LIMIT 1',
             [nickname]
         );
 
@@ -1324,6 +1324,7 @@ router.get('/password-recovery/options', async (req, res) => {
     }
 });
 
+// 휴대폰 기반 복구 API (종료)
 router.post('/password-recovery/send-code', recoverySendLimiter, async (req, res) => {
     return res.status(410).json({
         error: '휴대폰 비밀번호 복구 기능이 종료되었습니다. Google 또는 Apple 로그인으로 복구해주세요.'

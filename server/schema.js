@@ -244,17 +244,7 @@ async function initSchema() {
         `);
 
         await client.query(`
-            CREATE TABLE IF NOT EXISTS phone_verifications (
-                id              SERIAL PRIMARY KEY,
-                phone_hash      VARCHAR(64) NOT NULL,
-                code            VARCHAR(6) NOT NULL,
-                expires_at      TIMESTAMP NOT NULL,
-                verified        BOOLEAN DEFAULT FALSE,
-                ip_address      VARCHAR(45),
-                created_at      TIMESTAMP DEFAULT NOW()
-            );
-            CREATE INDEX IF NOT EXISTS idx_phone_verifications_hash ON phone_verifications(phone_hash);
-            CREATE INDEX IF NOT EXISTS idx_phone_verifications_expires ON phone_verifications(expires_at);
+            DROP TABLE IF EXISTS phone_verifications;
         `);
 
         await client.query(`

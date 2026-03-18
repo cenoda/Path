@@ -149,6 +149,7 @@ npm start
 - `npm run univ:policy`: 신뢰정책(minConfidence 등) 설정
 - `npm run univ:collect`: manifest 기반 배치 수집(fetch+snapshot+import)
 - `npm run univ:cli`: 대학 데이터 CLI 직접 실행
+- `npm run import:school-domains`: 학교 이메일 도메인 목록(raw 텍스트) DB 가져오기
 - `npm run validate:universities`: `server/data/universities.real.json` 형식 검증
 - `npm run set-admin`: 관리자 권한 설정 스크립트 실행
 - `npm run list-admins`: 관리자 목록 출력
@@ -272,6 +273,23 @@ GET /api/auth/me
 
 ```http
 GET /api/auth/password-recovery/options?nickname=<닉네임>
+```
+
+학교 이메일 도메인 확인
+
+```http
+GET /api/auth/school-email-domain/check?email=user@school.ac.kr
+```
+
+관리자 전용 도메인 일괄 가져오기
+
+```http
+POST /api/auth/school-email-domain/import
+Content-Type: application/json
+
+{
+  "rawText": "가천대학교 gachon.ac.kr\n..."
+}
 ```
 
 ### 2) 공부 (`/api/study`)

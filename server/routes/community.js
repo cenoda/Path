@@ -1000,12 +1000,14 @@ router.get('/blocks', requireAuth, async (req, res) => {
 router.get('/users/:userId', async (req, res) => {
     const userId = parseInt(req.params.userId, 10);
     if (!userId) return res.status(400).json({ error: '잘못된 요청입니다.' });
+    const viewerId = parseInt(req.session?.userId, 10) || 0;
 
     try {
         const result = await pool.query(
             `SELECT id, nickname, university, tier, exp, gold,
                           profile_image_url, status_emoji, status_message,
                     active_title, streak_count, streak_last_date,
+                    allow_friend_requests,
                     score_status
              FROM users
              WHERE id = $1`,
@@ -1029,8 +1031,33 @@ router.get('/users/:userId', async (req, res) => {
             active_title: row.active_title || null,
             streak_count: Number(row.streak_count || 0),
             streak_last_date: row.streak_last_date || null,
+            allow_friend_requests: row.allow_friend_requests !== false,
             score_status: row.score_status || null,
         };
+
+        if (viewerId > 0 && viewerId !== userId) {
+            const friendshipResult = await pool.query(
+                `SELECT id, status,
+                        CASE WHEN sender_id = $1 THEN 'sent'
+                             WHEN receiver_id = $1 THEN 'received'
+                             ELSE NULL END AS friendship_dir
+                 FROM friendships
+                 WHERE (sender_id = $1 AND receiver_id = $2)
+                    OR (sender_id = $2 AND receiver_id = $1)
+                 LIMIT 1`,
+                [viewerId, userId]
+            );
+
+            if (friendshipResult.rows.length > 0) {
+                safeUser.friendship_status = friendshipResult.rows[0].status;
+                safeUser.friendship_dir = friendshipResult.rows[0].friendship_dir || null;
+                safeUser.friendship_id = friendshipResult.rows[0].id;
+            } else {
+                safeUser.friendship_status = 'none';
+                safeUser.friendship_dir = null;
+                safeUser.friendship_id = null;
+            }
+        }
 
         return res.json({ user: safeUser });
     } catch (err) {

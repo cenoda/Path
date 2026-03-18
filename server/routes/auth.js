@@ -9,6 +9,7 @@ const rateLimit = require('express-rate-limit');
 const pool = require('../db');
 const { getPercentile } = require('../data/universities');
 const { getActiveStreakFromUser, formatDisplayName } = require('../utils/progression');
+const { normalizeDomain, isValidDomain, parseUniversityDomainText } = require('../utils/schoolEmailDomain');
 const { getUploadDir } = require('../utils/uploadRoot');
 
 const router = express.Router();
@@ -338,6 +339,12 @@ function maskEmail(email) {
     if (!domain) return null;
     const maskedLocal = `${local[0]}${'*'.repeat(Math.max(1, local.length - 2))}${local[local.length - 1]}`;
     return `${maskedLocal}@${domain}`;
+}
+
+function extractDomainFromEmail(rawEmail) {
+    const email = String(rawEmail || '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+$/.test(email)) return '';
+    return normalizeDomain(email.split('@')[1] || '');
 }
 
 function resolveOauthPlatform(req) {
@@ -1240,6 +1247,121 @@ router.post('/update-profile', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('update-profile error:', err);
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+// ===== 학교 이메일 도메인 =====
+
+router.get('/school-email-domain/check', async (req, res) => {
+    const email = String(req.query.email || '').trim();
+    if (!email) {
+        return res.status(400).json({ error: '이메일을 입력해주세요.' });
+    }
+
+    const domain = extractDomainFromEmail(email);
+    if (!domain || !isValidDomain(domain)) {
+        return res.status(400).json({ error: '올바른 이메일 형식이 아닙니다.' });
+    }
+
+    try {
+        const domainResult = await pool.query(
+            'SELECT domain FROM school_email_domains WHERE domain = $1 AND is_active = TRUE LIMIT 1',
+            [domain]
+        );
+
+        if (!domainResult.rows.length) {
+            return res.json({
+                ok: true,
+                email,
+                domain,
+                allowed: false,
+                universities: [],
+            });
+        }
+
+        const uniResult = await pool.query(
+            `SELECT university_name
+             FROM school_email_domain_universities
+             WHERE domain = $1
+             ORDER BY university_name ASC`,
+            [domain]
+        );
+
+        return res.json({
+            ok: true,
+            email,
+            domain,
+            allowed: true,
+            universities: uniResult.rows.map((row) => row.university_name),
+        });
+    } catch (err) {
+        console.error('school-email-domain/check error:', err);
+        return res.status(500).json({ error: '도메인 확인 중 오류가 발생했습니다.' });
+    }
+});
+
+router.post('/school-email-domain/import', requireAuth, async (req, res) => {
+    const isAdmin = await isPrivilegedAdmin(req.session.userId);
+    if (!isAdmin) {
+        return res.status(403).json({ error: '관리자만 접근할 수 있습니다.' });
+    }
+
+    const rawText = String(req.body?.rawText || '');
+    if (!rawText.trim()) {
+        return res.status(400).json({ error: 'rawText를 입력해주세요.' });
+    }
+
+    const { entries, invalidLines, stats } = parseUniversityDomainText(rawText);
+    if (!entries.length) {
+        return res.status(400).json({
+            error: '유효한 학교/도메인 데이터가 없습니다.',
+            invalidLines: invalidLines.slice(0, 20),
+        });
+    }
+
+    const domains = [...new Set(entries.map((entry) => entry.domain))];
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        let insertedDomains = 0;
+        for (const domain of domains) {
+            const result = await client.query(
+                `INSERT INTO school_email_domains (domain, is_active, source)
+                 VALUES ($1, TRUE, 'admin-api')
+                 ON CONFLICT (domain) DO NOTHING`,
+                [domain]
+            );
+            insertedDomains += result.rowCount;
+        }
+
+        let insertedMappings = 0;
+        for (const entry of entries) {
+            const result = await client.query(
+                `INSERT INTO school_email_domain_universities (domain, university_name)
+                 VALUES ($1, $2)
+                 ON CONFLICT (domain, university_name) DO NOTHING`,
+                [entry.domain, entry.universityName]
+            );
+            insertedMappings += result.rowCount;
+        }
+
+        await client.query('COMMIT');
+
+        return res.json({
+            ok: true,
+            parsed: stats,
+            insertedDomains,
+            insertedMappings,
+            ignoredDuplicates: stats.validEntries - insertedMappings,
+            invalidLines: invalidLines.slice(0, 20),
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('school-email-domain/import error:', err);
+        return res.status(500).json({ error: '도메인 가져오기 중 오류가 발생했습니다.' });
+    } finally {
+        client.release();
     }
 });
 

@@ -237,6 +237,29 @@ async function initSchema() {
         `);
 
         await client.query(`
+            CREATE TABLE IF NOT EXISTS school_email_domains (
+                domain      VARCHAR(255) PRIMARY KEY,
+                is_active   BOOLEAN DEFAULT TRUE,
+                source      VARCHAR(40) DEFAULT 'manual',
+                created_at  TIMESTAMP DEFAULT NOW(),
+                updated_at  TIMESTAMP DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_school_email_domains_active ON school_email_domains(is_active);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS school_email_domain_universities (
+                id               SERIAL PRIMARY KEY,
+                domain           VARCHAR(255) NOT NULL REFERENCES school_email_domains(domain) ON DELETE CASCADE,
+                university_name  VARCHAR(120) NOT NULL,
+                created_at       TIMESTAMP DEFAULT NOW(),
+                UNIQUE(domain, university_name)
+            );
+            CREATE INDEX IF NOT EXISTS idx_school_email_domain_universities_domain ON school_email_domain_universities(domain);
+            CREATE INDEX IF NOT EXISTS idx_school_email_domain_universities_university_name ON school_email_domain_universities(university_name);
+        `);
+
+        await client.query(`
             ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_hash VARCHAR(64) DEFAULT NULL;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP DEFAULT NULL;

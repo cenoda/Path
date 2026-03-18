@@ -975,6 +975,130 @@ body.community-compact .c-hot-card {
   gap: 16px;
 }
 
+.user-profile-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.user-profile-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-mid);
+  background: var(--surface-2);
+  flex-shrink: 0;
+}
+
+.user-profile-avatar--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--text-3);
+}
+
+.user-profile-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-profile-nick {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-1);
+  line-height: 1.2;
+}
+
+.user-profile-sub {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.user-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.user-profile-cell {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-mid);
+  background: var(--surface-2);
+}
+
+.user-profile-cell span {
+  display: block;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.user-profile-cell strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-1);
+}
+
+.user-profile-status {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 18%, var(--border-mid));
+  background: color-mix(in srgb, var(--accent-blue) 10%, var(--surface-2));
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.user-profile-actions {
+  display: flex;
+}
+
+.user-profile-friend-btn {
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 36%, transparent);
+  background: color-mix(in srgb, var(--accent-blue) 14%, var(--surface));
+  color: var(--accent-blue);
+  font-size: 13px;
+  font-weight: 800;
+  transition: transform var(--transition), opacity var(--transition), border-color var(--transition), background var(--transition), color var(--transition);
+}
+
+.user-profile-friend-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.user-profile-friend-btn.is-accept {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+.user-profile-friend-btn.is-pending {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-2);
+}
+
+.user-profile-friend-btn.is-remove {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.user-profile-friend-btn.is-disabled,
+.user-profile-friend-btn:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
 /* ─── Community Settings Modal ─────────────────────────────────────────── */
 .community-settings-modal {
   max-width: 620px;

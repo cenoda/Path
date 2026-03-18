@@ -2793,6 +2793,218 @@ function escHtml(s) {
         .replace(/"/g, '&quot;');
 }
 
+function getCommunityFriendActionConfig(user) {
+  const viewerId = Number(currentUser?.id || 0);
+  const targetId = Number(user?.id || 0);
+  const friendshipId = Number(user?.friendship_id || 0);
+  const status = String(user?.friendship_status || 'none');
+  const direction = String(user?.friendship_dir || '');
+  const allowFriendRequests = user?.allow_friend_requests !== false;
+
+  if (!viewerId || !targetId || viewerId === targetId) return null;
+
+  if (status === 'accepted') {
+    return {
+      label: '동맹 해제',
+      action: 'remove',
+      friendshipId,
+      disabled: false,
+      modifierClass: 'is-remove',
+    };
+  }
+
+  if (status === 'pending' && direction === 'received') {
+    return {
+      label: friendshipId > 0 ? '신청 수락' : '신청 확인',
+      action: friendshipId > 0 ? 'accept' : 'disabled',
+      friendshipId,
+      disabled: friendshipId <= 0,
+      modifierClass: 'is-accept',
+    };
+  }
+
+  if (status === 'pending' && direction === 'sent') {
+    return {
+      label: friendshipId > 0 ? '신청 취소' : '신청 중',
+      action: friendshipId > 0 ? 'cancel' : 'disabled',
+      friendshipId,
+      disabled: friendshipId <= 0,
+      modifierClass: 'is-pending',
+    };
+  }
+
+  if (!allowFriendRequests) {
+    return {
+      label: '신청 불가',
+      action: 'disabled',
+      friendshipId: 0,
+      disabled: true,
+      modifierClass: 'is-disabled',
+    };
+  }
+
+  return {
+    label: '동맹 신청',
+    action: 'request',
+    friendshipId: 0,
+    disabled: false,
+    modifierClass: '',
+  };
+}
+
+function renderCommunityFriendActionButton(user) {
+  const config = getCommunityFriendActionConfig(user);
+  if (!config) return '';
+
+  const className = ['user-profile-friend-btn', config.modifierClass].filter(Boolean).join(' ');
+  const disabledAttr = config.disabled ? 'disabled' : '';
+
+  return `
+    <div class="user-profile-actions">
+      <button
+        type="button"
+        class="${className}"
+        data-target-id="${Number(user.id || 0)}"
+        data-friendship-id="${config.friendshipId}"
+        data-action="${escHtml(config.action)}"
+        ${disabledAttr}
+      >${escHtml(config.label)}</button>
+    </div>`;
+}
+
+function syncCommunityFriendActionButton(button, user) {
+  if (!button) return;
+
+  const config = getCommunityFriendActionConfig(user);
+  if (!config) {
+    button.closest('.user-profile-actions')?.remove();
+    return;
+  }
+
+  button.className = ['user-profile-friend-btn', config.modifierClass].filter(Boolean).join(' ');
+  button.textContent = config.label;
+  button.dataset.targetId = String(Number(user?.id || 0));
+  button.dataset.friendshipId = String(config.friendshipId || 0);
+  button.dataset.action = config.action;
+  button.disabled = !!config.disabled;
+}
+
+async function refreshCommunityFriendState(user) {
+  const targetId = Number(user?.id || 0);
+  if (!targetId || !currentUser) return;
+
+  try {
+    const statusRes = await fetch(`/api/friends/status/${targetId}`, { credentials: 'include' });
+    if (!statusRes.ok) return;
+    const statusData = await statusRes.json().catch(() => ({}));
+    user.friendship_status = statusData.status || 'none';
+    user.friendship_dir = statusData.status === 'pending'
+      ? (statusData.is_sender ? 'sent' : 'received')
+      : null;
+    user.friendship_id = statusData.friendship_id || null;
+  } catch (_) {
+    // 상태 재조회 실패 시 현재 값 유지
+  }
+}
+
+async function handleCommunityFriendAction(button, user) {
+  if (!button || !user) return;
+
+  const targetId = Number(user.id || 0);
+  const friendshipId = Number(user.friendship_id || 0);
+  const action = String(button.dataset.action || '');
+  if (!targetId || !action || action === 'disabled') return;
+
+  if (action === 'remove') {
+    const confirmed = window.confirm('동맹을 해제할까요?');
+    if (!confirmed) return;
+  }
+
+  const previousState = {
+    friendship_status: user.friendship_status || 'none',
+    friendship_dir: user.friendship_dir || null,
+    friendship_id: user.friendship_id || null,
+  };
+  const originalLabel = button.textContent;
+
+  button.disabled = true;
+  button.textContent = '처리 중...';
+
+  try {
+    let response;
+
+    if (action === 'request') {
+      response = await fetch('/api/friends/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ target_id: targetId }),
+      });
+    } else if (action === 'accept') {
+      response = await fetch('/api/friends/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ friendship_id: friendshipId }),
+      });
+    } else if (action === 'cancel') {
+      response = await fetch('/api/friends/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ friendship_id: friendshipId }),
+      });
+    } else if (action === 'remove') {
+      response = await fetch(`/api/friends/${targetId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+    } else {
+      return;
+    }
+
+    if (!response.ok) {
+      const errorMsg = await readApiError(response, '동맹 처리에 실패했어요');
+      user.friendship_status = previousState.friendship_status;
+      user.friendship_dir = previousState.friendship_dir;
+      user.friendship_id = previousState.friendship_id;
+      syncCommunityFriendActionButton(button, user);
+      if (errorMsg) showToast(errorMsg);
+      return;
+    }
+
+    if (action === 'request') {
+      user.friendship_status = 'pending';
+      user.friendship_dir = 'sent';
+      showToast('동맹 신청을 보냈어요');
+    } else if (action === 'accept') {
+      user.friendship_status = 'accepted';
+      user.friendship_dir = null;
+      showToast('동맹을 맺었어요');
+    } else if (action === 'cancel') {
+      user.friendship_status = 'none';
+      user.friendship_dir = null;
+      user.friendship_id = null;
+      showToast('동맹 신청을 취소했어요');
+    } else if (action === 'remove') {
+      user.friendship_status = 'none';
+      user.friendship_dir = null;
+      user.friendship_id = null;
+      showToast('동맹을 해제했어요');
+    }
+
+    await refreshCommunityFriendState(user);
+    syncCommunityFriendActionButton(button, user);
+  } catch (_) {
+    user.friendship_status = previousState.friendship_status;
+    user.friendship_dir = previousState.friendship_dir;
+    user.friendship_id = previousState.friendship_id;
+    button.textContent = originalLabel;
+    syncCommunityFriendActionButton(button, user);
+    showToast('동맹 처리 중 오류가 발생했어요');
+  }
+}
+
 async function openUserProfile(userId) {
   if (!Number.isInteger(userId) || userId <= 0) return;
 
@@ -2845,6 +3057,7 @@ async function openUserProfile(userId) {
     const { user } = await r.json();
     const profileBody = backdrop.querySelector('#profile-body');
     const profileImage = safeHttpUrl(user.profile_image_url);
+    const friendActionHtml = renderCommunityFriendActionButton(user);
     profileBody.innerHTML = `
       <div class="user-profile-head">
         ${profileImage ? `<img class="user-profile-avatar" src="${escHtml(profileImage)}" alt="${escHtml(user.display_nickname || user.nickname)} 프로필">` : '<div class="user-profile-avatar user-profile-avatar--empty">👤</div>'}
@@ -2860,7 +3073,15 @@ async function openUserProfile(userId) {
         <div class="user-profile-cell"><span>골드</span><strong>${Number(user.gold || 0).toLocaleString('ko-KR')}G</strong></div>
       </div>
       ${user.status_message ? `<p class="user-profile-status">${escHtml(user.status_emoji || '')} ${escHtml(user.status_message)}</p>` : ''}
+      ${friendActionHtml}
     `;
+
+    const friendActionBtn = profileBody.querySelector('.user-profile-friend-btn');
+    if (friendActionBtn) {
+      friendActionBtn.addEventListener('click', () => {
+        handleCommunityFriendAction(friendActionBtn, user);
+      });
+    }
   } catch (_) {
     showToast('프로필을 불러올 수 없어요');
     close();

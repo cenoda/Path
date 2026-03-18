@@ -3500,3 +3500,4 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initUiWhenReady, { once: true });
 } else {
     initUiWhenReady();
+}

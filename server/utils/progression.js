@@ -13,11 +13,6 @@ const TITLE_LABELS = {
     [TITLE_CODES.OWL_TIMER]: '올빼미'
 };
 
-const BOUNTY_TYPES = {
-    TOP_TOTAL: 'TOP_TOTAL',
-    TOP_WINRATE: 'TOP_WINRATE'
-};
-
 function toDateOnly(value) {
     const d = value instanceof Date ? value : new Date(value);
     return d.toISOString().slice(0, 10);
@@ -169,113 +164,13 @@ function formatDisplayName(nickname, activeTitle) {
     return `[${activeTitle}] ${nickname || ''}`.trim();
 }
 
-async function refreshBountyBoard(client) {
-    const [topTotalRes, topWinrateRes] = await Promise.all([
-        client.query(
-            `SELECT u.id, u.nickname, COALESCE(SUM(sr.duration_sec), 0) AS total_sec
-             FROM users u
-             LEFT JOIN study_records sr ON sr.user_id = u.id
-             GROUP BY u.id
-             ORDER BY total_sec DESC, u.id ASC
-             LIMIT 1`
-        ),
-        client.query(
-            `SELECT i.attacker_id AS id,
-                    u.nickname,
-                    COUNT(*)::int AS attempts,
-                    SUM(CASE WHEN i.result = 'WIN' THEN 1 ELSE 0 END)::int AS wins,
-                    ROUND((SUM(CASE WHEN i.result = 'WIN' THEN 1 ELSE 0 END)::numeric / COUNT(*)) * 100, 1) AS win_rate
-             FROM invasions i
-             JOIN users u ON u.id = i.attacker_id
-             WHERE i.created_at >= NOW() - INTERVAL '7 days'
-             GROUP BY i.attacker_id, u.nickname
-             HAVING COUNT(*) >= 3
-             ORDER BY win_rate DESC, wins DESC, attempts DESC, i.attacker_id ASC
-             LIMIT 1`
-        )
-    ]);
-
-    const payloads = [];
-
-    if (topTotalRes.rows[0]) {
-        const row = topTotalRes.rows[0];
-        payloads.push({
-            bountyType: BOUNTY_TYPES.TOP_TOTAL,
-            targetUserId: row.id,
-            rewardGold: 120,
-            reason: `누적 공부시간 1위 @${row.nickname}`
-        });
-    }
-
-    if (topWinrateRes.rows[0]) {
-        const row = topWinrateRes.rows[0];
-        payloads.push({
-            bountyType: BOUNTY_TYPES.TOP_WINRATE,
-            targetUserId: row.id,
-            rewardGold: 90,
-            reason: `최근 7일 침공 승률 1위 @${row.nickname} (${row.win_rate}%)`
-        });
-    }
-
-    const seenTypes = new Set(payloads.map((p) => p.bountyType));
-
-    for (const item of payloads) {
-        await client.query(
-            `INSERT INTO bounty_board (bounty_type, target_user_id, reward_gold, reason, updated_at)
-             VALUES ($1, $2, $3, $4, NOW())
-             ON CONFLICT (bounty_type)
-             DO UPDATE SET
-                target_user_id = EXCLUDED.target_user_id,
-                reward_gold = EXCLUDED.reward_gold,
-                reason = EXCLUDED.reason,
-                updated_at = NOW()`,
-            [item.bountyType, item.targetUserId, item.rewardGold, item.reason]
-        );
-    }
-
-    if (!seenTypes.has(BOUNTY_TYPES.TOP_TOTAL)) {
-        await client.query('DELETE FROM bounty_board WHERE bounty_type = $1', [BOUNTY_TYPES.TOP_TOTAL]);
-    }
-    if (!seenTypes.has(BOUNTY_TYPES.TOP_WINRATE)) {
-        await client.query('DELETE FROM bounty_board WHERE bounty_type = $1', [BOUNTY_TYPES.TOP_WINRATE]);
-    }
-
-    return payloads;
-}
-
-async function getBountyBoard(client) {
-    const res = await client.query(
-        `SELECT b.bounty_type,
-                b.target_user_id,
-                b.reward_gold,
-                b.reason,
-                b.updated_at,
-                u.nickname,
-                u.active_title,
-                u.streak_count,
-                u.streak_last_date
-         FROM bounty_board b
-         JOIN users u ON u.id = b.target_user_id
-         ORDER BY b.reward_gold DESC, b.updated_at DESC`
-    );
-
-    return res.rows.map((row) => ({
-        ...row,
-        active_streak: getActiveStreakFromUser(row),
-        display_nickname: formatDisplayName(row.nickname, row.active_title)
-    }));
-}
-
 module.exports = {
     STREAK_BONUS_RATE,
     STREAK_MIN_SECONDS_PER_DAY,
     TITLE_CODES,
-    BOUNTY_TYPES,
     recalculateStreak,
     getActiveStreakFromUser,
     getStreakMultiplier,
     evaluateMilestoneTitles,
-    formatDisplayName,
-    refreshBountyBoard,
-    getBountyBoard
+    formatDisplayName
 };

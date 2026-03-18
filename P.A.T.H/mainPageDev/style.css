@@ -6564,6 +6564,27 @@ body:not(.light) .planner-paper::before {
     padding: 8px 0;
 }
 
+/* ── Main Content Grid ────────────────────────────────── */
+.planner-content-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+@media (min-width: 1024px) {
+    .planner-content-grid {
+        grid-template-columns: 2fr 1.2fr;
+        gap: 28px;
+    }
+}
+
+/* ── Sidebar ───────────────────────────────────────────── */
+.planner-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
 /* ── Timeline ──────────────────────────────────────────── */
 .planner-timeline-section {
     display: flex;
@@ -6739,8 +6760,12 @@ body:not(.light) .planner-paper::before {
     font-size: 10px;
     font-weight: 700;
     cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.15s ease;
+    opacity: 1;
+    transition: all 0.15s ease;
+}
+
+.planner-block-edit:active {
+    transform: scale(0.95);
 }
 
 .planner-block-del {
@@ -6758,8 +6783,8 @@ body:not(.light) .planner-paper::before {
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
-    transition: opacity 0.15s;
+    opacity: 1;
+    transition: all 0.15s;
 }
 
 .planner-block:hover .planner-block-del {

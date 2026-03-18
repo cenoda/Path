@@ -138,17 +138,6 @@ async function initSchema() {
             CREATE INDEX IF NOT EXISTS idx_user_titles_user_id ON user_titles(user_id);
             CREATE INDEX IF NOT EXISTS idx_user_titles_active ON user_titles(user_id, is_active);
         `);
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS bounty_board (
-                id             SERIAL PRIMARY KEY,
-                bounty_type    VARCHAR(30) UNIQUE NOT NULL,
-                target_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                reward_gold    INTEGER NOT NULL DEFAULT 0,
-                reason         TEXT,
-                updated_at     TIMESTAMP DEFAULT NOW()
-            );
-            CREATE INDEX IF NOT EXISTS idx_bounty_board_updated ON bounty_board(updated_at DESC);
-        `);
 
         await client.query(`
             CREATE TABLE IF NOT EXISTS notifications (

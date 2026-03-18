@@ -442,36 +442,51 @@
                     <div class="planner-subject-chips" id="planner-subject-chips"></div>
                 </div>
 
-                <!-- Timeline -->
-                <div class="planner-timeline-section">
-                    <div class="planner-section-label">타임라인</div>
-                    <div class="planner-timeline-legend">
-                        <span class="planner-legend-item"><i class="planner-legend-dot planner-legend-plan"></i>계획</span>
-                        <span class="planner-legend-item"><i class="planner-legend-dot planner-legend-actual"></i>실제</span>
-                    </div>
-                    <div class="planner-timeline" id="planner-timeline"></div>
-                </div>
-
-                <!-- Quick Plan Add -->
-                <div class="planner-add-section">
-                    <div class="planner-section-label">빠른 계획 추가</div>
-                    <form id="planner-add-form" class="planner-add-form">
-                        <select id="planner-add-subject" class="planner-add-input planner-add-select"></select>
-                        <div class="planner-add-time-row">
-                            <input id="planner-add-start" class="planner-add-input" type="time" required>
-                            <span class="planner-add-sep">~</span>
-                            <input id="planner-add-end" class="planner-add-input" type="time" required>
+                <!-- Main Content Grid -->
+                <div class="planner-content-grid">
+                    <!-- Left: Timeline -->
+                    <div class="planner-timeline-section">
+                        <div class="planner-section-label">타임라인</div>
+                        <div class="planner-timeline-legend">
+                            <span class="planner-legend-item"><i class="planner-legend-dot planner-legend-plan"></i>계획</span>
+                            <span class="planner-legend-item"><i class="planner-legend-dot planner-legend-actual"></i>실제</span>
                         </div>
-                        <input id="planner-add-note" class="planner-add-input planner-add-note-input" type="text" maxlength="80" placeholder="할 일 메모">
-                        <button class="planner-add-btn" type="submit">추가</button>
-                    </form>
-                </div>
+                        <div class="planner-timeline" id="planner-timeline"></div>
+                    </div>
 
-                <!-- Memo -->
-                <div class="planner-memo-section">
-                    <div class="planner-section-label">메모</div>
-                    <textarea id="planner-memo" class="planner-memo" maxlength="500" placeholder="오늘의 다짐, 반성, 메모를 자유롭게 적어보세요..."></textarea>
-                    <button id="planner-memo-save" class="planner-memo-save-btn" type="button">메모 저장</button>
+                    <!-- Right: Quick Plan Add & Memo -->
+                    <div class="planner-sidebar">
+                        <!-- Quick Plan Add -->
+                        <div class="planner-add-section">
+                            <div class="planner-section-label">빠른 계획 추가</div>
+                            <form id="planner-add-form" class="planner-add-form">
+                                <label class="planner-add-field">
+                                    <span class="planner-label-text">과목</span>
+                                    <select id="planner-add-subject" class="planner-add-input planner-add-select"></select>
+                                </label>
+                                <label class="planner-add-field">
+                                    <span class="planner-label-text">시간</span>
+                                    <div class="planner-add-time-row">
+                                        <input id="planner-add-start" class="planner-add-input" type="time" required>
+                                        <span class="planner-add-sep">~</span>
+                                        <input id="planner-add-end" class="planner-add-input" type="time" required>
+                                    </div>
+                                </label>
+                                <label class="planner-add-field">
+                                    <span class="planner-label-text">메모</span>
+                                    <input id="planner-add-note" class="planner-add-input" type="text" maxlength="80" placeholder="할 일 메모">
+                                </label>
+                                <button class="planner-add-btn" type="submit">추가</button>
+                            </form>
+                        </div>
+
+                        <!-- Memo -->
+                        <div class="planner-memo-section">
+                            <div class="planner-section-label">메모</div>
+                            <textarea id="planner-memo" class="planner-memo" maxlength="500" placeholder="오늘의 다짐, 반성, 메모를 자유롭게 적어보세요..."></textarea>
+                            <button id="planner-memo-save" class="planner-memo-save-btn" type="button">메모 저장</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Daily Stats -->

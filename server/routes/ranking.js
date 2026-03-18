@@ -1,13 +1,12 @@
 const express = require('express');
 const pool = require('../db');
 const { getPercentile } = require('../data/universities');
-const { formatDisplayName, getActiveStreakFromUser, refreshBountyBoard, getBountyBoard } = require('../utils/progression');
+const { formatDisplayName, getActiveStreakFromUser } = require('../utils/progression');
 
 const router = express.Router();
 
 router.get('/', async (req, res) => {
     try {
-        await refreshBountyBoard(pool);
         const result = await pool.query(
                 `SELECT u.id, u.nickname, u.university, u.gold, u.exp, u.tier, u.is_studying, u.profile_image_url, u.status_emoji, u.status_message,
                     u.active_title, u.streak_count, u.streak_last_date,
@@ -41,7 +40,6 @@ router.get('/', async (req, res) => {
 
 router.get('/today', async (req, res) => {
     try {
-        await refreshBountyBoard(pool);
         const result = await pool.query(
                 `SELECT u.id, u.nickname, u.university, u.tier, u.is_studying, u.profile_image_url, u.status_emoji, u.status_message,
                     u.active_title, u.streak_count, u.streak_last_date,
@@ -108,17 +106,6 @@ router.get('/me', async (req, res) => {
         });
     } catch (err) {
         console.error('ranking/me error:', err);
-        res.status(500).json({ error: '서버 오류가 발생했습니다.' });
-    }
-});
-
-router.get('/bounty', async (req, res) => {
-    try {
-        await refreshBountyBoard(pool);
-        const board = await getBountyBoard(pool);
-        res.json({ bounties: board });
-    } catch (err) {
-        console.error('ranking/bounty error:', err);
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     }
 });

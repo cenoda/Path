@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { findUniversity } = require('../data/universities');
-const { evaluateMilestoneTitles, formatDisplayName, refreshBountyBoard } = require('../utils/progression');
+const { evaluateMilestoneTitles, formatDisplayName } = require('../utils/progression');
 const { getKanInfo } = require('../utils/admissionCalc');
 
 const router = express.Router();
@@ -28,7 +28,6 @@ router.post('/attack', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        await refreshBountyBoard(client);
 
         const attackerRes = await client.query(
             'SELECT id, nickname, tickets, university, score_status FROM users WHERE id = $1 FOR UPDATE',
@@ -98,28 +97,11 @@ router.post('/attack', async (req, res) => {
              invasionResult, 0]
         );
 
-        let bountyReward = 0;
         if (attackerWins) {
             await client.query(
                 'UPDATE users SET university = $1 WHERE id = $2',
                 [defender.university, req.session.userId]
             );
-
-            const bountyRes = await client.query(
-                `SELECT COALESCE(SUM(reward_gold), 0)::int AS reward
-                 FROM bounty_board
-                 WHERE target_user_id = $1`,
-                [defender.id]
-            );
-            bountyReward = Number(bountyRes.rows[0]?.reward || 0);
-            if (bountyReward > 0) {
-                await client.query('UPDATE users SET gold = gold + $1 WHERE id = $2', [bountyReward, req.session.userId]);
-                await client.query(
-                    `INSERT INTO notifications (user_id, type, message)
-                     VALUES ($1, 'bounty', $2)`,
-                    [req.session.userId, `현상수배 성공! @${defender.nickname} 격추 보상 +${bountyReward}G`]
-                );
-            }
         }
 
         const grantedTitles = await evaluateMilestoneTitles(client, req.session.userId);
@@ -144,7 +126,6 @@ router.post('/attack', async (req, res) => {
             accept_prob: Math.round(acceptProb * 100),
             defender_nickname: defender.nickname,
             defender_university: defender.university,
-            bounty_reward: bountyReward,
             grantedTitles,
             used_slots: usedSlots + 1,
             max_slots: MAX_DAILY,

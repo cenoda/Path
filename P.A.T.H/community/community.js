@@ -1393,6 +1393,7 @@ function openSettingsModal() {
       <div class="community-settings-tabs" role="tablist" aria-label="설정 탭">
         <button class="community-settings-tab is-active" role="tab" aria-selected="true" data-tab="view">화면</button>
         <button class="community-settings-tab" role="tab" aria-selected="false" data-tab="content">콘텐츠</button>
+        <button class="community-settings-tab" role="tab" aria-selected="false" data-tab="profile">프로필</button>
         <button class="community-settings-tab" role="tab" aria-selected="false" data-tab="activity">내 활동</button>
         <button class="community-settings-tab" role="tab" aria-selected="false" data-tab="blocks">차단</button>
       </div>
@@ -1440,6 +1441,54 @@ function openSettingsModal() {
             </div>
             <input id="settings-hide-media-badge" type="checkbox" class="community-settings-switch">
           </label>
+        </section>
+
+        <section class="community-settings-panel hidden" data-panel="profile">
+          <div id="settings-profile-login-empty" class="community-settings-empty hidden">
+            <p class="community-settings-empty__title">로그인 후 프로필을 수정할 수 있어요.</p>
+            <p class="community-settings-empty__desc">닉네임, 대학 정보, 동맹 신청 수신 여부를 변경할 수 있습니다.</p>
+          </div>
+
+          <div id="settings-profile-form" class="community-profile-form">
+            <div class="community-profile-avatar-editor">
+              <div id="settings-profile-avatar-preview" class="community-profile-avatar-preview">U</div>
+              <label class="community-profile-photo-btn" for="settings-profile-photo-input">사진 변경</label>
+              <input id="settings-profile-photo-input" type="file" accept="image/*" hidden>
+            </div>
+
+            <label class="community-profile-field">
+              <span>닉네임</span>
+              <input id="settings-profile-nickname" class="write-input" type="text" maxlength="20" placeholder="2~20자">
+            </label>
+
+            <label class="community-profile-field community-profile-univ-wrap">
+              <span>목표 대학교</span>
+              <input id="settings-profile-university" class="write-input" type="text" maxlength="100" placeholder="대학명 검색">
+              <div id="settings-profile-univ-results" class="community-profile-univ-results hidden"></div>
+            </label>
+
+            <label class="community-profile-inline-check">
+              <input id="settings-profile-is-nsu" type="checkbox">
+              <span>N수생입니다</span>
+            </label>
+
+            <label id="settings-profile-prev-wrap" class="community-profile-field community-profile-univ-wrap hidden">
+              <span>전적 대학교</span>
+              <input id="settings-profile-prev-university" class="write-input" type="text" maxlength="100" placeholder="재학/졸업한 대학">
+              <div id="settings-profile-prev-univ-results" class="community-profile-univ-results hidden"></div>
+            </label>
+
+            <label class="community-settings-item community-settings-item--toggle">
+              <div>
+                <p class="community-settings-item__title">동맹 신청 받기</p>
+                <p class="community-settings-item__desc">끄면 다른 사용자의 동맹 신청을 받지 않아요.</p>
+              </div>
+              <input id="settings-profile-allow-friend" type="checkbox" class="community-settings-switch">
+            </label>
+
+            <p id="settings-profile-error" class="community-profile-error"></p>
+            <button id="settings-profile-save" class="write-submit-btn" type="button">프로필 저장</button>
+          </div>
         </section>
 
         <section class="community-settings-panel hidden" data-panel="activity">
@@ -1504,6 +1553,20 @@ function openSettingsModal() {
   const hideBestInput = backdrop.querySelector('#settings-hide-best');
   const hideAdInput = backdrop.querySelector('#settings-hide-ad');
   const hideMediaBadgeInput = backdrop.querySelector('#settings-hide-media-badge');
+  const profileLoginEmpty = backdrop.querySelector('#settings-profile-login-empty');
+  const profileForm = backdrop.querySelector('#settings-profile-form');
+  const profileAvatarPreview = backdrop.querySelector('#settings-profile-avatar-preview');
+  const profilePhotoInput = backdrop.querySelector('#settings-profile-photo-input');
+  const profileNicknameInput = backdrop.querySelector('#settings-profile-nickname');
+  const profileUnivInput = backdrop.querySelector('#settings-profile-university');
+  const profileUnivResults = backdrop.querySelector('#settings-profile-univ-results');
+  const profileNsuInput = backdrop.querySelector('#settings-profile-is-nsu');
+  const profilePrevWrap = backdrop.querySelector('#settings-profile-prev-wrap');
+  const profilePrevUnivInput = backdrop.querySelector('#settings-profile-prev-university');
+  const profilePrevUnivResults = backdrop.querySelector('#settings-profile-prev-univ-results');
+  const profileAllowFriendInput = backdrop.querySelector('#settings-profile-allow-friend');
+  const profileSaveBtn = backdrop.querySelector('#settings-profile-save');
+  const profileErrorEl = backdrop.querySelector('#settings-profile-error');
   const blocksWrap = backdrop.querySelector('#settings-blocks-wrap');
   const activitySummaryWrap = backdrop.querySelector('#settings-activity-summary');
   const myPostsWrap = backdrop.querySelector('#settings-my-posts-wrap');
@@ -1517,6 +1580,8 @@ function openSettingsModal() {
   const activityDaysFilter = backdrop.querySelector('#settings-activity-filter-days');
   const activitySearchFilter = backdrop.querySelector('#settings-activity-filter-q');
   const activityRefreshBtn = backdrop.querySelector('#settings-activity-refresh');
+  let pendingProfileImageFile = null;
+  let profileUnivSearchTimer = null;
   const activityState = {
     loading: false,
     activeType: 'posts',
@@ -1544,6 +1609,118 @@ function openSettingsModal() {
   hideAdInput.checked = !!communitySettings.hideAd;
   hideMediaBadgeInput.checked = !!communitySettings.hideMediaBadge;
 
+  const setProfileError = (message) => {
+    if (!profileErrorEl) return;
+    profileErrorEl.textContent = String(message || '').trim();
+  };
+
+  const setProfilePrevVisibility = () => {
+    if (!profileNsuInput || !profilePrevWrap) return;
+    profilePrevWrap.classList.toggle('hidden', !profileNsuInput.checked);
+  };
+
+  const hideProfileUnivResults = () => {
+    profileUnivResults?.classList.add('hidden');
+    profilePrevUnivResults?.classList.add('hidden');
+  };
+
+  const setProfileAvatarPreview = (imageUrl, nickname) => {
+    if (!profileAvatarPreview) return;
+    profileAvatarPreview.innerHTML = '';
+
+    const safeUrl = String(imageUrl || '').trim();
+    if (safeUrl) {
+      const image = document.createElement('img');
+      image.src = safeUrl;
+      image.alt = '프로필';
+      image.className = 'community-profile-avatar-img';
+      profileAvatarPreview.appendChild(image);
+      return;
+    }
+
+    profileAvatarPreview.textContent = String(nickname || '?').trim().charAt(0).toUpperCase() || '?';
+  };
+
+  const renderProfileUnivResults = (items, targetInput, resultsEl) => {
+    if (!resultsEl || !targetInput) return;
+    resultsEl.innerHTML = '';
+
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) {
+      resultsEl.classList.add('hidden');
+      return;
+    }
+
+    list.forEach((item) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'community-profile-univ-item';
+      button.innerHTML = `
+        <span>${escHtml(item?.name || '')}</span>
+        <span class="community-profile-univ-region">${escHtml(item?.region ? `(${item.region})` : '')}</span>
+      `;
+      button.addEventListener('click', () => {
+        targetInput.value = String(item?.name || '');
+        resultsEl.classList.add('hidden');
+      });
+      resultsEl.appendChild(button);
+    });
+
+    resultsEl.classList.remove('hidden');
+  };
+
+  const searchProfileUniversity = (keyword, targetInput, resultsEl) => {
+    const q = String(keyword || '').trim();
+    if (profileUnivSearchTimer) clearTimeout(profileUnivSearchTimer);
+
+    if (!q) {
+      resultsEl?.classList.add('hidden');
+      return;
+    }
+
+    profileUnivSearchTimer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/university/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+        const data = response.ok ? await response.json().catch(() => ({})) : {};
+        renderProfileUnivResults(data?.results || [], targetInput, resultsEl);
+      } catch (_) {
+        resultsEl?.classList.add('hidden');
+      }
+    }, 180);
+  };
+
+  const syncProfileTabFromCurrentUser = () => {
+    const isLoggedIn = !!currentUser;
+    profileLoginEmpty?.classList.toggle('hidden', isLoggedIn);
+    profileForm?.classList.toggle('hidden', !isLoggedIn);
+
+    if (!isLoggedIn) {
+      setProfileError('');
+      pendingProfileImageFile = null;
+      return;
+    }
+
+    pendingProfileImageFile = null;
+    if (profilePhotoInput) profilePhotoInput.value = '';
+
+    const nick = String(currentUser?.nickname || '');
+    const univ = String(currentUser?.university || '');
+    const prevUniv = String(currentUser?.prev_university || '');
+    const isNsu = !!currentUser?.is_n_su;
+    const allowFriend = !(currentUser?.allow_friend_requests === false);
+
+    if (profileNicknameInput) profileNicknameInput.value = nick;
+    if (profileUnivInput) profileUnivInput.value = univ;
+    if (profilePrevUnivInput) profilePrevUnivInput.value = prevUniv;
+    if (profileNsuInput) profileNsuInput.checked = isNsu;
+    if (profileAllowFriendInput) profileAllowFriendInput.checked = allowFriend;
+
+    setProfilePrevVisibility();
+    hideProfileUnivResults();
+    setProfileAvatarPreview(currentUser?.profile_image_url || '', nick);
+    setProfileError('');
+  };
+
   const updateTab = async (tabKey) => {
     tabButtons.forEach((btn) => {
       const active = btn.dataset.tab === tabKey;
@@ -1556,6 +1733,10 @@ function openSettingsModal() {
 
     if (tabKey === 'blocks') {
       await renderSettingsBlockedUsers(blocksWrap);
+    }
+
+    if (tabKey === 'profile') {
+      syncProfileTabFromCurrentUser();
     }
 
     if (tabKey === 'activity') {
@@ -1630,6 +1811,140 @@ function openSettingsModal() {
     applyCommunitySettings();
   });
 
+  profilePhotoInput?.addEventListener('change', () => {
+    const file = profilePhotoInput.files?.[0];
+    if (!file) return;
+    pendingProfileImageFile = file;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const previewSrc = String(event?.target?.result || '');
+      if (!previewSrc) return;
+      setProfileAvatarPreview(previewSrc, profileNicknameInput?.value || currentUser?.nickname || '?');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  profileNsuInput?.addEventListener('change', () => {
+    setProfilePrevVisibility();
+  });
+
+  profileUnivInput?.addEventListener('input', () => {
+    searchProfileUniversity(profileUnivInput.value, profileUnivInput, profileUnivResults);
+  });
+
+  profilePrevUnivInput?.addEventListener('input', () => {
+    searchProfileUniversity(profilePrevUnivInput.value, profilePrevUnivInput, profilePrevUnivResults);
+  });
+
+  profileSaveBtn?.addEventListener('click', async () => {
+    if (!currentUser) {
+      setProfileError('로그인 후 프로필을 수정할 수 있어요.');
+      return;
+    }
+
+    const nickname = String(profileNicknameInput?.value || '').trim();
+    const university = String(profileUnivInput?.value || '').trim();
+    const isNsu = !!profileNsuInput?.checked;
+    const prevUniversity = String(profilePrevUnivInput?.value || '').trim();
+    const allowFriendRequests = !!profileAllowFriendInput?.checked;
+
+    if (!nickname) {
+      setProfileError('닉네임을 입력해 주세요.');
+      return;
+    }
+    if (!university) {
+      setProfileError('목표 대학교를 입력해 주세요.');
+      return;
+    }
+    if (isNsu && !prevUniversity) {
+      setProfileError('N수생은 전적 대학교를 입력해 주세요.');
+      return;
+    }
+
+    const hasProfileUpdate = (
+      nickname !== String(currentUser.nickname || '').trim() ||
+      university !== String(currentUser.university || '').trim() ||
+      isNsu !== !!currentUser.is_n_su ||
+      prevUniversity !== String(currentUser.prev_university || '').trim() ||
+      !!pendingProfileImageFile
+    );
+    const hasFriendSettingUpdate = allowFriendRequests !== !(currentUser.allow_friend_requests === false);
+
+    if (!hasProfileUpdate && !hasFriendSettingUpdate) {
+      setProfileError('');
+      showToast('변경된 내용이 없어요.');
+      return;
+    }
+
+    setProfileError('');
+    if (profileSaveBtn) {
+      profileSaveBtn.disabled = true;
+      profileSaveBtn.textContent = '저장 중...';
+    }
+
+    try {
+      let nextUser = currentUser;
+
+      if (hasProfileUpdate) {
+        const fd = new FormData();
+        fd.append('nickname', nickname);
+        fd.append('university', university);
+        fd.append('is_n_su', String(isNsu));
+        if (isNsu && prevUniversity) {
+          fd.append('prev_university', prevUniversity);
+        }
+        if (pendingProfileImageFile) {
+          fd.append('profileImage', pendingProfileImageFile);
+        }
+
+        const profileRes = await fetch('/api/auth/profile-custom', {
+          method: 'POST',
+          credentials: 'include',
+          body: fd,
+        });
+        const profileData = await profileRes.json().catch(() => ({}));
+        if (!profileRes.ok || !profileData?.ok) {
+          throw new Error(profileData?.error || '프로필 저장에 실패했어요.');
+        }
+        nextUser = profileData.user || nextUser;
+      }
+
+      if (hasFriendSettingUpdate) {
+        const friendRes = await fetch('/api/auth/friend-request-setting', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ allow_friend_requests: allowFriendRequests }),
+        });
+        const friendData = await friendRes.json().catch(() => ({}));
+        if (!friendRes.ok || !friendData?.ok) {
+          throw new Error(friendData?.error || '동맹 신청 수신 설정 저장에 실패했어요.');
+        }
+        nextUser = { ...nextUser, allow_friend_requests: allowFriendRequests };
+      }
+
+      currentUser = nextUser;
+      pendingProfileImageFile = null;
+      syncProfileTabFromCurrentUser();
+
+      showToast('프로필이 저장되었어요.');
+
+      // 닉네임/프로필 이미지 노출 영역 최신화
+      await Promise.all([
+        renderHotPosts(),
+        resetAndLoad({ preserveInlineUrl: true }),
+      ]);
+    } catch (err) {
+      setProfileError(err?.message || '저장 중 오류가 발생했어요.');
+    } finally {
+      if (profileSaveBtn) {
+        profileSaveBtn.disabled = false;
+        profileSaveBtn.textContent = '프로필 저장';
+      }
+    }
+  });
+
   activityRefreshBtn?.addEventListener('click', async () => {
     await renderSettingsActivityTab({
       summaryWrap: activitySummaryWrap,
@@ -1666,6 +1981,9 @@ function openSettingsModal() {
   backdrop.querySelector('#settings-close-btn')?.addEventListener('click', close);
   backdrop.querySelector('#settings-close-footer-btn')?.addEventListener('click', close);
   backdrop.addEventListener('click', (e) => {
+    if (e.target instanceof Element && !e.target.closest('.community-profile-univ-wrap')) {
+      hideProfileUnivResults();
+    }
     if (e.target === backdrop) close();
   });
 }

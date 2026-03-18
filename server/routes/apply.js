@@ -20,6 +20,94 @@ function normalizeTrack(rawTrack) {
     return null;
 }
 
+function normalizeGroupType(rawGroup) {
+    if (!rawGroup) return null;
+    const normalized = String(rawGroup).trim();
+    if (normalized === '가' || normalized === '가군') return '가';
+    if (normalized === '나' || normalized === '나군') return '나';
+    if (normalized === '다' || normalized === '다군') return '다';
+    return null;
+}
+
+function collectGroupTokens(bucket, value) {
+    if (value == null) return;
+
+    if (Array.isArray(value)) {
+        for (const item of value) collectGroupTokens(bucket, item);
+        return;
+    }
+
+    const text = String(value).trim();
+    if (!text) return;
+
+    if (text.includes('가군')) bucket.add('가');
+    if (text.includes('나군')) bucket.add('나');
+    if (text.includes('다군')) bucket.add('다');
+
+    const tokens = text
+        .replace(/[|,/]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(Boolean);
+
+    for (const token of tokens) {
+        if (token === '가') bucket.add('가');
+        if (token === '나') bucket.add('나');
+        if (token === '다') bucket.add('다');
+    }
+}
+
+function getDepartmentGroups(dept) {
+    const groups = new Set();
+    if (!dept || typeof dept !== 'object') return groups;
+
+    const directCandidates = [
+        dept.group,
+        dept.group_type,
+        dept.groupType,
+        dept.track,
+        dept['군'],
+        dept['모집군'],
+        dept.note,
+        dept['비고'],
+        dept.groups,
+        dept.groupTypes,
+        dept.admissionGroups,
+    ];
+    directCandidates.forEach(value => collectGroupTokens(groups, value));
+
+    if (dept.admissions && typeof dept.admissions === 'object') {
+        for (const [admissionType, admissionData] of Object.entries(dept.admissions)) {
+            collectGroupTokens(groups, admissionType);
+            if (admissionData && typeof admissionData === 'object') {
+                const admissionCandidates = [
+                    admissionData.group,
+                    admissionData.group_type,
+                    admissionData.groupType,
+                    admissionData.track,
+                    admissionData['군'],
+                    admissionData['모집군'],
+                    admissionData.note,
+                    admissionData['비고'],
+                    admissionData.groups,
+                    admissionData.groupTypes,
+                ];
+                admissionCandidates.forEach(value => collectGroupTokens(groups, value));
+            }
+        }
+    }
+
+    return groups;
+}
+
+function departmentMatchesGroup(dept, requestedGroup) {
+    if (!requestedGroup) return true;
+    const groups = getDepartmentGroups(dept);
+    if (groups.size === 0) return false;
+    return groups.has(requestedGroup);
+}
+
 function inferTrackFromCategory(category) {
     const c = String(category || '');
     const naturalKeywords = ['자연', '공학', '의학', '간호', '약학', '생명', '과학'];
@@ -455,8 +543,9 @@ router.get('/applications/me', requireAuth, async (req, res) => {
 
 // ── 대학 검색 + 칸수 미리보기 ────────────────────────────────────────────
 router.get('/search', requireAuth, async (req, res) => {
-    const { q, track } = req.query;
+    const { q, track, group } = req.query;
     const query = String(q || '').trim();
+    const requestedGroup = normalizeGroupType(group);
 
     try {
         const scoreRes = await pool.query('SELECT * FROM exam_scores WHERE user_id = $1', [req.session.userId]);
@@ -471,13 +560,17 @@ router.get('/search', requireAuth, async (req, res) => {
             for (const uniMeta of seedUnis) {
                 const fullUni = findUniversity(uniMeta.name);
                 const deptList = Array.isArray(fullUni?.departments) ? fullUni.departments : [];
+                const filteredDeptList = requestedGroup
+                    ? deptList.filter(dept => departmentMatchesGroup(dept, requestedGroup))
+                    : deptList;
 
-                if (deptList.length > 0) {
-                    for (const dept of deptList.slice(0, 4)) {
+                if (filteredDeptList.length > 0) {
+                    for (const dept of filteredDeptList.slice(0, 4)) {
                         const deptTrack = requestedTrack || inferTrackFromCategory(dept.category);
                         const kanInfo = scores?.korean_std
                             ? calc.getKanInfo(scores, uniMeta.name, dept.name, deptTrack)
                             : null;
+                        const groupTypes = Array.from(getDepartmentGroups(dept));
 
                         seededResults.push({
                             name: uniMeta.name,
@@ -487,11 +580,12 @@ router.get('/search', requireAuth, async (req, res) => {
                             region: uniMeta.region,
                             type: uniMeta.type,
                             track: deptTrack,
+                            groupTypes,
                             kanInfo,
                         });
                         if (seededResults.length >= 80) break;
                     }
-                } else {
+                } else if (!requestedGroup) {
                     const fallbackTrack = requestedTrack || '인문';
                     const kanInfo = scores?.korean_std
                         ? calc.getKanInfo(scores, uniMeta.name, '', fallbackTrack)
@@ -539,6 +633,7 @@ router.get('/search', requireAuth, async (req, res) => {
 
             const deptList = Array.isArray(fullUni.departments) ? fullUni.departments : [];
             const matchedDepts = deptList.filter(dept => {
+                if (requestedGroup && !departmentMatchesGroup(dept, requestedGroup)) return false;
                 const deptNameHit = String(dept?.name || '').toLowerCase().includes(qLower);
                 const uniNameHit = String(fullUni.name || '').toLowerCase().includes(qLower);
                 return deptNameHit || uniNameHit;
@@ -549,6 +644,7 @@ router.get('/search', requireAuth, async (req, res) => {
                 const kanInfo = scores?.korean_std
                     ? calc.getKanInfo(scores, fullUni.name, dept.name, deptTrack)
                     : null;
+                const groupTypes = Array.from(getDepartmentGroups(dept));
 
                 results.push({
                     name: fullUni.name,
@@ -558,6 +654,7 @@ router.get('/search', requireAuth, async (req, res) => {
                     region: fullUni.region,
                     type: fullUni.type,
                     track: deptTrack,
+                    groupTypes,
                     kanInfo,
                 });
 
@@ -571,13 +668,17 @@ router.get('/search', requireAuth, async (req, res) => {
             for (const uniMeta of unis.slice(0, 15)) {
                 const fullUni = findUniversity(uniMeta.name);
                 const deptList = Array.isArray(fullUni?.departments) ? fullUni.departments : [];
+                const filteredDeptList = requestedGroup
+                    ? deptList.filter(dept => departmentMatchesGroup(dept, requestedGroup))
+                    : deptList;
 
-                if (deptList.length > 0) {
-                    for (const dept of deptList.slice(0, 6)) {
+                if (filteredDeptList.length > 0) {
+                    for (const dept of filteredDeptList.slice(0, 6)) {
                         const fallbackTrack = requestedTrack || inferTrackFromCategory(dept.category);
                         const kanInfo = scores?.korean_std
                             ? calc.getKanInfo(scores, uniMeta.name, dept.name, fallbackTrack)
                             : null;
+                        const groupTypes = Array.from(getDepartmentGroups(dept));
                         results.push({
                             name: uniMeta.name,
                             university: uniMeta.name,
@@ -586,11 +687,12 @@ router.get('/search', requireAuth, async (req, res) => {
                             region: uniMeta.region,
                             type: uniMeta.type,
                             track: fallbackTrack,
+                            groupTypes,
                             kanInfo,
                         });
                         if (results.length >= 120) break;
                     }
-                } else {
+                } else if (!requestedGroup) {
                     const fallbackTrack = requestedTrack || '인문';
                     const kanInfo = scores?.korean_std
                         ? calc.getKanInfo(scores, uniMeta.name, '', fallbackTrack)

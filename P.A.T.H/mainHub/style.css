@@ -580,6 +580,77 @@ button, a, input, select, textarea, [role="button"] {
 .profile-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
 .profile-field { display: flex; flex-direction: column; gap: 8px; }
 .profile-field label { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.profile-inline-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.profile-inline-check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+.profile-inline-check--boxed {
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    background: var(--surface-hover);
+    gap: 10px;
+}
+.profile-check-texts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.profile-check-texts strong {
+    font-size: 12px;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+.profile-check-texts span {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    line-height: 1.35;
+}
+.profile-univ-results {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface-color);
+    overflow: hidden;
+    max-height: 176px;
+    overflow-y: auto;
+}
+.profile-univ-item {
+    width: 100%;
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-primary);
+    text-align: left;
+    padding: 9px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 12px;
+}
+.profile-univ-item:first-child {
+    border-top: 0;
+}
+.profile-univ-item:hover {
+    background: var(--accent-light);
+}
+.profile-univ-region {
+    color: var(--text-tertiary);
+    font-size: 10px;
+}
 
 /* ════════════════════════════════════
    ONBOARDING TUTORIAL

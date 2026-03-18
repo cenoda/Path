@@ -476,14 +476,16 @@ function searchUniversity(q) {
     searchTimer = setTimeout(async () => {
         const requestId = ++searchRequestId;
         const keyword = String(q || '').trim();
+        const requestedGroup = normalizeApplicationGroup(pendingGroup);
         const wrap = document.getElementById('search-results');
         if (wrap) {
             wrap.innerHTML = '<div class="empty-state"><span class="spinner" style="border-color:var(--gray-200);border-top-color:var(--blue)"></span></div>';
         }
         try {
             const preferredTrack = getPreferredTrack();
+            const groupParam = requestedGroup ? `&group=${encodeURIComponent(requestedGroup)}` : '';
             const r = await fetch(
-                `/api/apply/search?q=${encodeURIComponent(keyword)}&track=${encodeURIComponent(preferredTrack)}`,
+                `/api/apply/search?q=${encodeURIComponent(keyword)}&track=${encodeURIComponent(preferredTrack)}${groupParam}`,
                 { credentials: 'include' }
             );
             if (requestId !== searchRequestId) return;
@@ -498,6 +500,14 @@ function searchUniversity(q) {
             renderSearchErrorState('네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
         }
     }, 200);
+}
+
+function normalizeApplicationGroup(rawGroup) {
+    const normalized = String(rawGroup || '').trim();
+    if (normalized === '가' || normalized === '가군') return '가';
+    if (normalized === '나' || normalized === '나군') return '나';
+    if (normalized === '다' || normalized === '다군') return '다';
+    return null;
 }
 
 function renderSearchErrorState(message) {
@@ -980,8 +990,10 @@ async function loadReplacementSuggestions(rowsMeta = []) {
     try {
         const cards = await Promise.all(targets.map(async (target) => {
             const query = buildReplacementSearchQuery(target.app.university);
+            const requestedGroup = normalizeApplicationGroup(target.group);
+            const groupParam = requestedGroup ? `&group=${encodeURIComponent(requestedGroup)}` : '';
             const response = await fetch(
-                `/api/apply/search?q=${encodeURIComponent(query)}&track=${encodeURIComponent(getPreferredTrack())}`,
+                `/api/apply/search?q=${encodeURIComponent(query)}&track=${encodeURIComponent(getPreferredTrack())}${groupParam}`,
                 { credentials: 'include' }
             );
             if (!response.ok) return renderReplacementCard(target, []);

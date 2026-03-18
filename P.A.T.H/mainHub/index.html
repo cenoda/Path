@@ -449,6 +449,27 @@
                     <label for="profile-nick-input">닉네임</label>
                     <input id="profile-nick-input" type="text" class="chat-input" placeholder="닉네임 입력" maxlength="20">
                 </div>
+                <div class="profile-field">
+                    <label for="profile-univ-input">목표 대학교</label>
+                    <input id="profile-univ-input" type="text" class="chat-input" placeholder="대학명 검색" maxlength="100" oninput="profileCustomSearchUniv(this.value)">
+                    <div id="profile-univ-results" class="profile-univ-results hidden"></div>
+                </div>
+                <div class="profile-inline-check">
+                    <input id="profile-nsu-input" type="checkbox" onchange="profileCustomToggleNsu()">
+                    <label for="profile-nsu-input">N수생입니다</label>
+                </div>
+                <div class="profile-field hidden" id="profile-prev-univ-wrap">
+                    <label for="profile-prev-univ-input">전적 대학교</label>
+                    <input id="profile-prev-univ-input" type="text" class="chat-input" placeholder="재학/졸업한 대학" maxlength="100" oninput="profileCustomSearchPrevUniv(this.value)">
+                    <div id="profile-prev-univ-results" class="profile-univ-results hidden"></div>
+                </div>
+                <div class="profile-inline-check profile-inline-check--boxed">
+                    <div class="profile-check-texts">
+                        <strong>동맹 신청 받기</strong>
+                        <span>끄면 다른 사용자의 동맹 신청을 받지 않습니다.</span>
+                    </div>
+                    <input id="profile-allow-friend-input" type="checkbox">
+                </div>
                 <div id="profile-save-err" style="font-size:11px;color:var(--red);min-height:16px;"></div>
             </div>
             <div class="modal-foot">
@@ -466,6 +487,7 @@
     // 프로필 커스터마이저 – main.js 리셋 대비 index.html에 보관
     (function () {
         var _pendingFile = null;
+        var _univSearchTimer = null;
 
         function _esc(s) {
             if (!s) return '';
@@ -474,13 +496,111 @@
             return d.innerHTML;
         }
 
+        function _setNsuFieldVisibility() {
+            var nsuInput = document.getElementById('profile-nsu-input');
+            var prevWrap = document.getElementById('profile-prev-univ-wrap');
+            if (!nsuInput || !prevWrap) return;
+            prevWrap.classList.toggle('hidden', !nsuInput.checked);
+        }
+
+        function _hideUnivResults() {
+            var results = document.querySelectorAll('.profile-univ-results');
+            results.forEach(function (el) { el.classList.add('hidden'); });
+        }
+
+        function _renderUnivResults(list, targetInputId, targetResultsId) {
+            var resultsEl = document.getElementById(targetResultsId);
+            if (!resultsEl) return;
+            if (!Array.isArray(list) || list.length === 0) {
+                resultsEl.innerHTML = '';
+                resultsEl.classList.add('hidden');
+                return;
+            }
+
+            resultsEl.innerHTML = list.map(function (u) {
+                var name = String((u && u.name) || '');
+                var region = String((u && u.region) || '');
+                return [
+                    '<button type="button" class="profile-univ-item"',
+                    ' data-target="' + _esc(targetInputId) + '"',
+                    ' data-name="' + encodeURIComponent(name) + '"',
+                    ' onclick="profileCustomSelectUniv(this)">',
+                    '  <span>' + _esc(name) + '</span>',
+                    region ? '  <span class="profile-univ-region">(' + _esc(region) + ')</span>' : '',
+                    '</button>'
+                ].join('');
+            }).join('');
+
+            resultsEl.classList.remove('hidden');
+        }
+
+        function _searchUniv(keyword, targetInputId, targetResultsId) {
+            var q = String(keyword || '').trim();
+            if (_univSearchTimer) {
+                clearTimeout(_univSearchTimer);
+            }
+            if (!q) {
+                var emptyEl = document.getElementById(targetResultsId);
+                if (emptyEl) {
+                    emptyEl.innerHTML = '';
+                    emptyEl.classList.add('hidden');
+                }
+                return;
+            }
+
+            _univSearchTimer = window.setTimeout(function () {
+                fetch('/api/university/search?q=' + encodeURIComponent(q), { credentials: 'include' })
+                    .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+                    .then(function (data) {
+                        _renderUnivResults((data && data.results) || [], targetInputId, targetResultsId);
+                    })
+                    .catch(function () {
+                        var failEl = document.getElementById(targetResultsId);
+                        if (failEl) {
+                            failEl.innerHTML = '';
+                            failEl.classList.add('hidden');
+                        }
+                    });
+            }, 180);
+        }
+
+        window.profileCustomSearchUniv = function (keyword) {
+            _searchUniv(keyword, 'profile-univ-input', 'profile-univ-results');
+        };
+
+        window.profileCustomSearchPrevUniv = function (keyword) {
+            _searchUniv(keyword, 'profile-prev-univ-input', 'profile-prev-univ-results');
+        };
+
+        window.profileCustomSelectUniv = function (btnEl) {
+            if (!btnEl) return;
+            var inputId = String(btnEl.getAttribute('data-target') || '');
+            var encodedName = String(btnEl.getAttribute('data-name') || '');
+            var inputEl = document.getElementById(inputId);
+            if (!inputEl) return;
+            inputEl.value = decodeURIComponent(encodedName);
+            _hideUnivResults();
+        };
+
+        window.profileCustomToggleNsu = function () {
+            _setNsuFieldVisibility();
+        };
+
         window.openProfileCustomizer = function () {
             var user = window.currentUser || null;
             _pendingFile = null;
             var modal = document.getElementById('modal-profile-custom');
             if (!modal) return;
             var nick = document.getElementById('profile-nick-input');
+            var univ = document.getElementById('profile-univ-input');
+            var nsu = document.getElementById('profile-nsu-input');
+            var prevUniv = document.getElementById('profile-prev-univ-input');
+            var allowFriend = document.getElementById('profile-allow-friend-input');
             if (nick) nick.value = (user && user.nickname) || '';
+            if (univ) univ.value = (user && user.university) || '';
+            if (nsu) nsu.checked = !!(user && user.is_n_su);
+            if (prevUniv) prevUniv.value = (user && user.prev_university) || '';
+            if (allowFriend) allowFriend.checked = !(user && user.allow_friend_requests === false);
             var preview = document.getElementById('profile-avatar-preview');
             if (preview) {
                 if (user && user.profile_image_url) {
@@ -491,6 +611,8 @@
             }
             var err = document.getElementById('profile-save-err');
             if (err) err.textContent = '';
+            _setNsuFieldVisibility();
+            _hideUnivResults();
             modal.classList.remove('hidden');
         };
 
@@ -498,6 +620,7 @@
             var modal = document.getElementById('modal-profile-custom');
             if (modal) modal.classList.add('hidden');
             _pendingFile = null;
+            _hideUnivResults();
         };
 
         window.onProfileImageSelected = function (input) {
@@ -512,32 +635,103 @@
             reader.readAsDataURL(file);
         };
 
-        window.saveProfileCustomizer = function () {
+        window.saveProfileCustomizer = async function () {
+            var user = window.currentUser || {};
             var nickInput = (document.getElementById('profile-nick-input') || {}).value || '';
-            var currentNick = ((window.currentUser && window.currentUser.nickname) || '').trim();
+            var univInput = (document.getElementById('profile-univ-input') || {}).value || '';
+            var prevUnivInput = (document.getElementById('profile-prev-univ-input') || {}).value || '';
+            var isNsu = !!((document.getElementById('profile-nsu-input') || {}).checked);
+            var allowFriend = !!((document.getElementById('profile-allow-friend-input') || {}).checked);
+
+            var currentNick = String(user.nickname || '').trim();
+            var currentUniv = String(user.university || '').trim();
+            var currentPrevUniv = String(user.prev_university || '').trim();
+            var currentIsNsu = !!user.is_n_su;
+            var currentAllowFriend = !(user.allow_friend_requests === false);
+
             var nick = nickInput.trim() || currentNick;
+            var university = univInput.trim();
+            var prevUniversity = prevUnivInput.trim();
+
             var errEl = document.getElementById('profile-save-err');
             var saveBtn = document.getElementById('profile-save-btn');
+
             if (!nick) { if (errEl) errEl.textContent = '닉네임을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'; return; }
+            if (!university) { if (errEl) errEl.textContent = '목표 대학교를 입력해주세요.'; return; }
+            if (isNsu && !prevUniversity) { if (errEl) errEl.textContent = 'N수생은 전적 대학교를 입력해주세요.'; return; }
+
+            var hasProfileChange = (
+                nick !== currentNick ||
+                university !== currentUniv ||
+                isNsu !== currentIsNsu ||
+                prevUniversity !== currentPrevUniv ||
+                !!_pendingFile
+            );
+            var hasFriendChange = allowFriend !== currentAllowFriend;
+
+            if (!hasProfileChange && !hasFriendChange) {
+                window.closeProfileCustomizer();
+                return;
+            }
+
             if (errEl) errEl.textContent = '';
             if (saveBtn) saveBtn.disabled = true;
-            var fd = new FormData();
-            if (nick) fd.append('nickname', nick);
-            if (_pendingFile) fd.append('profileImage', _pendingFile);
-            fetch('/api/auth/profile-custom', { method: 'POST', body: fd, credentials: 'include' })
-                .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
-                .then(function (data) {
-                    if (!data || !data.ok) { if (errEl) errEl.textContent = data && data.error || '오류가 발생했습니다.'; return; }
-                    if (typeof window.applyCurrentUserUpdate === 'function') {
-                        window.applyCurrentUserUpdate(data.user);
-                    } else {
-                        window.currentUser = data.user;
+
+            try {
+                var nextUser = user;
+
+                if (hasProfileChange) {
+                    var fd = new FormData();
+                    fd.append('nickname', nick);
+                    fd.append('university', university);
+                    fd.append('is_n_su', String(isNsu));
+                    if (isNsu && prevUniversity) fd.append('prev_university', prevUniversity);
+                    if (_pendingFile) fd.append('profileImage', _pendingFile);
+
+                    var profileRes = await fetch('/api/auth/profile-custom', {
+                        method: 'POST',
+                        body: fd,
+                        credentials: 'include'
+                    });
+                    var profileData = await profileRes.json().catch(function () { return {}; });
+                    if (!profileRes.ok || !profileData || !profileData.ok) {
+                        throw new Error(profileData && profileData.error || '프로필 저장 중 오류가 발생했습니다.');
                     }
-                    window.closeProfileCustomizer();
-                })
-                .catch(function () { if (errEl) errEl.textContent = '저장 중 오류가 발생했습니다.'; })
-                .finally(function () { if (saveBtn) saveBtn.disabled = false; });
+                    nextUser = profileData.user || nextUser;
+                }
+
+                if (hasFriendChange) {
+                    var friendRes = await fetch('/api/auth/friend-request-setting', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ allow_friend_requests: allowFriend })
+                    });
+                    var friendData = await friendRes.json().catch(function () { return {}; });
+                    if (!friendRes.ok || !friendData || !friendData.ok) {
+                        throw new Error(friendData && friendData.error || '동맹 신청 설정 저장에 실패했습니다.');
+                    }
+                    nextUser = Object.assign({}, nextUser || {}, { allow_friend_requests: allowFriend });
+                }
+
+                if (typeof window.applyCurrentUserUpdate === 'function') {
+                    window.applyCurrentUserUpdate(nextUser);
+                } else {
+                    window.currentUser = nextUser;
+                }
+                window.closeProfileCustomizer();
+            } catch (err) {
+                if (errEl) errEl.textContent = err && err.message ? err.message : '저장 중 오류가 발생했습니다.';
+            } finally {
+                if (saveBtn) saveBtn.disabled = false;
+            }
         };
+
+        document.addEventListener('click', function (e) {
+            if (!e.target || !e.target.closest) return;
+            if (e.target.closest('.profile-field')) return;
+            _hideUnivResults();
+        });
     })();
 
     // 계정 보안 모달 함수

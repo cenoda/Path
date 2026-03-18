@@ -670,6 +670,7 @@ function buildAdmission(rec) {
         if (rec.admissionsType === '학생부종합') out.내신참고 = rec.gpaCut;
         else out.내신 = rec.gpaCut;
     }
+    if (rec.track) out.track = rec.track;
     if (rec.sourceId) out.sourceId = rec.sourceId;
     if (rec.sourceUrl) out.sourceUrl = rec.sourceUrl;
     if (rec.year != null) out.year = rec.year;

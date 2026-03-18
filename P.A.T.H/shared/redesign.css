@@ -32,9 +32,10 @@ body.login-page:not(.light),
 body.path-interface:not(.light),
 body.world-hub-page:not(.light),
 body.community-page:not(.light),
+body.apply-page:not(.light),
 body[data-theme-mode="dark"] {
-  --text-sub: #9bb2d7;
-  --text-dim: #7189b2;
+  --text-sub: #c4d6f1;
+  --text-dim: #96afd4;
 }
 
 body {

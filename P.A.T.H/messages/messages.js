@@ -88,8 +88,34 @@
       return sum + Number(item && item.unread_count ? item.unread_count : 0);
     }, 0);
 
-    if (countLabel) countLabel.textContent = total + ' 대화';
-    if (unreadLabel) unreadLabel.textContent = '미확인 ' + unread;
+    if (countLabel) {
+      countLabel.dataset.fullLabel = total + ' 대화';
+      countLabel.dataset.compactLabel = String(total);
+    }
+    if (unreadLabel) {
+      unreadLabel.dataset.fullLabel = '미확인 ' + unread;
+      unreadLabel.dataset.compactLabel = String(unread);
+    }
+
+    syncListSummaryLabels();
+  }
+
+  function syncListSummaryLabels() {
+    const countLabel = document.getElementById('list-count-label');
+    const unreadLabel = document.getElementById('list-unread-total');
+    const width = window.innerWidth || document.documentElement.clientWidth || 999;
+
+    if (countLabel) {
+      countLabel.textContent = width <= 760
+        ? String(countLabel.dataset.compactLabel || countLabel.dataset.fullLabel || '')
+        : String(countLabel.dataset.fullLabel || '0 대화');
+    }
+
+    if (unreadLabel) {
+      unreadLabel.textContent = width <= 380
+        ? String(unreadLabel.dataset.compactLabel || unreadLabel.dataset.fullLabel || '')
+        : String(unreadLabel.dataset.fullLabel || '미확인 0');
+    }
   }
 
   function loadSearchHistory() {
@@ -868,6 +894,7 @@
     bindViewObserver();
     syncThemeButton();
     if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
+    window.addEventListener('resize', syncListSummaryLabels, { passive: true });
     setHeaderInfo('메시지', '대화를 선택해 주세요', '');
     setHeaderAvatar({ nickname: '메시지', profileImageUrl: '', isOnline: false, isGroup: false });
     setChatPlaceholder('대화를 선택해 주세요', '왼쪽 목록에서 상대를 선택하면 새 채팅 화면이 열립니다.');

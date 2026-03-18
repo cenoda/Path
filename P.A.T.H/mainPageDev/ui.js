@@ -3500,5 +3500,3 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initUiWhenReady, { once: true });
 } else {
     initUiWhenReady();
-
-    const [stats, ranking, rooms] = await Promise.all([

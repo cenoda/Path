@@ -1392,10 +1392,10 @@
         },
 
         async shareDecorShowcase() {
-            const text = this._generateDecorShareText();
             const code = document.getElementById('room-view-code')?.textContent?.trim() || '';
             const roomUrl = code ? `${location.origin}/room/${code}` : `${location.origin}/study-hub/`;
             const roomName = document.getElementById('room-view-name')?.textContent?.trim() || '그룹룸';
+            const shareText = `${roomName} 룸 자랑! ${roomUrl}`;
 
             let file = null;
             try {
@@ -1407,16 +1407,12 @@
                 try {
                     if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
                         await navigator.share({
-                            title: `P.A.T.H 룸 자랑 - ${roomName}`,
-                            text,
-                            url: roomUrl,
+                            text: shareText,
                             files: [file],
                         });
                     } else {
                         await navigator.share({
-                            title: `P.A.T.H 룸 자랑 - ${roomName}`,
-                            text,
-                            url: roomUrl,
+                            text: shareText,
                         });
                     }
                     return;

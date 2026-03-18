@@ -1008,7 +1008,6 @@ const UI = {
                 </div>
                 <div class="home-row-side">
                     <div class="home-row-val">${this.formatDuration(sec)}</div>
-                    <button type="button" class="home-row-cta" data-home-action="start-study">학습하기</button>
                 </div>
             </div>`;
         }).join('');

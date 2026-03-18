@@ -57,6 +57,10 @@ async function initSchema() {
         `);
 
         await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS allow_friend_requests BOOLEAN DEFAULT TRUE;
+        `);
+
+        await client.query(`
             ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_role VARCHAR(10) DEFAULT 'none';
             ALTER TABLE users DROP CONSTRAINT IF EXISTS users_admin_role_check;
             ALTER TABLE users

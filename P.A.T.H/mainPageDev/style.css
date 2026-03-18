@@ -5428,7 +5428,7 @@ body:not(.light) .tt-day-col.is-selected {
 /* ── 소품 그리드 ────────────────────────────────────────── */
 .room-props-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     padding-bottom: 16px;
 }

@@ -52,6 +52,18 @@ router.post('/request', requireAuth, async (req, res) => {
         return res.status(400).json({ error: '잘못된 요청' });
     }
     try {
+        // 상대방이 친구 신청 수신을 허용하는지 확인
+        const targetRes = await pool.query(
+            'SELECT allow_friend_requests FROM users WHERE id = $1',
+            [target_id]
+        );
+        if (!targetRes.rows.length) {
+            return res.status(404).json({ error: '존재하지 않는 사용자입니다.' });
+        }
+        if (targetRes.rows[0].allow_friend_requests === false) {
+            return res.status(403).json({ error: '상대방이 친구 신청을 허용하지 않습니다.' });
+        }
+
         const existing = await pool.query(
             `SELECT id, status FROM friendships
              WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1)`,

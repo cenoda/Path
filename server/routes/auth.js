@@ -65,7 +65,7 @@ const EULA_SUMMARY = [
     '5) 본 약관 동의가 없으면 커뮤니티 작성/상호작용 등 주요 기능 이용이 제한될 수 있습니다.'
 ].join('\n');
 
-const USER_FIELDS = 'id, nickname, university, gold, diamond, exp, tier, tickets, is_studying, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, profile_image_url, status_emoji, status_message, phone_verified, phone_verified_at, auth_provider, google_email, apple_email, is_admin, admin_role, active_title, streak_count, streak_last_date, eula_version, eula_agreed_at, ui_theme, owned_themes, user_code';
+const USER_FIELDS = 'id, nickname, university, gold, diamond, exp, tier, tickets, is_studying, real_name, is_n_su, prev_university, score_status, score_image_url, gpa_score, gpa_status, gpa_image_url, gpa_public, profile_image_url, status_emoji, status_message, phone_verified, phone_verified_at, auth_provider, google_email, apple_email, is_admin, admin_role, active_title, streak_count, streak_last_date, eula_version, eula_agreed_at, ui_theme, owned_themes, user_code, allow_friend_requests';
 
 function escapeHtml(str) {
     if (!str) return str;
@@ -1733,6 +1733,57 @@ router.post('/password-recovery/reset', recoveryResetLimiter, async (req, res) =
     } catch (err) {
         console.error('password-recovery/reset error:', err);
         return res.status(500).json({ error: '비밀번호 재설정에 실패했습니다.' });
+    }
+});
+
+// 친구 신청 수신 허용/거부 설정
+router.post('/friend-request-setting', requireAuth, async (req, res) => {
+    const allow = req.body.allow_friend_requests;
+    if (typeof allow !== 'boolean') {
+        return res.status(400).json({ error: '잘못된 요청입니다.' });
+    }
+    try {
+        await pool.query(
+            'UPDATE users SET allow_friend_requests = $1 WHERE id = $2',
+            [allow, req.session.userId]
+        );
+        res.json({ ok: true, allow_friend_requests: allow });
+    } catch (err) {
+        console.error('friend-request-setting error:', err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
+
+// 사용자 검색 (닉네임으로)
+router.get('/users/search', requireAuth, async (req, res) => {
+    const q = String(req.query.q || '').trim();
+    if (!q || q.length < 1) return res.json({ users: [] });
+    if (q.length > 30) return res.status(400).json({ error: '검색어가 너무 깁니다.' });
+
+    try {
+        const result = await pool.query(
+            `SELECT u.id, u.nickname, u.university, u.profile_image_url, u.is_studying,
+                    u.allow_friend_requests,
+                    f.status AS friendship_status,
+                    CASE WHEN f.sender_id = $2 THEN 'sent'
+                         WHEN f.receiver_id = $2 THEN 'received'
+                         ELSE NULL END AS friendship_dir,
+                    f.id AS friendship_id
+             FROM users u
+             LEFT JOIN friendships f ON (
+                 (f.sender_id = u.id AND f.receiver_id = $2)
+                 OR (f.sender_id = $2 AND f.receiver_id = u.id)
+             )
+             WHERE u.id != $2
+               AND u.nickname ILIKE $1
+             ORDER BY u.nickname ASC
+             LIMIT 20`,
+            [`%${q}%`, req.session.userId]
+        );
+        res.json({ users: result.rows });
+    } catch (err) {
+        console.error('users/search error:', err);
+        res.status(500).json({ error: '서버 오류' });
     }
 });
 

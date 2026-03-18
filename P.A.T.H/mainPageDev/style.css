@@ -1805,6 +1805,27 @@ body:not(.light) .scorecalc-result {
     background: rgba(255, 255, 255, 0.03);
 }
 
+body:not(.light) .scorecalc-title {
+    color: #eef4ff;
+}
+
+body:not(.light) .scorecalc-copy {
+    color: #c3d5f1;
+}
+
+body:not(.light) .scorecalc-result {
+    color: #c3d5f1;
+}
+
+body:not(.light) .scorecalc-summary strong {
+    color: #eef4ff;
+}
+
+body:not(.light) .scorecalc-summary span,
+body:not(.light) .scorecalc-meta {
+    color: #a9bfde;
+}
+
 .balloon-journey {
     width: 100%;
     display: grid;
@@ -2123,6 +2144,10 @@ body:not(.light) .balloon-ai-kicker {
 
 body:not(.light) .balloon-ai-detail {
     color: #c0cad8;
+}
+
+body:not(.light) .balloon-ai-headline {
+    color: #eaf2ff;
 }
 
 body:not(.light) .balloon-ai-meta {
@@ -2764,6 +2789,14 @@ body.active .tab-panel {
 
 body:not(.light) .calendar-overview {
     background: linear-gradient(135deg, rgba(24, 34, 49, 0.96), rgba(20, 27, 39, 0.98));
+}
+
+body:not(.light) .calendar-selected-date-label {
+    color: #eaf2ff;
+}
+
+body:not(.light) .calendar-selected-date-summary {
+    color: #c3d5f1;
 }
 
 .calendar-overview-copy {
@@ -6329,6 +6362,12 @@ body:not(.light) .planner-paper {
     background: rgba(30, 30, 34, 0.96);
     border-color: rgba(255, 255, 255, 0.06);
     box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+    --text-primary: #edf4ff;
+    --text-secondary: #c2d3eb;
+    --text-muted: #92a8c8;
+    --line-color: rgba(138, 168, 212, 0.24);
+    --surface-soft: rgba(16, 25, 39, 0.86);
+    --surface-hover: rgba(24, 35, 52, 0.92);
 }
 
 /* subtle paper texture */
@@ -6829,9 +6868,23 @@ body:not(.light) .planner-paper::before {
 
 .planner-add-form {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.planner-add-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.planner-label-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
 }
 
 .planner-add-input {
@@ -6852,34 +6905,28 @@ body:not(.light) .planner-paper::before {
 }
 
 .planner-add-select {
-    min-width: 100px;
-    max-width: 140px;
+    width: 100%;
 }
 
 .planner-add-time-row {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
 }
 
 .planner-add-time-row .planner-add-input {
-    width: 90px;
+    flex: 1;
 }
 
 .planner-add-sep {
-    font-size: 14px;
+    font-size: 12px;
     color: var(--text-muted);
     font-weight: 600;
-}
-
-.planner-add-note-input {
-    flex: 1;
-    min-width: 120px;
+    flex-shrink: 0;
 }
 
 .planner-add-btn {
     height: 40px;
-    padding: 0 20px;
     border: none;
     border-radius: 10px;
     background: var(--accent-blue);
@@ -6890,6 +6937,8 @@ body:not(.light) .planner-paper::before {
     cursor: pointer;
     transition: background 0.15s, transform 0.1s;
     white-space: nowrap;
+    align-self: stretch;
+    text-align: center;
 }
 
 .planner-add-btn:hover {
@@ -7024,7 +7073,7 @@ body:not(.light) .planner-paper::before {
 }
 
 /* ── Responsive ────────────────────────────────────────── */
-@media (max-width: 620px) {
+@media (max-width: 767px) {
     .planner-paper {
         padding: 20px 16px 16px;
         border-radius: 16px;
@@ -7044,33 +7093,64 @@ body:not(.light) .planner-paper::before {
         font-size: 17px;
     }
 
+    .planner-timeline {
+        max-height: 400px;
+    }
+
+    .planner-content-grid {
+        gap: 20px;
+    }
+
     .planner-add-form {
-        flex-direction: column;
-        align-items: stretch;
+        gap: 12px;
     }
 
-    .planner-add-select {
-        max-width: none;
+    .planner-add-btn {
+        padding: 0 16px;
     }
+}
 
-    .planner-add-time-row .planner-add-input {
-        flex: 1;
-        width: auto;
+@media (min-width: 768px) and (max-width: 1023px) {
+    .planner-paper {
+        max-width: 100%;
     }
 
     .planner-timeline {
-        max-height: 400px;
+        max-height: 500px;
+    }
+
+    .planner-add-form {
+        gap: 12px;
     }
 }
 
 @media (min-width: 1024px) {
     .planner-paper {
-        max-width: 720px;
+        max-width: 1000px;
         margin: 0 auto;
+        padding: 32px 28px 24px;
+        gap: 28px;
     }
 
     .planner-timeline {
-        max-height: 560px;
+        max-height: 600px;
+    }
+
+    .planner-sidebar {
+        gap: 28px;
+    }
+
+    .planner-add-section {
+        position: sticky;
+        top: 100px;
+    }
+
+    .planner-memo-section {
+        flex: 1;
+    }
+
+    .planner-stats {
+        margin-top: 16px;
     }
 }
 

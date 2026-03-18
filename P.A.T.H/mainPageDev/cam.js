@@ -585,6 +585,8 @@ async function openEditProfile() {
 
     profileEditToggleNsu();
     backdrop.classList.remove('hidden');
+    const profileEditBody = document.getElementById('profile-edit-body');
+    if (profileEditBody) profileEditBody.scrollTop = 0;
 
     // 대학 목록 사전 로드
     _profileEditGetUnivList().catch(() => {});

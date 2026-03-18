@@ -993,12 +993,12 @@
 
     <!-- Profile Edit Modal -->
     <div id="profile-edit-backdrop" class="room-sheet-backdrop hidden" onclick="if(event.target===this)closeEditProfile()">
-        <div class="room-sheet">
+        <div class="room-sheet room-sheet-tall">
             <div class="room-sheet-header">
                 <h2 class="room-sheet-title">프로필 수정</h2>
                 <button class="room-sheet-close-btn" onclick="closeEditProfile()" aria-label="닫기">×</button>
             </div>
-            <div class="room-sheet-body" style="padding:16px;display:flex;flex-direction:column;gap:14px;">
+            <div id="profile-edit-body" class="room-sheet-body" style="padding:12px 16px 8px;display:flex;flex-direction:column;gap:12px;flex:1;min-height:0;overflow-y:auto;">
                 <!-- Profile Image -->
                 <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
                     <div id="profile-edit-avatar-preview" style="width:72px;height:72px;border-radius:50%;background:var(--surface-soft);border:2px solid var(--line-color);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;" onclick="document.getElementById('profile-edit-photo-input').click()">
@@ -1044,7 +1044,7 @@
                 <!-- Error -->
                 <div id="profile-edit-error" style="font-size:11px;color:#ff6b6b;min-height:14px;"></div>
             </div>
-            <div style="padding:0 16px 16px;display:flex;gap:8px;">
+            <div style="padding:0 16px calc(16px + env(safe-area-inset-bottom));display:flex;gap:8px;flex-shrink:0;">
                 <button type="button" class="room-btn-ghost" style="flex:1;" onclick="closeEditProfile()">취소</button>
                 <button type="button" class="room-btn-primary" style="flex:2;" id="profile-edit-submit-btn" onclick="submitEditProfile()">저장</button>
             </div>

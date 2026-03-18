@@ -52,6 +52,7 @@ function bindModalEvents() {
     const searchModal = document.getElementById('search-modal');
     const searchSheet = searchModal?.querySelector('.modal-sheet');
     const searchCloseBtn = searchModal?.querySelector('[data-modal-close="search"]');
+    const searchResults = document.getElementById('search-results');
     if (searchModal && !searchModal.dataset.bound) {
         searchModal.addEventListener('click', event => {
             if (event.target === event.currentTarget) closeSearchModal();
@@ -67,6 +68,40 @@ function bindModalEvents() {
     if (searchCloseBtn && !searchCloseBtn.dataset.bound) {
         searchCloseBtn.addEventListener('click', () => closeSearchModal());
         searchCloseBtn.dataset.bound = 'true';
+    }
+    if (searchResults && !searchResults.dataset.bound) {
+        let touchSelectionTs = 0;
+
+        searchResults.addEventListener('pointerup', async event => {
+            if (event.pointerType !== 'touch') return;
+            const item = event.target?.closest?.('.modal-item[data-selectable="true"]');
+            if (!item) return;
+
+            const now = Date.now();
+            if (now - touchSelectionTs < 250 || item.dataset.selecting === 'true') return;
+            touchSelectionTs = now;
+
+            event.preventDefault();
+            event.stopPropagation();
+            await handleSearchResultSelection(item);
+        }, { passive: false });
+
+        searchResults.addEventListener('click', async event => {
+            const item = event.target?.closest?.('.modal-item[data-selectable="true"]');
+            if (!item) return;
+
+            const now = Date.now();
+            if (now - touchSelectionTs < 350) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+
+            event.preventDefault();
+            await handleSearchResultSelection(item);
+        });
+
+        searchResults.dataset.bound = 'true';
     }
 
     const enrollModal = document.getElementById('enroll-modal');
@@ -523,11 +558,18 @@ function renderSearchResults(results) {
             ? `<div class="modal-item-badges">${badges.map(b => `<span class="mini-badge ${b.className}">${b.label}</span>`).join('')}</div>`
             : '';
         const itemClass = canApply ? 'modal-item' : 'modal-item disabled';
-        const clickAttr = canApply
-            ? `onclick="selectUniversity(${jsQuote(u.name)}, ${jsQuote(u.department || '')}, ${jsQuote(u.track || getPreferredTrack())})"`
-            : '';
+        const attrParts = canApply
+            ? [
+                'data-selectable="true"',
+                `data-university=${jsQuote(u.name)}`,
+                `data-department=${jsQuote(u.department || '')}`,
+                `data-track=${jsQuote(u.track || getPreferredTrack())}`,
+                'role="button"',
+                'tabindex="0"'
+            ].join(' ')
+            : 'aria-disabled="true"';
         return `
-            <div class="${itemClass}" ${clickAttr}>
+            <div class="${itemClass}" ${attrParts}>
                 <div>
                     <div class="modal-item-name">${esc(u.name)}</div>
                     <div class="modal-item-sub">${esc(u.region || '')} · ${esc(u.type || '')}${esc(deptLabel)}${esc(trackLabel)}</div>
@@ -537,6 +579,24 @@ function renderSearchResults(results) {
                 ${kanHtml}
             </div>`;
     }).join('');
+}
+
+async function handleSearchResultSelection(item) {
+    if (!item || item.dataset.selectable !== 'true' || item.dataset.selecting === 'true') return false;
+
+    const universityName = item.dataset.university || '';
+    const departmentName = item.dataset.department || '';
+    const track = item.dataset.track || '';
+
+    item.dataset.selecting = 'true';
+    item.classList.add('disabled');
+
+    try {
+        return await selectUniversity(universityName, departmentName, track);
+    } finally {
+        delete item.dataset.selecting;
+        item.classList.remove('disabled');
+    }
 }
 
 async function selectUniversity(universityName, departmentName, track) {

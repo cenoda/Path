@@ -52,6 +52,44 @@
     <noscript><link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="/study-hub/style.css?v=8">
     <link rel="stylesheet" href="/shared/redesign.css?v=3">
+    <style>
+        .profile-edit-avatar-runtime-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .profile-edit-univ-item {
+            width: 100%;
+            border: 0;
+            border-top: 1px solid var(--line-color);
+            background: transparent;
+            color: var(--text-primary);
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .profile-edit-univ-item:first-child {
+            border-top: 0;
+        }
+
+        .profile-edit-univ-item:hover {
+            background: var(--surface-soft);
+        }
+
+        .profile-edit-univ-region {
+            font-size: 11px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+    </style>
 </head>
 <body class="path-interface">
 <script>
@@ -1012,7 +1050,7 @@
                 <div class="room-form-group" style="position:relative;">
                     <label class="room-label" for="profile-edit-university">목표 대학교</label>
                     <input id="profile-edit-university" class="room-input" type="text" placeholder="대학명 검색" autocomplete="off">
-                    <div id="profile-edit-univ-results" style="position:absolute;top:100%;left:0;right:0;background:var(--surface-strong);border:1px solid var(--line-color);border-top:none;max-height:160px;overflow-y:auto;z-index:2000;display:none;"></div>
+                    <div id="profile-edit-univ-results" class="hidden" style="position:absolute;top:100%;left:0;right:0;background:var(--surface-strong);border:1px solid var(--line-color);border-top:none;max-height:160px;overflow-y:auto;z-index:2000;"></div>
                 </div>
                 <!-- N수생 -->
                 <div style="display:flex;align-items:center;gap:8px;">
@@ -1020,10 +1058,10 @@
                     <label for="profile-edit-nsu" style="font-size:12px;color:var(--text-secondary);cursor:pointer;">N수생입니다</label>
                 </div>
                 <!-- Prev University -->
-                <div id="profile-edit-prev-univ-field" class="room-form-group" style="position:relative;display:none;">
+                <div id="profile-edit-prev-univ-field" class="room-form-group hidden" style="position:relative;">
                     <label class="room-label" for="profile-edit-prev-university">전적 대학교</label>
                     <input id="profile-edit-prev-university" class="room-input" type="text" placeholder="재학/졸업한 대학" autocomplete="off">
-                    <div id="profile-edit-prev-univ-results" style="position:absolute;top:100%;left:0;right:0;background:var(--surface-strong);border:1px solid var(--line-color);border-top:none;max-height:160px;overflow-y:auto;z-index:2000;display:none;"></div>
+                    <div id="profile-edit-prev-univ-results" class="hidden" style="position:absolute;top:100%;left:0;right:0;background:var(--surface-strong);border:1px solid var(--line-color);border-top:none;max-height:160px;overflow-y:auto;z-index:2000;"></div>
                 </div>
                 <!-- Friend Request Setting -->
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface-soft);border:1px solid var(--line-color);border-radius:10px;gap:10px;">

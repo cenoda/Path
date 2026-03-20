@@ -692,8 +692,12 @@ function renderDetailBody(container, { post, postId, comments, commentSort = 'la
   const alreadyBlocked = canBlockAuthor && currentUserBlocks.has(authorUserId);
   let isBookmarked = !!post.is_bookmarked;
   let isLiked = !!post.is_liked;
-    const cmtHtml = comments.map(c => `
-      <li class="cmt-item${c.is_mine ? ' cmt-item--mine' : ''}${c.is_post_author ? ' cmt-item--author' : ''}" data-comment-id="${c.id}">
+    const cmtHtml = comments.map(c => {
+      const canEditComment = c.is_mine;
+      const canDeleteComment = c.is_mine || canModerateComments;
+      const canReportComment = !c.is_mine && currentUser;
+      return `
+      <li class="cmt-item${c.is_mine ? ' cmt-item--mine' : ''}${c.is_post_author ? ' cmt-item--author' : ''}" data-comment-id="${c.id}" id="comment-${c.id}">
         <div class="cmt-meta">
           <span class="cmt-nick">${renderNicknameWithBadge({
             nickname: c.display_nickname || c.nickname || '익명',
@@ -706,6 +710,7 @@ function renderDetailBody(container, { post, postId, comments, commentSort = 'la
           ${c.is_post_author ? '<span class="cmt-badge cmt-badge--author">작성자</span>' : ''}
           <span class="cmt-ip">(${escHtml(c.ip_prefix ?? '?.?')})</span>
           <span class="cmt-date">${fmtRelative(c.created_at)}</span>
+          ${c.edit_count > 0 ? `<span class="cmt-badge cmt-badge--edited">수정됨 (${c.edit_count})</span>` : ''}
           ${canModerateComments ? '<button class="cmt-admin-del" type="button">삭제</button>' : ''}
         </div>
         <p class="cmt-body">${escHtml(c.body)}</p>
@@ -713,8 +718,12 @@ function renderDetailBody(container, { post, postId, comments, commentSort = 'la
           <button class="cmt-like-btn${c.is_liked ? ' is-active' : ''}" type="button" data-liked="${c.is_liked ? '1' : '0'}" data-comment-id="${c.id}" ${currentUser ? '' : 'disabled'}>
             공감 <span class="cmt-like-count">${Number(c.likes_count || 0)}</span>
           </button>
+          ${canEditComment ? `<button class="cmt-edit-btn" type="button" data-comment-id="${c.id}">수정</button>` : ''}
+          ${canDeleteComment ? `<button class="cmt-delete-btn" type="button" data-comment-id="${c.id}">삭제</button>` : ''}
+          ${canReportComment ? `<button class="cmt-report-btn" type="button" data-comment-id="${c.id}">신고</button>` : ''}
         </div>
-      </li>`).join('');
+      </li>`;
+    }).join('');
 
     container.innerHTML = `
       <div class="detail-cat-row">
@@ -1131,6 +1140,153 @@ function renderDetailBody(container, { post, postId, comments, commentSort = 'la
           btn.classList.toggle('is-active', beforeLiked);
           if (countEl) countEl.textContent = String(beforeCount);
           showToast('댓글 공감 처리 중 오류가 발생했어요');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // 댓글 수정
+    container.querySelectorAll('.cmt-edit-btn').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const commentId = Number(btn.dataset.commentId || 0);
+        if (!commentId) return;
+        const cmtItem = btn.closest('.cmt-item');
+        const bodyEl = cmtItem?.querySelector('.cmt-body');
+        if (!bodyEl) return;
+        const currentBody = bodyEl.textContent || '';
+        const editModal = createModal({title: '댓글 수정'});
+        const textarea = document.createElement('textarea');
+        textarea.className = 'modal-textarea';
+        textarea.value = currentBody;
+        textarea.maxLength = 1000;
+        textarea.rows = 3;
+        editModal.body.appendChild(textarea);
+        const actionBar = document.createElement('div');
+        actionBar.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:16px;';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn-secondary';
+        cancelBtn.textContent = '취소';
+        const submitBtn = document.createElement('button');
+        submitBtn.className = 'btn-primary';
+        submitBtn.textContent = '저장';
+        actionBar.appendChild(cancelBtn);
+        actionBar.appendChild(submitBtn);
+        editModal.body.appendChild(actionBar);
+        cancelBtn.addEventListener('click', () => editModal.close());
+        submitBtn.addEventListener('click', async () => {
+          const newBody = textarea.value.trim();
+          if (!newBody) { showToast('댓글 내용을 입력하세요'); return; }
+          if (newBody === currentBody) { editModal.close(); return; }
+          submitBtn.disabled = true;
+          try {
+            const r = await fetch(`/api/community/posts/${postId}/comments/${commentId}`, {
+              method: 'PATCH',
+              headers: {'Content-Type': 'application/json'},
+              credentials: 'include',
+              body: JSON.stringify({body: newBody})
+            });
+            if (!r.ok) {
+              const msg = await readApiError(r, '댓글 수정에 실패했어요');
+              showToast(msg);
+              return;
+            }
+            bodyEl.textContent = newBody;
+            const badgeEl = cmtItem?.querySelector('.cmt-badge--edited');
+            if (!badgeEl) {
+              const dateEl = cmtItem?.querySelector('.cmt-date');
+              const editBadge = document.createElement('span');
+              editBadge.className = 'cmt-badge cmt-badge--edited';
+              editBadge.textContent = '수정됨 (1)';
+              dateEl?.insertAdjacentElement('afterend', editBadge);
+            } else {
+              const match = badgeEl.textContent.match(/\((\d+)\)/);
+              const count = match ? parseInt(match[1]) + 1 : 1;
+              badgeEl.textContent = `수정됨 (${count})`;
+            }
+            editModal.close();
+            showToast('댓글이 수정되었어요');
+          } catch (e) {
+            showToast('댓글 수정 중 오류가 발생했어요');
+          } finally {
+            submitBtn.disabled = false;
+          }
+        });
+        editModal.show();
+      });
+    });
+
+    // 댓글 삭제
+    container.querySelectorAll('.cmt-delete-btn').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const commentId = Number(btn.dataset.commentId || 0);
+        if (!commentId) return;
+        if (!confirm('댓글을 삭제하시겠습니까?')) return;
+        btn.disabled = true;
+        try {
+          const r = await fetch(`/api/community/me/comments/${commentId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          if (!r.ok) {
+            const msg = await readApiError(r, '댓글 삭제에 실패했어요');
+            showToast(msg);
+            return;
+          }
+          const cmtItem = btn.closest('.cmt-item');
+          cmtItem?.remove();
+          showToast('댓글이 삭제되었어요');
+        } catch (e) {
+          showToast('댓글 삭제 중 오류가 발생했어요');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // 댓글 신고
+    container.querySelectorAll('.cmt-report-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const commentId = Number(btn.dataset.commentId || 0);
+        if (!commentId) return;
+        showReportModal({
+          type: 'comment',
+          id: commentId,
+          postId: postId
+        });
+      });
+    });
+
+    // 댓글 관리자 삭제
+    container.querySelectorAll('.cmt-admin-del').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const cmtItem = btn.closest('.cmt-item');
+        const commentId = Number(cmtItem?.dataset.commentId || 0);
+        if (!commentId) return;
+        if (!confirm('댓글을 삭제하시겠습니까?')) return;
+        btn.disabled = true;
+        try {
+          const r = await fetch(`/api/community/posts/${postId}/comments/${commentId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          if (!r.ok) {
+            const msg = await readApiError(r, '댓글 삭제에 실패했어요');
+            showToast(msg);
+            return;
+          }
+          cmtItem?.remove();
+          showToast('댓글이 삭제되었어요');
+        } catch (e) {
+          showToast('댓글 삭제 중 오류가 발생했어요');
         } finally {
           btn.disabled = false;
         }

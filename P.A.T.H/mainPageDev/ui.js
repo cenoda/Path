@@ -351,6 +351,10 @@ const UI = {
         this.bindTapAction(this.elements.modeStopwatch, () => this.setMode('stopwatch'));
 
         this.bindTapAction(this.elements.subjectAddBtn, () => this.toggleSubjectAddRow());
+        this.elements.subjectSelect?.addEventListener('change', () => {
+            this.renderQuickSubjects();
+        });
+        this.bindDelegatedTapAction(this.elements.quickSubjects, '.quick-subject-btn[data-subject-name]', (e) => this.handleQuickSubjectClick(e));
         this.elements.subjectInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -2365,7 +2369,9 @@ const UI = {
     selectSubjectById(subjectId) {
         if (!subjectId) return;
         this.elements.subjectSelect.value = String(subjectId);
-        this.elements.planSubjectSelect.value = String(subjectId);
+        if (this.elements.planSubjectSelect) {
+            this.elements.planSubjectSelect.value = String(subjectId);
+        }
         this.renderQuickSubjects();
     },
 

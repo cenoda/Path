@@ -495,6 +495,7 @@ function ensureStudyHubProfileEditor() {
             errorElement: document.getElementById('profile-edit-error'),
             saveButton: document.getElementById('profile-edit-submit-btn')
         },
+        avatarImageClass: 'profile-edit-avatar-runtime-img',
         getUser: function () {
             return (typeof UI !== 'undefined' && UI.currentUser) ? UI.currentUser : null;
         },
@@ -505,6 +506,8 @@ function ensureStudyHubProfileEditor() {
         },
         saveButtonText: '저장',
         savingText: '저장 중...',
+        universityItemClass: 'profile-edit-univ-item',
+        universityRegionClass: 'profile-edit-univ-region',
         onNoChanges: async function () {
             closeEditProfile();
         },

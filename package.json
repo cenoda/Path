@@ -1,6 +1,6 @@
 {
   "name": "path-app",
-    "version": "1.1.0",
+    "version": "1.1.1",
   "description": "P.A.T.H - 공부 타이머 게임",
   "main": "server/index.js",
   "scripts": {

@@ -645,6 +645,18 @@ async function openPostInline(postId, options = {}) {
     if (openedInlinePostId !== id || openedInlineDetailEl !== detailRow) return;
     renderDetailBody(bodyEl, { post, postId: id, comments, commentSort: 'latest' });
 
+    // 댓글 깊은 링크 복원
+    const searchParams = new URLSearchParams(window.location.search);
+    const commentId = searchParams.get('cmt');
+    if (commentId) {
+      setTimeout(() => {
+        const commentEl = bodyEl.querySelector(`#comment-${commentId}`);
+        if (commentEl) {
+          commentEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+      }, 100);
+    }
+
     if (scrollIntoView) {
       detailRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
@@ -1057,8 +1069,23 @@ function renderDetailBody(container, { post, postId, comments, commentSort = 'la
             // 댓글 수 갱신
             const headEl = container.querySelector('.detail-cmt-head strong');
             if (headEl) headEl.textContent = parseInt(headEl.textContent) + 1;
-            const cmtBadge = postList.querySelector(`[data-id="${postId}"] .post-row__cmts`);
-            if (cmtBadge) cmtBadge.textContent = parseInt(cmtBadge.textContent || '0') + 1;
+            
+            let cmtBadge = postList.querySelector(`[data-id="${postId}"] .post-row__cmts`);
+            const newCount = (cmtBadge ? parseInt(cmtBadge.textContent) : 0) + 1;
+            if (cmtBadge) {
+              cmtBadge.textContent = newCount;
+            } else {
+              // 첫 댓글인 경우 배지 생성
+              const postRow = postList.querySelector(`[data-id="${postId}"]`);
+              if (postRow) {
+                const badge = document.createElement('span');
+                badge.className = 'post-row__cmts';
+                badge.setAttribute('aria-label', `댓글 ${newCount}개`);
+                badge.textContent = newCount;
+                const actionFooter = postRow.querySelector('.post-row__actions');
+                if (actionFooter) actionFooter.appendChild(badge);
+              }
+            }
         } catch (_) { showToast('오류가 발생했어요'); }
     };
 
@@ -3031,6 +3058,7 @@ function openReportModal() {
     requestAnimationFrame(() => backdrop.classList.add('visible'));
 
     const close = (payload) => {
+      document.removeEventListener('keydown', onReportModalKeydown);
       backdrop.classList.remove('visible');
       backdrop.addEventListener('transitionend', () => backdrop.remove(), { once: true });
       resolve(payload);
@@ -3042,6 +3070,20 @@ function openReportModal() {
     const reasonSelect = backdrop.querySelector('#report-reason-select');
     const detailText = backdrop.querySelector('#report-detail-text');
     const detailCount = backdrop.querySelector('#report-detail-count');
+
+    const onReportModalKeydown = (e) => {
+      if (!document.body.contains(backdrop)) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close(null);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        submitBtn.click();
+      }
+    };
+    document.addEventListener('keydown', onReportModalKeydown);
 
     detailText.addEventListener('input', () => {
       detailCount.textContent = `${detailText.value.length.toLocaleString('ko-KR')} / 500`;

@@ -387,6 +387,8 @@ async function initSchema() {
                 ADD COLUMN IF NOT EXISTS image_url TEXT;
             ALTER TABLE community_posts
                 ADD COLUMN IF NOT EXISTS link_url TEXT;
+            ALTER TABLE community_posts
+                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
             ALTER TABLE community_posts
                 DROP CONSTRAINT IF EXISTS community_posts_category_check;
@@ -437,6 +439,8 @@ async function initSchema() {
             );
             ALTER TABLE community_comments
                 ADD COLUMN IF NOT EXISTS likes_count INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE community_comments
+                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
             CREATE INDEX IF NOT EXISTS idx_cc_post_id ON community_comments(post_id);
             CREATE INDEX IF NOT EXISTS idx_cc_post_created_at ON community_comments(post_id, created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_cc_likes_created_at ON community_comments(post_id, likes_count DESC, created_at DESC);
@@ -450,6 +454,81 @@ async function initSchema() {
                 PRIMARY KEY (comment_id, user_id)
             );
             CREATE INDEX IF NOT EXISTS idx_ccl_user_created_at ON community_comment_likes(user_id, created_at DESC);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS community_post_reports (
+                id               SERIAL PRIMARY KEY,
+                post_id          INTEGER NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+                reporter_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                reported_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                reason_code      VARCHAR(30) NOT NULL,
+                detail           TEXT,
+                status           VARCHAR(20) NOT NULL DEFAULT 'pending',
+                created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                reviewed_at      TIMESTAMPTZ,
+                reviewed_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                UNIQUE(post_id, reporter_id)
+            );
+            ALTER TABLE community_post_reports
+                ADD COLUMN IF NOT EXISTS reason_code VARCHAR(30);
+            ALTER TABLE community_post_reports
+                ADD COLUMN IF NOT EXISTS detail TEXT;
+            ALTER TABLE community_post_reports
+                ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending';
+            ALTER TABLE community_post_reports
+                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+            ALTER TABLE community_post_reports
+                ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+            ALTER TABLE community_post_reports
+                ADD COLUMN IF NOT EXISTS reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+            ALTER TABLE community_post_reports
+                DROP CONSTRAINT IF EXISTS community_post_reports_status_check;
+            ALTER TABLE community_post_reports
+                ADD CONSTRAINT community_post_reports_status_check
+                CHECK (status IN ('pending', 'reviewed', 'dismissed')) NOT VALID;
+            CREATE INDEX IF NOT EXISTS idx_community_post_reports_status_created
+                ON community_post_reports(status, created_at DESC);
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS community_comment_reports (
+                id               SERIAL PRIMARY KEY,
+                comment_id       INTEGER NOT NULL REFERENCES community_comments(id) ON DELETE CASCADE,
+                post_id          INTEGER NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+                reporter_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                reported_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                reason_code      VARCHAR(30) NOT NULL,
+                detail           TEXT,
+                status           VARCHAR(20) NOT NULL DEFAULT 'pending',
+                created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                reviewed_at      TIMESTAMPTZ,
+                reviewed_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                UNIQUE(comment_id, reporter_id)
+            );
+            ALTER TABLE community_comment_reports
+                ADD COLUMN IF NOT EXISTS post_id INTEGER REFERENCES community_posts(id) ON DELETE CASCADE;
+            ALTER TABLE community_comment_reports
+                ADD COLUMN IF NOT EXISTS reason_code VARCHAR(30);
+            ALTER TABLE community_comment_reports
+                ADD COLUMN IF NOT EXISTS detail TEXT;
+            ALTER TABLE community_comment_reports
+                ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending';
+            ALTER TABLE community_comment_reports
+                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+            ALTER TABLE community_comment_reports
+                ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+            ALTER TABLE community_comment_reports
+                ADD COLUMN IF NOT EXISTS reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+            ALTER TABLE community_comment_reports
+                DROP CONSTRAINT IF EXISTS community_comment_reports_status_check;
+            ALTER TABLE community_comment_reports
+                ADD CONSTRAINT community_comment_reports_status_check
+                CHECK (status IN ('pending', 'reviewed', 'dismissed')) NOT VALID;
+            CREATE INDEX IF NOT EXISTS idx_community_comment_reports_status_created
+                ON community_comment_reports(status, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_community_comment_reports_post_created
+                ON community_comment_reports(post_id, created_at DESC);
         `);
 
         // ── 그룹 타이머 방 ─────────────────────────────────────────────────

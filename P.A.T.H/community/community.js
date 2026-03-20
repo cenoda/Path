@@ -1829,6 +1829,11 @@ function openSettingsModal() {
     setProfilePrevVisibility();
   });
 
+  profileNicknameInput?.addEventListener('input', () => {
+    if (pendingProfileImageFile) return;
+    setProfileAvatarPreview('', profileNicknameInput.value || currentUser?.nickname || '?');
+  });
+
   profileUnivInput?.addEventListener('input', () => {
     searchProfileUniversity(profileUnivInput.value, profileUnivInput, profileUnivResults);
   });

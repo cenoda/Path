@@ -318,28 +318,77 @@ router.get('/community-reports', requireAdmin, async (req, res) => {
     let where = '';
     if (status !== 'all') {
         params.push(status);
-        where = `WHERE r.status = $${params.length}`;
+        where = `WHERE merged.status = $${params.length}`;
     }
 
     try {
         const [countRes, rowsRes] = await Promise.all([
-            pool.query(`SELECT COUNT(*) FROM community_post_reports r ${where}`, params),
             pool.query(
-                `SELECT r.id, r.post_id, r.reporter_id, r.reported_user_id,
-                        r.reason_code, r.detail, r.status, r.created_at, r.reviewed_at, r.reviewed_by,
-                        p.title AS post_title,
+                `SELECT COUNT(*)
+                 FROM (
+                    SELECT r.id, r.status
+                    FROM community_post_reports r
+                    UNION ALL
+                    SELECT r.id, r.status
+                    FROM community_comment_reports r
+                 ) merged
+                 ${where}`,
+                params
+            ),
+            pool.query(
+                `SELECT merged.id, merged.report_type, merged.post_id, merged.comment_id,
+                        merged.reporter_id, merged.reported_user_id,
+                        merged.reason_code, merged.detail, merged.status,
+                        merged.created_at, merged.reviewed_at, merged.reviewed_by,
+                        merged.post_title, merged.comment_body,
                         ru.nickname AS reporter_nickname,
                         tu.nickname AS target_nickname,
                         au.nickname AS reviewed_by_nickname
-                 FROM community_post_reports r
-                 LEFT JOIN community_posts p ON p.id = r.post_id
-                 LEFT JOIN users ru ON ru.id = r.reporter_id
-                 LEFT JOIN users tu ON tu.id = r.reported_user_id
-                 LEFT JOIN users au ON au.id = r.reviewed_by
+                 FROM (
+                    SELECT r.id,
+                           'post'::text AS report_type,
+                           r.post_id,
+                           NULL::integer AS comment_id,
+                           r.reporter_id,
+                           r.reported_user_id,
+                           r.reason_code,
+                           r.detail,
+                           r.status,
+                           r.created_at,
+                           r.reviewed_at,
+                           r.reviewed_by,
+                           p.title AS post_title,
+                           NULL::text AS comment_body
+                    FROM community_post_reports r
+                    LEFT JOIN community_posts p ON p.id = r.post_id
+
+                    UNION ALL
+
+                    SELECT r.id,
+                           'comment'::text AS report_type,
+                           r.post_id,
+                           r.comment_id,
+                           r.reporter_id,
+                           r.reported_user_id,
+                           r.reason_code,
+                           r.detail,
+                           r.status,
+                           r.created_at,
+                           r.reviewed_at,
+                           r.reviewed_by,
+                           p.title AS post_title,
+                           c.body AS comment_body
+                    FROM community_comment_reports r
+                    LEFT JOIN community_comments c ON c.id = r.comment_id
+                    LEFT JOIN community_posts p ON p.id = r.post_id
+                 ) merged
+                 LEFT JOIN users ru ON ru.id = merged.reporter_id
+                 LEFT JOIN users tu ON tu.id = merged.reported_user_id
+                 LEFT JOIN users au ON au.id = merged.reviewed_by
                  ${where}
                  ORDER BY
-                    CASE WHEN r.status = 'pending' THEN 0 ELSE 1 END,
-                    r.created_at DESC
+                    CASE WHEN merged.status = 'pending' THEN 0 ELSE 1 END,
+                    merged.created_at DESC
                  LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
                 [...params, limit, offset]
             )
@@ -358,12 +407,26 @@ router.get('/community-reports', requireAdmin, async (req, res) => {
     }
 });
 
-router.post('/community-reports/:id/review', requireAdmin, async (req, res) => {
+async function reviewCommunityReport(req, res, defaultType = '') {
+    const reportType = String(req.params.type || defaultType || '').trim();
     const reportId = parseInt(req.params.id, 10);
     const decisionRaw = typeof req.body?.decision === 'string' ? req.body.decision.trim() : '';
 
     if (!reportId) {
         return res.status(400).json({ error: '신고 ID를 확인해주세요.' });
+    }
+
+    const typeMap = {
+        post: {
+            table: 'community_post_reports',
+        },
+        comment: {
+            table: 'community_comment_reports',
+        },
+    };
+    const target = typeMap[reportType];
+    if (!target) {
+        return res.status(400).json({ error: '신고 타입을 확인해주세요.' });
     }
 
     const decisionMap = {
@@ -378,7 +441,7 @@ router.post('/community-reports/:id/review', requireAdmin, async (req, res) => {
 
     try {
         const result = await pool.query(
-            `UPDATE community_post_reports
+            `UPDATE ${target.table}
              SET status = $1,
                  reviewed_at = NOW(),
                  reviewed_by = $2
@@ -396,6 +459,14 @@ router.post('/community-reports/:id/review', requireAdmin, async (req, res) => {
         console.error('admin review report error:', err.message);
         return res.status(500).json({ error: '서버 오류' });
     }
+}
+
+router.post('/community-reports/:type/:id/review', requireAdmin, async (req, res) => {
+    return reviewCommunityReport(req, res);
+});
+
+router.post('/community-reports/:id/review', requireAdmin, async (req, res) => {
+    return reviewCommunityReport(req, res, 'post');
 });
 
 router.get('/pending', requireAdmin, async (req, res) => {

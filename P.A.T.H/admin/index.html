@@ -922,7 +922,7 @@
             return state.reports.filter((report) => {
                 if (status !== 'all' && report.status !== status) return false;
                 if (!keyword) return true;
-                const target = `${report.post_title || ''} ${report.reporter_nickname || ''} ${report.target_nickname || ''}`.toLowerCase();
+                const target = `${report.report_type || ''} ${report.post_title || ''} ${report.comment_body || ''} ${report.reporter_nickname || ''} ${report.target_nickname || ''}`.toLowerCase();
                 return target.includes(keyword);
             });
         }
@@ -939,21 +939,28 @@
 
             listEl.innerHTML = filtered.map((report) => {
                 const statusClass = reportStatusClass(report.status);
+                const targetLabel = report.report_type === 'comment' ? '댓글' : '게시글';
+                const targetId = report.report_type === 'comment' ? report.comment_id : report.post_id;
+                const openTargetUrl = report.report_type === 'comment'
+                    ? `/community/post/${report.post_id}?cmt=${report.comment_id}#comment-${report.comment_id}`
+                    : `/community/post/${report.post_id}`;
                 const decisionButtons = report.status === 'pending'
                     ? `
-                        <button class="btn primary" type="button" onclick="reviewReport(${report.id}, 'reviewed', this)">처리 완료</button>
-                        <button class="btn danger" type="button" onclick="reviewReport(${report.id}, 'dismiss', this)">기각</button>
+                        <button class="btn primary" type="button" onclick="reviewReport('${report.report_type}', ${report.id}, 'reviewed', this)">처리 완료</button>
+                        <button class="btn danger" type="button" onclick="reviewReport('${report.report_type}', ${report.id}, 'dismiss', this)">기각</button>
                     `
                     : '';
 
                 return `
                     <article class="card">
                         <div class="card-head">
-                            <h3 class="name">신고 #${report.id} · 게시글 #${report.post_id}</h3>
+                            <h3 class="name">신고 #${report.id} · ${targetLabel} #${targetId}</h3>
                             <span class="badge ${statusClass}">${reportStatusText(report.status)}</span>
                         </div>
                         <p class="meta">
+                            <strong>타입:</strong> ${targetLabel}<br>
                             <strong>게시글:</strong> ${esc(report.post_title || '(삭제되었거나 비공개)')}<br>
+                            ${report.report_type === 'comment' ? `<strong>댓글:</strong> ${esc(report.comment_body || '(삭제되었거나 비공개)')}<br>` : ''}
                             <strong>신고자:</strong> ${esc(report.reporter_nickname || '-')} (ID ${report.reporter_id})<br>
                             <strong>대상자:</strong> ${esc(report.target_nickname || '-')} ${report.reported_user_id ? `(ID ${report.reported_user_id})` : ''}<br>
                             <strong>사유 코드:</strong> ${esc(report.reason_code || '-')}<br>
@@ -963,7 +970,7 @@
                             ${report.reviewed_by_nickname ? `<strong>검토자:</strong> ${esc(report.reviewed_by_nickname)}` : ''}
                         </p>
                         <div class="action-row">
-                            <button class="btn" type="button" onclick="window.open('/community/post/${report.post_id}', '_blank')">게시글 열기</button>
+                            <button class="btn" type="button" onclick="window.open('${openTargetUrl}', '_blank')">대상 열기</button>
                             ${decisionButtons}
                         </div>
                     </article>
@@ -1409,11 +1416,11 @@
             }
         }
 
-        async function reviewReport(reportId, decision, button) {
+        async function reviewReport(reportType, reportId, decision, button) {
             const label = decision === 'dismiss' ? '기각' : '처리 완료';
 
             await withActionLock(button, async () => {
-                await apiFetch(`/api/admin/community-reports/${reportId}/review`, {
+                await apiFetch(`/api/admin/community-reports/${encodeURIComponent(reportType)}/${reportId}/review`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ decision })

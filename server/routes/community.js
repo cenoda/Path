@@ -422,11 +422,11 @@ router.get('/posts/:id', async (req, res) => {
         }
 
         const result = await pool.query(
-            `SELECT p.id, p.user_id, p.category, p.title, p.body, p.image_url, p.link_url, p.nickname, p.ip_prefix,
+                `SELECT p.id, p.user_id, p.category, p.title, p.body, p.image_url, p.link_url, p.nickname, p.ip_prefix,
                     u.nickname AS user_nickname, u.active_title,
                     u.profile_image_url,
                     (p.user_id IS NOT NULL AND u.nickname IS NOT NULL AND p.nickname = u.nickname) AS is_verified_nickname,
-                    p.views, p.likes, p.comments_count, p.created_at
+                    p.views, p.likes, p.comments_count, p.created_at, p.updated_at
              FROM community_posts p
              LEFT JOIN users u ON u.id = p.user_id
              WHERE p.id = $1
@@ -555,6 +555,90 @@ router.post('/posts', requireLatestEulaIfAuthenticated, async (req, res) => {
     } catch (err) {
         console.error('[community] POST /posts', err.message);
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+router.patch('/posts/:id', requireAuth, requireLatestEula, async (req, res) => {
+    const postId = parseInt(req.params.id, 10);
+    const userId = Number(req.session.userId || 0);
+    const { category, title, body = '', anonymous_nickname, image_url, link_url } = req.body || {};
+    const bodyText = typeof body === 'string' ? body : '';
+
+    if (!postId) return res.status(400).json({ error: '잘못된 요청입니다.' });
+    if (!title || !title.trim()) {
+        return res.status(400).json({ error: '제목을 입력해 주세요.' });
+    }
+    if (title.trim().length > 200) {
+        return res.status(400).json({ error: '제목은 200자 이내로 입력해 주세요.' });
+    }
+    if (!WRITABLE_CATS.has(category)) {
+        return res.status(400).json({ error: '카테고리가 올바르지 않습니다.' });
+    }
+    if (bodyText.length > 5000) {
+        return res.status(400).json({ error: '내용은 5,000자 이내로 입력해 주세요.' });
+    }
+
+    const normalizedImageUrl = normalizeOptionalImageUrl(image_url);
+    if (normalizedImageUrl === null) {
+        return res.status(400).json({ error: '이미지 첨부가 올바르지 않습니다.' });
+    }
+
+    const normalizedLinkUrl = normalizeOptionalHttpUrl(link_url);
+    if (normalizedLinkUrl === null) {
+        return res.status(400).json({ error: '링크 주소는 http/https 형식으로 입력해 주세요.' });
+    }
+
+    const requestedNickname = normalizeCommunityNickname(anonymous_nickname);
+    if (requestedNickname === null) {
+        return res.status(400).json({ error: '익명 닉네임은 2~20자로 입력해 주세요.' });
+    }
+
+    try {
+        const postRes = await pool.query(
+            'SELECT id, user_id FROM community_posts WHERE id = $1',
+            [postId]
+        );
+        if (!postRes.rows.length) {
+            return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+        }
+
+        const ownerId = Number(postRes.rows[0].user_id || 0);
+        if (ownerId !== userId) {
+            return res.status(403).json({ error: '수정 권한이 없습니다.' });
+        }
+
+        const userRes = await pool.query('SELECT nickname FROM users WHERE id = $1', [userId]);
+        const userNickname = normalizeCommunityNickname(userRes.rows[0]?.nickname) || '익명';
+        const hasCustomNicknameInput = typeof anonymous_nickname === 'string' && anonymous_nickname.trim().length > 0;
+        const nextNickname = hasCustomNicknameInput ? requestedNickname : userNickname;
+
+        const result = await pool.query(
+            `UPDATE community_posts
+             SET category = $1,
+                 title = $2,
+                 body = $3,
+                 image_url = $4,
+                 link_url = $5,
+                 nickname = $6,
+                 updated_at = NOW()
+             WHERE id = $7
+             RETURNING id, category, title, body, image_url, link_url, nickname,
+                       views, likes, comments_count, created_at, updated_at`,
+            [
+                category,
+                title.trim(),
+                bodyText.trim(),
+                normalizedImageUrl || null,
+                normalizedLinkUrl || null,
+                nextNickname,
+                postId,
+            ]
+        );
+
+        return res.json({ post: result.rows[0] });
+    } catch (err) {
+        console.error('[community] PATCH /posts/:id', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     }
 });
 
@@ -769,6 +853,8 @@ router.get('/posts/:id/comments', async (req, res) => {
 
     const viewerId = req.session?.userId ? parseInt(req.session.userId, 10) : null;
     const sort = String(req.query.sort || 'latest').trim();
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
     const orderBy = sort === 'likes'
         ? 'c.likes_count DESC, c.created_at DESC'
         : 'c.created_at DESC';
@@ -789,8 +875,18 @@ router.get('/posts/:id/comments', async (req, res) => {
                 )`;
         }
 
-        const result = await pool.query(
-            `SELECT c.id, c.user_id, c.nickname, c.ip_prefix, c.body, c.created_at,
+        const countPromise = pool.query(
+            `SELECT COUNT(*)::int AS total
+             FROM community_comments c
+             WHERE c.post_id = $1
+             ${blockedWhere}`,
+            params
+        );
+
+        const limitPlaceholder = params.length + 1;
+        const offsetPlaceholder = params.length + 2;
+        const listPromise = pool.query(
+            `SELECT c.id, c.user_id, c.nickname, c.ip_prefix, c.body, c.created_at, c.updated_at,
                     c.likes_count,
                     ${viewerId ? 'EXISTS (SELECT 1 FROM community_comment_likes ccl WHERE ccl.comment_id = c.id AND ccl.user_id = $2) AS is_liked,' : 'FALSE AS is_liked,'}
                     ${viewerId ? 'c.user_id = $2 AS is_mine,' : 'FALSE AS is_mine,'}
@@ -803,9 +899,13 @@ router.get('/posts/:id/comments', async (req, res) => {
              LEFT JOIN users u ON u.id = c.user_id
              WHERE c.post_id = $1
              ${blockedWhere}
-             ORDER BY ${orderBy}`,
-            params
+             ORDER BY ${orderBy}
+             LIMIT $${limitPlaceholder} OFFSET $${offsetPlaceholder}`,
+            [...params, limit, offset]
         );
+
+        const [countRes, result] = await Promise.all([countPromise, listPromise]);
+        const total = Number(countRes.rows[0]?.total || 0);
         const comments = result.rows.map((row) => ({
             ...row,
             profile_image_url: normalizeProfileImageUrl(row.profile_image_url),
@@ -813,7 +913,13 @@ router.get('/posts/:id/comments', async (req, res) => {
                 ? formatDisplayName(row.user_nickname, row.active_title)
                 : row.nickname
         }));
-        res.json({ comments });
+        res.json({
+            total,
+            offset,
+            limit,
+            has_more: offset + comments.length < total,
+            comments,
+        });
     } catch (err) {
         console.error('[community] GET /posts/:id/comments', err.message);
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });
@@ -864,7 +970,7 @@ router.post('/posts/:id/comments', requireLatestEulaIfAuthenticated, async (req,
         const result = await client.query(
             `INSERT INTO community_comments (post_id, user_id, body, ip_prefix, nickname)
              VALUES ($1, $2, $3, $4, $5)
-             RETURNING id, user_id, nickname, ip_prefix, body, likes_count, created_at`,
+             RETURNING id, user_id, nickname, ip_prefix, body, likes_count, created_at, updated_at`,
             [postId, authorUserId, body.trim(), ipPrefix, nickname]
         );
 
@@ -887,6 +993,48 @@ router.post('/posts/:id/comments', requireLatestEulaIfAuthenticated, async (req,
         res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     } finally {
         client.release();
+    }
+});
+
+router.patch('/posts/:postId/comments/:commentId', requireAuth, requireLatestEula, async (req, res) => {
+    const postId = parseInt(req.params.postId, 10);
+    const commentId = parseInt(req.params.commentId, 10);
+    const userId = Number(req.session.userId || 0);
+    const bodyRaw = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
+
+    if (!postId || !commentId) return res.status(400).json({ error: '잘못된 요청입니다.' });
+    if (!bodyRaw) return res.status(400).json({ error: '내용을 입력해 주세요.' });
+    if (bodyRaw.length > 1000) return res.status(400).json({ error: '댓글은 1,000자 이내로 입력해 주세요.' });
+
+    try {
+        const commentRes = await pool.query(
+            `SELECT id, user_id
+             FROM community_comments
+             WHERE id = $1 AND post_id = $2`,
+            [commentId, postId]
+        );
+        if (!commentRes.rows.length) {
+            return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+        }
+
+        const ownerId = Number(commentRes.rows[0].user_id || 0);
+        if (ownerId !== userId) {
+            return res.status(403).json({ error: '수정 권한이 없습니다.' });
+        }
+
+        const updated = await pool.query(
+            `UPDATE community_comments
+             SET body = $1,
+                 updated_at = NOW()
+             WHERE id = $2 AND post_id = $3
+             RETURNING id, post_id, body, updated_at`,
+            [bodyRaw, commentId, postId]
+        );
+
+        return res.json({ comment: updated.rows[0] });
+    } catch (err) {
+        console.error('[community] PATCH /posts/:postId/comments/:commentId', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     }
 });
 
@@ -1149,6 +1297,59 @@ router.post('/posts/:id/report', requireAuth, requireLatestEula, reportLimiter, 
         return res.status(201).json({ ok: true });
     } catch (err) {
         console.error('[community] POST /posts/:id/report', err.message);
+        return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+    }
+});
+
+router.post('/posts/:postId/comments/:commentId/report', requireAuth, requireLatestEula, reportLimiter, async (req, res) => {
+    const postId = parseInt(req.params.postId, 10);
+    const commentId = parseInt(req.params.commentId, 10);
+    const reporterId = Number(req.session.userId || 0);
+    const reasonCode = String(req.body?.reason_code || '').trim();
+    const detailRaw = req.body?.detail;
+    const detail = typeof detailRaw === 'string' ? detailRaw.trim() : '';
+
+    if (!postId || !commentId) return res.status(400).json({ error: '잘못된 요청입니다.' });
+    if (!REPORT_REASON_CODES.has(reasonCode)) {
+        return res.status(400).json({ error: '신고 사유가 올바르지 않습니다.' });
+    }
+    if (detail.length > 500) {
+        return res.status(400).json({ error: '신고 상세 내용은 500자 이내로 입력해 주세요.' });
+    }
+
+    try {
+        const commentRes = await pool.query(
+            `SELECT c.id, c.user_id, c.post_id
+             FROM community_comments c
+             WHERE c.id = $1 AND c.post_id = $2`,
+            [commentId, postId]
+        );
+        if (!commentRes.rows.length) {
+            return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+        }
+
+        const reportedUserId = Number(commentRes.rows[0].user_id || 0) || null;
+        if (reportedUserId && reportedUserId === reporterId) {
+            return res.status(400).json({ error: '본인 댓글은 신고할 수 없습니다.' });
+        }
+
+        await pool.query(
+            `INSERT INTO community_comment_reports (comment_id, post_id, reporter_id, reported_user_id, reason_code, detail, status)
+             VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+             ON CONFLICT (comment_id, reporter_id)
+             DO UPDATE SET
+                reason_code = EXCLUDED.reason_code,
+                detail = EXCLUDED.detail,
+                status = 'pending',
+                reviewed_at = NULL,
+                reviewed_by = NULL,
+                created_at = NOW()`,
+            [commentId, postId, reporterId, reportedUserId, reasonCode, detail || null]
+        );
+
+        return res.status(201).json({ ok: true });
+    } catch (err) {
+        console.error('[community] POST /posts/:postId/comments/:commentId/report', err.message);
         return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
     }
 });

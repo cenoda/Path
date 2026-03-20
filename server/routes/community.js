@@ -886,7 +886,7 @@ router.get('/posts/:id/comments', async (req, res) => {
         const limitPlaceholder = params.length + 1;
         const offsetPlaceholder = params.length + 2;
         const listPromise = pool.query(
-            `SELECT c.id, c.user_id, c.nickname, c.ip_prefix, c.body, c.created_at, c.updated_at,
+            `SELECT c.id, c.user_id, c.nickname, c.ip_prefix, c.body, c.created_at, c.updated_at, c.edit_count,
                     c.likes_count,
                     ${viewerId ? 'EXISTS (SELECT 1 FROM community_comment_likes ccl WHERE ccl.comment_id = c.id AND ccl.user_id = $2) AS is_liked,' : 'FALSE AS is_liked,'}
                     ${viewerId ? 'c.user_id = $2 AS is_mine,' : 'FALSE AS is_mine,'}
@@ -1025,9 +1025,10 @@ router.patch('/posts/:postId/comments/:commentId', requireAuth, requireLatestEul
         const updated = await pool.query(
             `UPDATE community_comments
              SET body = $1,
-                 updated_at = NOW()
+                 updated_at = NOW(),
+                 edit_count = COALESCE(edit_count, 0) + 1
              WHERE id = $2 AND post_id = $3
-             RETURNING id, post_id, body, updated_at`,
+             RETURNING id, post_id, body, updated_at, edit_count`,
             [bodyRaw, commentId, postId]
         );
 

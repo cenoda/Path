@@ -1250,16 +1250,34 @@ function renderDetailBody(container, { post, postId, comments, commentSort = 'la
 
     // 댓글 신고
     container.querySelectorAll('.cmt-report-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
         const commentId = Number(btn.dataset.commentId || 0);
         if (!commentId) return;
-        showReportModal({
-          type: 'comment',
-          id: commentId,
-          postId: postId
-        });
+
+        const payload = await openReportModal();
+        if (!payload) return;
+
+        btn.disabled = true;
+        try {
+          const r = await fetch(`/api/community/posts/${postId}/comments/${commentId}/report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+          });
+          if (!r.ok) {
+            const errorMsg = await readApiError(r, '신고 처리에 실패했어요');
+            if (errorMsg) showToast(errorMsg);
+            return;
+          }
+          showToast('신고가 접수되었습니다. 운영팀이 검토할 예정입니다.');
+        } catch (_) {
+          showToast('신고 처리 중 오류가 발생했어요');
+        } finally {
+          btn.disabled = false;
+        }
       });
     });
 
